@@ -76,5 +76,6 @@ for path in file_paths:
     update_json_file(path, configurations[selected_config])
 
 # Print a message confirming that the configurations have been updated.
-print(f"Configurations updated to {selected_config} keys.")
+updated_config = ', '.join([f'{key}: {value}' for key, value in configurations[selected_config].items()])
+print(f"Configurations updated to {selected_config} keys: {updated_config}.")
 input("Press Enter to exit...")
