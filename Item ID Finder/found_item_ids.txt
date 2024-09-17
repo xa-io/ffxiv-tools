@@ -1,0 +1,3 @@
+5061	Darksteel Nugget
+5075	Darksteel Plate
+5095	Darksteel Rivets
