@@ -5,6 +5,8 @@
 # and then saves the changes. Additionally, it logs the changes made to a log.txt file located in the same directory 
 # as the script.
 
+# If this doesn't work, open command prompt as admin and run the following command: pip install requests
+
 import json
 import os
 import requests
