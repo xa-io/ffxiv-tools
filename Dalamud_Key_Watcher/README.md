@@ -48,8 +48,8 @@ Install the required libraries if you haven’t already:
 
 ## Setup
 
-1. **Clone or download** this repository (containing `dalamud_watcher.py` and a sample `.env`).
-2. In the **same directory** as `dalamud_watcher.py`, create a `.env` file. You can start with something like this:
+1. **Clone or download** this repository (containing `key_watcher.py` and a sample `.env`).
+2. In the **same directory** as `key_watcher.py`, create a `.env` file. You can start with something like this:
 
    `
    # Enable or disable Discord webhook usage
@@ -65,12 +65,12 @@ Install the required libraries if you haven’t already:
    `MENTION_ROLE=123456789012345678`
 
 3. **Configure** the script:
-   - **`WATCH_KEYS`** in `dalamud_watcher.py` is a list of the top-level JSON keys you want to compare for changes. By default:
+   - **`WATCH_KEYS`** in `key_watcher.py` is a list of the top-level JSON keys you want to compare for changes. By default:
      `WATCH_KEYS = ["api11", "net9", "stg"]`
      Add or remove items from this list as desired (e.g. `["release", "api11", "net9", "stg"]`).
 
 4. **Run the Script**:
-   `python dalamud_watcher.py`
+   `python key_watcher.py`
    - It will print logs to the console as it checks every 10 seconds by default.  
    - If `last_scan.json` is missing, the script creates it and does **not** send any notification this first time.  
    - On subsequent checks, if changes are detected in any of the watched sections, it will send a single Discord notification (if `ENABLE_WEBHOOK=true` and `DISCORD_WEBHOOK_URL` is set).
