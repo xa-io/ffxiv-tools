@@ -53,17 +53,16 @@ Install the required libraries if you haven’t already:
 
    `
    # Enable or disable Discord webhook usage
-   ENABLE_WEBHOOK=true
+   `ENABLE_WEBHOOK=true`
 
    # Your Discord Webhook URL (from Server Settings -> Integrations -> Webhooks)
-   DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/1234/abcdef
+   `DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/1234/abcdef`
 
    # Enable or disable pinging a specific role
-   ENABLE_MENTION_ROLE=true
+   `ENABLE_MENTION_ROLE=true`
 
    # The numeric role ID to mention
-   MENTION_ROLE=123456789012345678
-   `
+   `MENTION_ROLE=123456789012345678`
 
 3. **Configure** the script:
    - **`WATCH_KEYS`** in `dalamud_watcher.py` is a list of the top-level JSON keys you want to compare for changes. By default:
