@@ -23,7 +23,7 @@ URL = "https://kamori.goats.dev/Dalamud/Release/Meta"
 LAST_SCAN_FILE = "last_scan.json"
 
 # Which top-level keys to watch for changes
-WATCH_KEYS = ["api11", "net9", "stg"]  # Add or remove keys as needed
+WATCH_KEYS = ["api11", "api12", "net9", "stg"]  # Add or remove keys as needed
 
 
 def get_current_release_data():
