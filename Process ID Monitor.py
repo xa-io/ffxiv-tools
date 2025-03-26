@@ -54,7 +54,7 @@ def main():
                     playsound(ALERT_AUDIO_PATH)
                 except Exception as e:
                     print("Error playing sound:", e)
-                time.sleep(5)
+                time.sleep(300)
         # Check processes every second.
         time.sleep(1)
 
