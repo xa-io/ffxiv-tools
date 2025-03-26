@@ -142,7 +142,7 @@ def main():
         except Exception as e:
             print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [ERROR] Encountered an error: {e}")
 
-        time.sleep(30)  # Wait 30 seconds before next scan
+        time.sleep(300)  # Wait 5min before next scan
 
 
 if __name__ == "__main__":
