@@ -3,7 +3,7 @@
 This Python script periodically checks for changes in specified sections of the Dalamud meta JSON hosted at:  
 [https://kamori.goats.dev/Dalamud/Release/Meta](https://kamori.goats.dev/Dalamud/Release/Meta)
 
-This script is running 24/7 here: https://discord.gg/g2NmYxPQCa
+This script is running 24/7 here: [https://discord.gg/g2NmYxPQCa](https://discord.gg/mPGsKAxmDj)
 
 It:
 
