@@ -97,6 +97,10 @@ This tool parses the `DefaultConfig.json` files created by the AutoRetainer plug
 4. An Excel workbook is created with multiple sheets for different views of the data
 5. The final file is saved with a timestamp in the filename
 
+## To-Dos
+
+1. Input other build gil rates into calculations. 
+
 ## Acknowledgments
 
 - FFXIV AutoRetainer Puni.sh developers and community
