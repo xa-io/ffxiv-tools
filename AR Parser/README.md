@@ -59,6 +59,30 @@ This tool parses the `DefaultConfig.json` files created by the AutoRetainer plug
    YYYY-MM-DD-HH-MM - ffxiv_gil_summary.xlsx
    ```
 
+### Summary Sheet
+
+| Metric | Value |
+|--------|-------|
+| Total Characters | {total_characters} |
+| Total Retainers | {total_retainers} |
+| Total Gil (All Characters) | {total_gil} |
+| Average Gil per Character | {avg_gil_per_char} |
+| Richest Character | {richest_character} |
+| Richest Character Gil | {richest_character_gil} |
+| Total FC's | {total_fcs} |
+| Total FC's Farming Subs | {total_farming_subs} |
+| Total FC Points | {total_fc_points} |
+| Lowest Sub Level | {lowest_sub_level} |
+| Highest Sub Level | {highest_sub_level} |
+| Unique Submersible Parts | {unique_parts} |
+| Submarine Builds | {sub_builds} |
+| Build #1 | {build_1} |
+| Build #2 | {build_2} |
+| Gil Farmed Annually | {annual_gil} |
+| Gil Farmed Every 30 Days | {monthly_gil} |
+| Gil Farmed Each Day | {daily_gil} |
+| Report Generated | {timestamp} |
+
 ## Customization
 
 - Modify the `account_locations` list to include your specific account paths
