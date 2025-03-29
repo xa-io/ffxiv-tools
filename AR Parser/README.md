@@ -26,7 +26,7 @@ This tool parses the `DefaultConfig.json` files created by the AutoRetainer plug
 
 ## Requirements
 
-- Python 3.6+
+- Tested on Python 3.12.4
 - Required packages:
   - xlsxwriter
   - argparse
