@@ -23,7 +23,7 @@ URL = "https://kamori.goats.dev/Dalamud/Release/Meta"
 LAST_SCAN_FILE = "last_scan.json"
 
 # Which top-level keys to watch for changes
-WATCH_KEYS = ["api11", "api12", "net9", "stg"]  # Add or remove keys as needed
+WATCH_KEYS = ["api11", "api12", "net9", "stg", "imgui-bindings"]  # Add or remove keys as needed
 
 
 def get_current_release_data():
@@ -76,30 +76,100 @@ def send_discord_notification(message: str):
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [ERROR] Failed to send Discord notification: {e}")
 
 
-def build_changed_sections_message(changed_keys, current_data):
+def field_change_line(label: str, old_value: str, new_value: str) -> str:
     """
-    Given a list of changed keys and the current data,
-    return a nicely formatted message showing each section’s relevant fields.
+    Returns a line showing the new value, and if changed, includes (old: ...).
     """
-    # If mention role is enabled and we have a role ID, mention it
-    mention_text = f"<@&{MENTION_ROLE}> " if (ENABLE_MENTION_ROLE and MENTION_ROLE) else ""
+    if old_value != new_value:
+        return f"- **{label}**: {new_value} (old: {old_value})"
+    else:
+        return f"- **{label}**: {new_value}"
+
+
+def build_changed_sections_message(changed_keys, current_data, old_data):
+    """
+    Given a list of changed keys and both current and old data,
+    return a nicely formatted message showing each section’s fields.
+    Mention the role if any of the following changed:
+      - DalamudBetaKey
+      - DalamudBetaKind
+      - SupportedGameVer
+    """
+    # We'll rename 'beta_change_detected' to something more general:
+    mention_triggered = False
+
+    for k in changed_keys:
+        new_section = current_data.get(k, {})
+        old_section = old_data.get(k, {})
+
+        new_key = new_section.get('key', 'N/A')   # DalamudBetaKey
+        old_key = old_section.get('key', 'N/A')
+
+        new_kind = new_section.get('track', 'N/A')  # DalamudBetaKind
+        old_kind = old_section.get('track', 'N/A')
+
+        new_gamever = new_section.get('supportedGameVer', 'N/A')
+        old_gamever = old_section.get('supportedGameVer', 'N/A')
+
+        # Trigger a mention if any of these fields changed
+        if (new_key != old_key) or (new_kind != old_kind) or (new_gamever != old_gamever):
+            mention_triggered = True
+            break
+
+    # If mention is triggered AND mention role is enabled, prepend the mention
+    if mention_triggered and ENABLE_MENTION_ROLE and MENTION_ROLE:
+        mention_text = f"<@&{MENTION_ROLE}> "
+    else:
+        mention_text = ""
 
     lines = [f"{mention_text}**Dalamud Update Detected**\n"]
-    
-    for k in changed_keys:
-        section = current_data.get(k, {})
-        # Potential fields to reference
-        key_field = section.get("key", "N/A")
-        track = section.get("track", "N/A")
-        assembly_version = section.get("assemblyVersion", "N/A")
-        supported_game_ver = section.get("supportedGameVer", "N/A")
 
-        lines.append(f"**Section**: `{k}`")
-        lines.append(f"- **Key**: {key_field}")
-        lines.append(f"- **Track**: {track}")
-        lines.append(f"- **AssemblyVersion**: {assembly_version}")
-        lines.append(f"- **SupportedGameVer**: {supported_game_ver}")
-        lines.append("")  # blank line for spacing
+    # Now build the message of changed fields exactly as before
+    for k in changed_keys:
+        new_section = current_data.get(k, {})
+        old_section = old_data.get(k, {})
+
+        if k == 'stg':
+            section_title = f"**Section**: `stg` (Beta)"
+        elif k == 'imgui-bindings':
+            section_title = "**Section**: `imgui-bindings` (Dev)"
+        else:
+            section_title = f"**Section**: `{k}`"
+        lines.append(section_title)
+
+        # DalamudBetaKey
+        new_key = new_section.get('key', 'N/A')
+        old_key = old_section.get('key', 'N/A')
+        if new_key != old_key:
+            lines.append(f"- **\"DalamudBetaKey\"**: \"{new_key}\" (old: \"{old_key}\"),")
+        else:
+            lines.append(f"- **\"DalamudBetaKey\"**: \"{new_key}\",")
+
+        # DalamudBetaKind
+        new_kind = new_section.get('track', 'N/A')
+        old_kind = old_section.get('track', 'N/A')
+        if new_kind != old_kind:
+            lines.append(f"- **\"DalamudBetaKind\"**: \"{new_kind}\" (old: \"{old_kind}\"),")
+        else:
+            lines.append(f"- **\"DalamudBetaKind\"**: \"{new_kind}\",")
+
+        # AssemblyVersion
+        new_assembly = new_section.get('assemblyVersion', 'N/A')
+        old_assembly = old_section.get('assemblyVersion', 'N/A')
+        if new_assembly != old_assembly:
+            lines.append(f"- **AssemblyVersion**: {new_assembly} (old: {old_assembly})")
+        else:
+            lines.append(f"- **AssemblyVersion**: {new_assembly}")
+
+        # SupportedGameVer
+        new_gamever = new_section.get('supportedGameVer', 'N/A')
+        old_gamever = old_section.get('supportedGameVer', 'N/A')
+        if new_gamever != old_gamever:
+            lines.append(f"- **SupportedGameVer**: {new_gamever} (old: {old_gamever})")
+        else:
+            lines.append(f"- **SupportedGameVer**: {new_gamever}")
+
+        lines.append("")  # Blank line for spacing
 
     return "\n".join(lines).strip()
 
@@ -130,7 +200,7 @@ def main():
 
                 # If any sections changed, send a single combined message
                 if changed_keys:
-                    msg = build_changed_sections_message(changed_keys, current_data)
+                    msg = build_changed_sections_message(changed_keys, current_data, last_data)
                     send_discord_notification(msg)
                     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Update(s) detected in {changed_keys}. Notification sent.")
 
@@ -142,7 +212,7 @@ def main():
         except Exception as e:
             print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [ERROR] Encountered an error: {e}")
 
-        time.sleep(300)  # Wait 5min before next scan
+        time.sleep(300)  # Check every 5 minutes
 
 
 if __name__ == "__main__":
