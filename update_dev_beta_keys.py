@@ -39,8 +39,8 @@ latest_configs = fetch_configurations(config_url)
 # Map the selected configuration to the appropriate section in the JSON data
 config_map = {
     "Dev": {
-        "DalamudBetaKey": latest_configs.get("api12", {}).get("key"),
-        "DalamudBetaKind": latest_configs.get("api12", {}).get("track")
+        "DalamudBetaKey": latest_configs.get("imgui-bindings", {}).get("key"),
+        "DalamudBetaKind": latest_configs.get("imgui-bindings", {}).get("track")
     },
     "Beta": {
         "DalamudBetaKey": latest_configs.get("stg", {}).get("key"),
