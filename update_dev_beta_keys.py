@@ -46,6 +46,10 @@ config_map = {
         "DalamudBetaKey": latest_configs.get("stg", {}).get("key"),
         "DalamudBetaKind": latest_configs.get("stg", {}).get("track")
     },
+    "Force13": {
+        "DalamudBetaKey": latest_configs.get("api13", {}).get("key"),
+        "DalamudBetaKind": latest_configs.get("api13", {}).get("track")
+    },
     "Default": {
         "DalamudBetaKey": None,
         "DalamudBetaKind": None
