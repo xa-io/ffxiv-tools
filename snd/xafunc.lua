@@ -196,17 +196,17 @@ end
 function return_to_fcXA()
 	yield("/li fc")
 	WaitForLifestream()
-	yield("/wait 4")
+	yield("/wait 2.01")
     CharacterSafeWaitXA()
-	yield("/wait 2")
+	yield("/wait 1.01")
 end
 
 function return_to_homeXA()
 	yield("/li home")
 	WaitForLifestream()
-	yield("/wait 4")
+	yield("/wait 2.02")
     CharacterSafeWaitXA()
-	yield("/wait 2")
+	yield("/wait 1.02")
 end
 
 function GetDistanceToPoint(target_x, target_y, target_z)
