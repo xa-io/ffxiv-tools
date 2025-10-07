@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------------
 -- Parts of this script pulls commands from dfunc, ensure you have dfunc before xafunc in your script
 -- dfunc; can be found here: https://github.com/McVaxius/dhogsbreakfeast/blob/main/dfunc.lua
--- xafunc; can be found here: https://github.com/xa-io/ffxiv-tools/blob/main/xafunc.lua
+-- xafunc; can be found here: https://github.com/xa-io/ffxiv-tools/blob/main/snd/xafunc.lua
 --
 -- To use these functions in your scripts use the following commands at the start of your scripts
 -- require("dfunc")
