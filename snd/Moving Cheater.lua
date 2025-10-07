@@ -1,0 +1,70 @@
+-- ┌-----------------------------------------------------------------------------------------------------------------------
+-- |
+-- |   ██╗  ██╗ █████╗     ███╗   ███╗ ██████╗ ██╗   ██╗██╗███╗   ██╗ ██████╗      ██████╗██╗  ██╗███████╗ █████╗ ████████╗███████╗██████╗ 
+-- |   ╚██╗██╔╝██╔══██╗    ████╗ ████║██╔═══██╗██║   ██║██║████╗  ██║██╔════╝     ██╔════╝██║  ██║██╔════╝██╔══██╗╚══██╔══╝██╔════╝██╔══██╗
+-- |    ╚███╔╝ ███████║    ██╔████╔██║██║   ██║██║   ██║██║██╔██╗ ██║██║  ███╗    ██║     ███████║█████╗  ███████║   ██║   █████╗  ██████╔╝
+-- |    ██╔██╗ ██╔══██║    ██║╚██╔╝██║██║   ██║╚██╗ ██╔╝██║██║╚██╗██║██║   ██║    ██║     ██╔══██║██╔══╝  ██╔══██║   ██║   ██╔══╝  ██╔══██╗
+-- |   ██╔╝ ██╗██║  ██║    ██║ ╚═╝ ██║╚██████╔╝ ╚████╔╝ ██║██║ ╚████║╚██████╔╝    ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗██║  ██║
+-- |   ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝     ╚═╝ ╚═════╝   ╚═══╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝      ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
+-- |
+-- | Automated FFXIV movement and navigation system for seamless in-game travel.
+-- |
+-- | This script provides intelligent movement automation for FFXIV by using vNavmesh for pathfinding and 
+-- | navigation to flag locations. Features smart mount management, readiness validation, and automated 
+-- | movement with optional dismounting upon arrival.
+-- |
+-- | Core Features:
+-- | • Intelligent navigation using vNavmesh with flag targeting
+-- | • Smart mount management with customizable mount selection
+-- | • Player readiness validation and UI state checking
+-- | • Automatic mounting based on location and flight availability
+-- | • Optional automatic dismounting upon arrival at destination
+-- | • Zone and sanctuary detection for appropriate movement methods
+-- |
+-- | Important Note: Requires vNavmesh plugin for pathfinding. Script waits for map pathing to build before 
+-- | movement begins. Can replace mount roulette with custom mount using yield('/mount "Automatoise"').
+-- | 
+-- | Requires:
+-- |  dfunc; can be found here: https://github.com/McVaxius/dhogsbreakfeast/blob/main/dfunc.lua
+-- |  xafunc; can be found here: https://github.com/xa-io/ffxiv-tools/blob/main/snd/xafunc.lua
+-- |   - Two setup processes, 1) SND > Add script, name dfunc and another xafunc paste the code.
+-- |   - 2) SND > Add script name the same as before, add github url and save, can update through SND
+-- | 
+-- | XA Moving Cheater v7.3
+-- | Automated FFXIV movement and navigation system
+-- | Created by: https://github.com/xa-io
+-- | Last Updated: 2025-09-03 15:35:42
+-- |
+-- | ** Usage Instructions **
+-- |
+-- | Plugin Requirements:
+-- | • SomethingNeedDoing: For this script...
+-- | • vNavmesh: For pathfinding and navigation
+-- |
+-- | Mount Customization:
+-- | • Default: Uses mount roulette via yield('/gaction "mount roulette"')
+-- | • Custom: Replace with yield('/mount "Automatoise"') or your preferred mount
+-- |
+-- | Integration with Other Plugins:
+-- | • Works well with HuntTrainAssistant and similar plugins
+-- | • For macro integration, add /wait 2 before /pcraft run SCRIPTNAME in the in-game legacy macros
+-- |   - This ensures sufficient time for teleportation before movement begins
+-- |
+-- | Dismount Feature:
+-- | • Line 162 contains commented dismount command: -- yield("/mount")
+-- |  - Uncomment to enable automatic dismounting upon arrival
+-- |
+-- | Troubleshooting:
+-- | If "Unable to teleport. Another teleport is already underway" occurs:
+-- | 1. Use /return command
+-- | 2. Manually teleport back to the zone
+-- | 3. Re-trigger the macro
+-- | 4. Re-add the conductor (cleared by /return)
+-- └-----------------------------------------------------------------------------------------------------------------------
+
+-- DO NOT TOUCH THESE LINES BELOW
+    require("dfunc")
+    require("xafunc")
+-- DO NOT TOUCH THESE LINES ABOVE
+
+MovingCheaterXA()
