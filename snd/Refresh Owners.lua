@@ -53,24 +53,26 @@ for i = 1, #franchise_owners do
     local who = franchise_owners[i][1]
     local current = GetCharacterName(true)  -- includes @World
 
-    yield(string.format("/echo [Relog %d/%d] -> %s", i, #franchise_owners, tostring(who)))
+    EchoXA(string.format("[Relog %d/%d] -> %s", i, #franchise_owners, tostring(who)))
 
     -- Relog if we're not already on the target character
     if current ~= who then
         yield("/ays relog " .. who)
-        yield("/wait 2")
+        SleepXA(2)
     else
-        yield("/echo Already logged in as " .. who)
+        EchoXA("Already logged in as " .. who)
     end
 
     -- Run sequence for each toon
     CharacterSafeWaitXA()
-    yield("/at y")
+    EnableTextAdvanceXA()
+    RemoveSproutXA()
     return_to_homeXA()
     return_to_fcXA()
 end
 
-yield("/echo All characters processed. Relog-only run complete.")
+EchoXA("All characters processed. Relog-only run complete.")
+
 yield("/ays multi e")
 
 -- ------------------------
