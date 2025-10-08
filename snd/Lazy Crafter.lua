@@ -105,7 +105,7 @@
 -- | -- IMPORTANT NOTE: After importing crafting lists:
 -- |   1. Item IDs will be different from the original lists you just copied
 -- |   2. Verify in Artisan -> Craft Lists for the correct IDs before starting
--- |   3. Update local crafting_lists -> left/middle/right profiles (line 188) to match the new imported lists for each client
+-- |   3. Update local crafting_lists -> left/middle/right profiles (line 194) to match the new imported lists for each client
 -- |   4. In each imported list, open the crafting list, list settings, make sure automatic repairs is enabled at 50% and set new items to list as quick synth
 -- | 
 -- | -- VERY IMPORTANT NOTE: Make a plugin collection just for Artisan:
@@ -343,71 +343,28 @@ local function MonitorJobLevel(target_level, next_step, pjob)
     local characterLevel = GetLevel(pjob)
     
     while characterLevel < target_level do
-        yield("/wait 5")
+        SleepXA(5)
         characterLevel = GetLevel(pjob)
     end
     
-    yield("/e Force stop crafting as we've reached level " .. target_level .. ".")
+    EchoXA("Force stop crafting as we've reached level " .. target_level .. ".")
     
     yield("/xldisableprofile Artisan") -- Stop the crafting
-    yield("/wait 5") -- Brief wait to let the profile stop
+    SleepXA(5) -- Brief wait to let the profile stop
     
     while not GetCharacterCondition(1) do
         yield("/callback Synthesis true -1") -- Cancel the current craft
-        yield("/wait 1") -- Shorter wait to retry frequently
+        SleepXA(1) -- Shorter wait to retry frequently
         yield("/callback SynthesisSimple true -1") -- Cancel the current quick craft
-        yield("/wait 5") -- Shorter wait to retry frequently
+        SleepXA(5) -- Shorter wait to retry frequently
         yield("/callback RecipeNote True -1") -- Close the crafting menu
-        yield("/wait 5") -- Brief wait to ensure the menu closes
+        SleepXA(5) -- Brief wait to ensure the menu closes
     end
     
     yield("/xlenableprofile Artisan")
-    yield("/wait 5")
+    SleepXA(5)
     
     next_step()
-end
-
-local function get_coordinates(coords)
-    return coords[position]
-end
-
-function MoveTo(valuex, valuey, valuez, stopdistance, FlyOrWalk)
-    yield("/wait 0.1")
-    
-    MovingCheaterXA()
-    
-    PathfindAndMoveTo(valuex, valuey, valuez, false)
-    
-    local countee = 0
-    while (PathIsRunning() or PathfindInProgress()) do
-        yield("/wait 0.507")
-        countee = countee + 1
-        if gachi_jumpy == 1 and countee == 10 and Svc.ClientState.TerritoryType ~= 129 then
-            yield("/gaction jump")
-            countee = 0
-            yield("/echo we are REALLY still pathfinding apparently")
-        end
-    end
-    
-    yield("/echo [MoveTo] Completed")
-end
-
-local function log_coordinates(coords)
-    local coord_str = table.concat(coords, ", ")
-end
-
-local function move_to(coords)
-    if coords[1] and type(coords[1]) == "number" then
-        log_coordinates(coords)
-        MoveTo(coords[1], coords[2], coords[3], 0.1, false)
-        yield("/wait 0.5")
-    else
-        for _, coord in ipairs(coords) do
-            log_coordinates(coord)
-            MoveTo(coord[1], coord[2], coord[3], 0.1, false)
-            yield("/wait 0.5")
-        end
-    end
 end
 
 local function buy_in_batches(item_data, max_per_purchase)
@@ -420,7 +377,7 @@ local function buy_in_batches(item_data, max_per_purchase)
         for i = 1, batches do
             local to_buy = math.min(max_per_purchase, needed)
             yield("/callback Shop True 0 " .. item_data.menu_index .. " " .. to_buy)
-            yield("/wait 2")
+            SleepXA(2)
             needed = needed - to_buy -- Reduce the remaining amount needed
         end
     end
@@ -449,13 +406,13 @@ local function buy_missing_items(vendor_name, items, coords)
 
     if missing_items then
         move_to(coords)
-        yield("/wait 1")
+        SleepXA(1)
         yield("/send END")
-        yield("/wait 1")
+        SleepXA(1)
         yield("/target \"" .. vendor_name .. "\"")
-        yield("/wait 1")
+        SleepXA(1)
         yield("/interact")
-        yield("/wait 5")
+        SleepXA(5)
 
         for _, item_data in pairs(items) do
             local item_count = GetItemCount(item_data.item_id)
@@ -466,9 +423,9 @@ local function buy_missing_items(vendor_name, items, coords)
 
         zungazunga()
 		yield("/callback SystemMenu true -1") -- Close The Escape Menu If Still Open
-        yield("/wait 2.5")
+        SleepXA(2.5)
     else
-        yield("/echo Skipping " .. vendor_name .. ", all items in stock.")
+        EchoXA("Skipping " .. vendor_name .. ", all items in stock.")
     end
 end -- Close buy_missing_items function
 
@@ -481,26 +438,24 @@ end -- Close buy_missing_items function
 -- ------------------------------
 
 local function LazyCrafterXA()
-    yield("/at y")
-    yield("/echo Enabling Text Advance")
-    yield("/nastatus off")
-    yield("/echo Removing New Adventurer status")
-    yield("/echo Starting the process: Applying delay of " .. get_delay() .. " seconds.")
+    EnableTextAdvanceXA()
+    RemoveSproutXA()
+    EchoXA("Starting the process: Applying delay of " .. get_delay() .. " seconds.")
 
     if get_delay() > 0 then
-        yield("/wait " .. get_delay())
-        yield("/echo Delay of " .. get_delay() .. " seconds completed.")
-        yield("/echo Starting Lazy Crafter 1-25 process...")
+        SleepXA(get_delay())
+        EchoXA("Delay of " .. get_delay() .. " seconds completed.")
+        EchoXA("Starting Lazy Crafter 1-25 process...")
     end
 
-    yield("/echo Checking if already in Limsa Lominsa Lower Decks...")
+    EchoXA("Checking if already in Limsa Lominsa Lower Decks...")
 
     if GetZoneID() == zone_id then
-        yield("/echo Already in Limsa Lominsa Lower Decks. Checking Fire Shards...")
+        EchoXA("Already in Limsa Lominsa Lower Decks. Checking Fire Shards...")
     else
-        yield("/echo Not in Limsa Lominsa Lower Decks. Teleporting now.")
+        EchoXA("Not in Limsa Lominsa Lower Decks. Teleporting now.")
         yield("/tp Limsa Lominsa Lower Decks")
-        yield("/wait 12")
+        SleepXA(12)
         CharacterSafeWaitXA()
     end
 
@@ -510,60 +465,60 @@ local function LazyCrafterXA()
         local items_needed = false
 
         if fire_shards_shortfall > 0 or gil_shortfall > gil_buffer then
-            yield("/e -------------")
-            yield("/e Items Needed:")
+            EchoXA("-------------")
+            EchoXA("Items Needed:")
             items_needed = true
         end
 
         if fire_shards_shortfall > 0 then
-            yield("/e Fire Shards: " .. fire_shards_shortfall)
+            EchoXA("Fire Shards: " .. fire_shards_shortfall)
         end
         if gil_shortfall > gil_buffer then
-            yield("/e Gil: " .. gil_shortfall)
+            EchoXA("Gil: " .. gil_shortfall)
         end
 
         if items_needed then
-            yield("/e -------------")
+            EchoXA("-------------")
         else
-            yield("/e All required items are in stock.")
+            EchoXA("All required items are in stock.")
         end
 
         return items_needed
     end
 
     if check_needed_items() then
-        yield("/echo Moving to Tony's location for needed items.")
-        yield("/e -------------")
+        EchoXA("Moving to Tony's location for needed items.")
+        EchoXA("-------------")
         local coords = get_coordinates(tony_coords)
         move_to(coords)
 
         while GetItemCount(2) < min_fire_shards or GetItemCount(1) < min_gil_keep do
             local fire_shards_shortfall = min_fire_shards - GetItemCount(2)
             local gil_shortfall = min_gil_keep - GetItemCount(1)
-            yield("/e Items Needed:")
+            EchoXA("Items Needed:")
             if fire_shards_shortfall > 0 then
-                yield("/e Fire Shards: " .. fire_shards_shortfall)
+                EchoXA("Fire Shards: " .. fire_shards_shortfall)
             end
             if gil_shortfall > gil_buffer then
-                yield("/e Gil: " .. gil_shortfall)
+                EchoXA("Gil: " .. gil_shortfall)
             end
-            yield("/e -------------")
-            yield("/wait 3")
+            EchoXA("-------------")
+            SleepXA(3)
         end
-        yield("/echo All items received, ready to begin!")
+        EchoXA("All items received, ready to begin!")
     else
-        yield("/echo All required items already in stock. Skipping Tony.")
+        EchoXA("All required items already in stock. Skipping Tony.")
     end
 
-    yield("/wait 1")
-    yield("/echo Checking inventory for missing items...")
+    SleepXA(1)
+    EchoXA("Checking inventory for missing items...")
 
     if not all_items_in_stock(engerrand_items) then
         coords = get_coordinates(engerrand_coords)
         move_to(coords)
         buy_missing_items("Engerrand", engerrand_items, engerrand_coords)
     else
-        yield("/echo Skipping Engerrand, all items in stock.")
+        EchoXA("Skipping Engerrand, all items in stock.")
     end
 
     if not all_items_in_stock(sorcha_items) then
@@ -571,7 +526,7 @@ local function LazyCrafterXA()
         move_to(coords)
         buy_missing_items("Sorcha", sorcha_items, sorcha_coords)
     else
-        yield("/echo Skipping Sorcha, all items in stock.")
+        EchoXA("Skipping Sorcha, all items in stock.")
     end
 
     if not all_items_in_stock(iron_thunder_items) then
@@ -579,7 +534,7 @@ local function LazyCrafterXA()
         move_to(coords)
         buy_missing_items("Iron Thunder", iron_thunder_items, iron_thunder_coords)
     else
-        yield("/echo Skipping Iron Thunder, all items in stock.")
+        EchoXA("Skipping Iron Thunder, all items in stock.")
     end
 
     if not all_items_in_stock(syneyhil_items) then
@@ -587,14 +542,14 @@ local function LazyCrafterXA()
         move_to(coords)
         buy_missing_items("Syneyhil", syneyhil_items, syneyhil_coords)
     else
-        yield("/echo Skipping Syneyhil, all items in stock.")
+        EchoXA("Skipping Syneyhil, all items in stock.")
     end
 
     coords = get_coordinates(aethernet_coords)
     move_to(coords)
 
     yield("/li Aftcastle")
-    yield("/wait 8")
+    SleepXA(8)
     CharacterSafeWaitXA()
 
     if not all_items_in_stock(smydhaemr_items) then
@@ -602,7 +557,7 @@ local function LazyCrafterXA()
         move_to(coords)
         buy_missing_items("Smydhaemr", smydhaemr_items, smydhaemr_coords)
     else
-        yield("/echo Skipping Smydhaemr, all items in stock.")
+        EchoXA("Skipping Smydhaemr, all items in stock.")
     end
 
     if not all_items_in_stock(soemrwyb_items) then
@@ -610,10 +565,10 @@ local function LazyCrafterXA()
         move_to(coords)
         buy_missing_items("Soemrwyb", soemrwyb_items, smydhaemr_coords)
     else
-        yield("/echo Skipping Soemrwyb, all items in stock.")
+        EchoXA("Skipping Soemrwyb, all items in stock.")
     end
 
-    yield("/echo Final confirmation of all items...")
+    EchoXA("Final confirmation of all items...")
 
     local missing_items = false
 
@@ -625,9 +580,9 @@ local function LazyCrafterXA()
     if not all_items_in_stock(soemrwyb_items) then missing_items = true end
 
     if missing_items then
-        yield("/echo Missing items detected before crafting, teleporting back to Limsa Lominsa.")
+        EchoXA("Missing items detected before crafting, teleporting back to Limsa Lominsa.")
         yield("/tp Limsa Lominsa Lower Decks")
-        yield("/wait 12")
+        SleepXA(12)
         CharacterSafeWaitXA()
         if not all_items_in_stock(engerrand_items) then
             coords = get_coordinates(engerrand_coords)
@@ -659,45 +614,45 @@ local function LazyCrafterXA()
             move_to(coords)
             buy_missing_items("Soemrwyb", soemrwyb_items, smydhaemr_coords)
         end
-        yield("/echo All missing items purchased, ready to unlock crafting.")
+        EchoXA("All missing items purchased, ready to unlock crafting.")
     else
-        yield("/echo All items confirmed in stock, proceeding to unlock crafting.")
+        EchoXA("All items confirmed in stock, proceeding to unlock crafting.")
     end
 
     coords = get_coordinates(blacksmith_guild_coords)
     move_to(coords)
 
-    yield("/wait 1")
+    SleepXA(1)
     yield("/send END")
-    yield("/wait 1")
+    SleepXA(1)
     yield("/target \"Randwulf\"")
-    yield("/wait 1")
+    SleepXA(1)
     yield("/interact")
-    yield("/wait 5")
+    SleepXA(5)
     CharacterSafeWaitXA()
     yield("/target \"Randwulf\"")
-    yield("/wait 1")
+    SleepXA(1)
     yield("/interact")
-    yield("/wait 5")
+    SleepXA(5)
     CharacterSafeWaitXA()
 
     coords = get_coordinates(brithael_coords)
     move_to(coords)
 
-    yield("/wait 1")
+    SleepXA(1)
     yield("/send END")
-    yield("/wait 1")
+    SleepXA(1)
     yield("/target \"Brithael\"")
-    yield("/wait 1")
+    SleepXA(1)
     yield("/interact")
-    yield("/wait 8")
+    SleepXA(8)
     CharacterSafeWaitXA()
 
     coords = get_coordinates(mender_coords)
     move_to(coords)
 
     yield("/send END")
-    yield("/wait 1")
+    SleepXA(1)
 
     local function is_near_mender(stop_distance)
         local playerX = GetPlayerRawXPos()
@@ -709,73 +664,73 @@ local function LazyCrafterXA()
     end
 
     if not is_near_mender(2) then
-        yield("/echo Not near the mender. Moving to mender's location.")
+        EchoXA("Not near the mender. Moving to mender's location.")
         local mender_coords_temp = get_coordinates(mender_coords)
         move_to(mender_coords_temp[2])
     else
-        yield("/echo Already near the mender, skipping movement.")
+        EchoXA("Already near the mender, skipping movement.")
     end
 
-    yield("/wait 1")
+    SleepXA(1)
     yield("/equip 2340")
-    yield("/echo Attempting to equip hammer. #1")
-    yield("/wait 1")
+    EchoXA("Attempting to equip hammer. #1")
+    SleepXA(1)
     yield("/equip 2340")
-    yield("/echo Attempting to equip hammer. #2")
-    yield("/wait 1")
+    EchoXA("Attempting to equip hammer. #2")
+    SleepXA(1)
     yield("/equip 2340")
-    yield("/echo Attempting to equip hammer. #3")
-    yield("/wait 1")
+    EchoXA("Attempting to equip hammer. #3")
+    SleepXA(1)
     yield("/send C")
-    yield("/wait 1")
+    SleepXA(1)
     yield("/callback Character True 12")
-    yield("/wait 1")
+    SleepXA(1)
     yield("/callback RecommendEquip True 0")
-    yield("/wait 1")
+    SleepXA(1)
     yield("/callback CharacterStatus True -2")
-    yield("/e All items checked, ready to craft!")
+    EchoXA("All items checked, ready to craft!")
 
-    yield("/e Starting crafting 1-12")
+    EchoXA("Starting crafting 1-12")
     local list_id = get_crafting_list("levels_1_12")
     yield("/artisan lists " .. list_id .. " start")
-    yield("/wait 60")
+    SleepXA(60)
     MonitorJobLevel(12, function()
         yield("/send ESCAPE")
-        yield("/wait 0.5")
+        SleepXA(0.5)
         yield("/send C")
-        yield("/wait 1")
+        SleepXA(1)
         yield("/callback Character True 12")
-        yield("/wait 1")
+        SleepXA(1)
         yield("/callback RecommendEquip True 0")
-        yield("/wait 1")
+        SleepXA(1)
         yield("/callback CharacterStatus True -2")
-        yield("/wait 1")
+        SleepXA(1)
         yield("/callback SystemMenu true -1")
-        yield("/wait 0.5")
-        yield("/e Starting crafting 12-25")
+        SleepXA(0.5)
+        EchoXA("Starting crafting 12-25")
         list_id = get_crafting_list("levels_12_25")
         yield("/artisan lists " .. list_id .. " start")
-        yield("/wait 60")
+        SleepXA(60)
         MonitorJobLevel(25, function()
-            yield("/e Crafting completed at level 25.")
+            EchoXA("Crafting completed at level 25.")
             local coords = get_coordinates(aftcastle_coords)
-            yield("/wait 2")
+            SleepXA(2)
             yield("/ays discard")
             move_to(coords)
             while AutoRetainerIsBusy() do
-                yield("/wait 1")
+                SleepXA(1)
             end
         end)
     end)
-    yield("/wait 2")
+    SleepXA(2)
 end
 
 local function XALazyCrafter()
     for _, owner in ipairs(franchise_owners) do
         local character = owner[1]
-        yield("/echo Logging in as " .. character)
+        EchoXA("Logging in as " .. character)
         yield("/ays relog " .. character)
-        yield("/wait 5")
+        SleepXA(5)
         CharacterSafeWaitXA()
         LazyCrafterXA()
     end
