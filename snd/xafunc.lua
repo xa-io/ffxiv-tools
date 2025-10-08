@@ -16,9 +16,9 @@
 -- | Important Note: This library requires dfunc.lua to be loaded first in your scripts. Many functions build upon
 -- | dfunc's base functionality. Always use require("dfunc") and require("xafunc") in your automation scripts.
 -- |
--- | XA Func Library v1.0
+-- | XA Func Library v1.1
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-08 15:05:00
+-- | Last Updated: 2025-10-08 18:05:00
 -- |
 -- | ## Release Notes ##
 -- | v1.1 - Added DismountXA(), WaitForLifestreamXA(), EnableARMultiXA(), DisableARMultiXA(), QSTStartXA(), QSTStopXA(), 
