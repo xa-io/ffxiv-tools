@@ -194,15 +194,15 @@ local function shake_hands()
         end
 
     yield("/target "..fat_tony)
-    yield("/wait 1.04")
+    SleepXA(1.04)
     while string.len(GetTargetName()) == 0 do
         yield("/target "..fat_tony)
-        yield("/wait 1.05")
+        SleepXA(1.05)
     end
 
     while distance(EntityPlayerPositionX(), EntityPlayerPositionY(), EntityPlayerPositionZ(), GetObjectRawXPos(fat_tony),GetObjectRawYPos(fat_tony),GetObjectRawZPos(fat_tony)) > 1.5 do
         yield("/target \""..fat_tony.."\"")
-        yield("/wait 1.06")
+        SleepXA(1.06)
     end
 
     while get_to_the_choppa == 0 do
@@ -217,7 +217,7 @@ local function shake_hands()
                 snaccman = 0
             end
             yield("/dropbox")
-            yield("/wait 0.5")
+            SleepXA(0.5)
             if snaccman > 0 then
                 DropboxSetItemQuantity(1,false,snaccman) -- Gil
             end
@@ -367,31 +367,31 @@ local function shake_hands()
             end
 
             horrible_counter_method = horrible_counter_method + 1
-                    yield("/echo Bagman type 2 processing....")
+                    EchoXA("Bagman type 2 processing....")
             if horrible_counter_method > 1 then
                 get_to_the_choppa = 1
-                    yield("/echo Moving towards exiting bagman type 2....")
+                    EchoXA("Moving towards exiting bagman type 2....")
             end
         end
     end
-        yield("/wait 0.99")
+        SleepXA(0.99)
         yield("/focustarget")
         DropboxStart()
-        yield("/wait 0.57")
+        SleepXA(0.57)
         yield("/hold CONTROL")
-        yield("/wait 0.07")
+        SleepXA(0.07)
         yield("/send I")
-        yield("/wait 0.07")
+        SleepXA(0.07)
         yield("/release CONTROL")
-        yield("/wait 0.07")
+        SleepXA(0.07)
         floo = DropboxIsBusy()
         while floo == true do
             floo = DropboxIsBusy()
-            yield("/wait 1")
-                yield("/echo Trading happening!")
+            SleepXA(1)
+                EchoXA("Trading happening!")
         end
 
-    yield("/wait 5.01")
+    SleepXA(5.01)
 end
 
 -- ----------------------
@@ -404,51 +404,52 @@ end
 
 for i=1,#franchise_owners do
     fat_tony = franchise_owners[i][4]
-        yield("/echo Loading bagman to deliver protection payments Fat Tony -> "..fat_tony..".  Bagman -> "..franchise_owners[i][1])
-        yield("/echo Processing Bagman "..i.."/"..#franchise_owners)
+        EchoXA("Loading bagman to deliver protection payments Fat Tony -> "..fat_tony..".  Bagman -> "..franchise_owners[i][1])
+        EchoXA("Processing Bagman "..i.."/"..#franchise_owners)
 
     if GetCharacterName(true) ~= franchise_owners[i][1] then
         yield("/ays relog " ..franchise_owners[i][1])
-        yield("/wait 2")
+        SleepXA(2)
         CharacterSafeWaitXA()
-        yield("/at y")
+        EnableTextAdvanceXA()
+        RemoveSproutXA()
     end
-        yield("/echo Processing Bagman "..i.."/"..#franchise_owners)
+        EchoXA("Processing Bagman "..i.."/"..#franchise_owners)
 
     DropboxSetItemQuantity(1,false,0)
     if GetGil() < bagmans_take then
-        yield("/wait 5.02")
+        SleepXA(5.02)
     end
 
     road_trip = 0
-        yield("/echo GetGil() -> "..GetGil())
-        yield("/echo bagmans_take -> "..bagmans_take)
+        EchoXA("GetGil() -> "..GetGil())
+        EchoXA("bagmans_take -> "..bagmans_take)
 
     road_trip = 1
         yield("/li "..tonys_turf)
         WaitForLifestream()
-        yield("/wait 1.08")
+        SleepXA(1.08)
         yield("/li "..tonys_turf)
         WaitForLifestream()
-        yield("/wait 1.09")
+        SleepXA(1.09)
         yield("/li "..tonys_turf)
         WaitForLifestream()
-        yield("/wait 1.10")
+        SleepXA(1.10)
         CharacterSafeWaitXA()
-            yield("/echo Processing Bagman "..i.."/"..#franchise_owners)
+            EchoXA("Processing Bagman "..i.."/"..#franchise_owners)
 
     if tony_type == 420 then
-            yield("/echo "..fat_tony.." is meeting us in the alleyways.. watch your back")
+        EchoXA(fat_tony.." is meeting us in the alleyways.. watch your back")
         while tony_zoneID ~= Svc.ClientState.TerritoryType do
             yield("/tp "..tonys_spot)
-            yield("/wait 4")
+            SleepXA(4)
             CharacterSafeWaitXA()
         end
     end
 
     if tony_type == 420 then
         approach_tony()
-        visland_stop_moving_xa()
+        FullStopMovementXA()
     end
 
 shake_hands()
@@ -456,19 +457,19 @@ zungazunga()
 
     if road_trip == 1 then
         if franchise_owners[i][2] == 0 then
-                yield("/echo wait why can't i leave "..fat_tony.."?")
+                EchoXA("wait why can't i leave "..fat_tony.."?")
         end
 
         if franchise_owners[i][2] == 1 then
             yield("/li")
-            yield("/echo See ya "..fat_tony..", a pleasure.")
+            EchoXA("See ya "..fat_tony..", a pleasure.")
             WaitForLifestream()
-            yield("/wait 5.03")
+            SleepXA(5.03)
             CharacterSafeWaitXA()
             WaitForLifestream()
 
                 if franchise_owners[i][3] == 69 then
-                    yield("/wait 5.04")
+                    SleepXA(5.04)
                     return_to_fcXA()
                     CharacterSafeWaitXA()
                     WaitForLifestream()
