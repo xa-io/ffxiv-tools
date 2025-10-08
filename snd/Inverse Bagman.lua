@@ -127,22 +127,22 @@ local function check_items()
     local has_items_needed = false
 
     -- Output separator before items
-    yield("/e -------------")
-    yield("/e Items Needed:")
+    EchoXA("-------------")
+    EchoXA("Items Needed:")
 
     -- Check for needed general items
     if gil_needed > gil_buffer then
-        yield("/e Gil: " .. gil_needed)
+        EchoXA("Gil: " .. gil_needed)
         items_needed = true
         has_items_needed = true
     end
     if fuel_needed > 0 then
-        yield("/e Fuel: " .. fuel_needed)
+        EchoXA("Fuel: " .. fuel_needed)
         items_needed = true
         has_items_needed = true
     end
     if mats_needed > 0 then
-        yield("/e Kits: " .. mats_needed)
+        EchoXA("Kits: " .. mats_needed)
         items_needed = true
         has_items_needed = true
     end
@@ -161,7 +161,7 @@ local function check_items()
     for _, part in ipairs(parts) do
         local count = GetItemCount(part.id)
         if count < part.min then
-            yield("/e " .. part.name .. ": " .. (part.min - count))
+            EchoXA(part.name .. ": " .. (part.min - count))
             items_needed = true
             has_items_needed = true
         end
@@ -172,7 +172,7 @@ end
 -- Function to move to Tony's location
 local function approach_tony()
     PathfindAndMoveTo(tony_x, tony_y, tony_z, false)
-    visland_stop_moving_xa()
+    FullStopMovementXA()
 end
 
 -- Function to move to Tony's location, checking both world and zone
@@ -180,22 +180,22 @@ local function handle_tony_movement()
     -- Check if we are on the correct world
     yield("/li " .. TonyTurf)
     WaitForLifestream()
-    yield("/wait 1.01")
+    SleepXA(1.01)
     WaitForLifestream()
-    yield("/wait 1.02")
+    SleepXA(1.02)
     WaitForLifestream()
-    yield("/wait 1.03")
+    SleepXA(1.03)
     CharacterSafeWaitXA()
     
     -- Proceed with zone check
-    yield("/echo Starting the process: Check if already in Summerford Farms...")
+    EchoXA("Starting the process: Check if already in Summerford Farms...")
     if GetZoneID() == TonyZoneID then
-        yield("/echo Already in Summerford Farms. Moving to Tony's location.")
+        EchoXA("Already in Summerford Farms. Moving to Tony's location.")
         approach_tony()
     else
-        yield("/echo Not in Summerford Farms. Teleporting now.")
+        EchoXA("Not in Summerford Farms. Teleporting now.")
         yield("/tp Summerford Farms")
-        yield("/wait 12")
+        SleepXA(12)
         CharacterSafeWaitXA()
         approach_tony()
     end
@@ -214,18 +214,19 @@ local function cycle_characters()
     for _, owner in ipairs(franchise_owners) do
         -- Relog to the character in franchise_owners
         local character = owner[1]
-        yield("/echo Logging in as " .. character)
+        EchoXA("Logging in as " .. character)
         yield("/ays relog " .. character)
-        yield("/wait 5")
+        SleepXA(5)
         CharacterSafeWaitXA()
-        yield("/at y")
+        EnableTextAdvanceXA()
+        RemoveSproutXA()
         IsPlayerAvailableXA()
         handle_tony_movement()
         local items_status = check_items()
 
         -- Repeat check until all items are gathered
         while items_status do
-            yield("/wait 3")
+            SleepXA(3)
             items_status = check_items()
         end
 
