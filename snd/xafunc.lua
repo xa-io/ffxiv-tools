@@ -25,9 +25,37 @@ function SleepXA(time)
     yield("/wait " .. tostring(time))
 end
 
+-- ------------------------
+-- Plugin Things
+-- ------------------------
+
+function AutoRetainerIsBusy()
+    return IPC.AutoRetainer.IsBusy()
+end
+
+function EnableSimpleTweaksXA()
+    if HasPlugin("SimpleTweaksPlugin") then
+        yield("/tweaks enable FixTarget")
+        yield("/tweaks enable DisableTitleScreenMovie")
+        yield("/tweaks enable EquipJobCommand")
+        yield("/tweaks enable RecommendEquipCommand")
+        EchoXA("SimpleTweaks has been adjusted.")
+    end
+end
+
 --------------------------
 -- World Info
 --------------------------
+
+function EnableTextAdvanceXA()
+    yield("/at y")
+    EchoXA("Enabling Text Advance...")
+end
+
+function RemoveSproutXA()
+    yield("/nastatus off")
+    EchoXA("Removing New Adventurer Status...")
+end
 
 function GetZoneIDXA()
     if Svc and Svc.ClientState and Svc.ClientState.TerritoryType then
@@ -92,16 +120,6 @@ function GetPlayerNameAndWorldXA()
         EchoXA("Error: Player data not available")
         return nil
     end
-end
-
-function EnableTextAdvanceXA()
-    yield("/at y")
-    EchoXA("Enabling Text Advance...")
-end
-
-function RemoveSproutXA()
-    yield("/nastatus off")
-    EchoXA("Removing New Adventurer Status...")
 end
 
 -- ------------------------
@@ -379,14 +397,6 @@ function ResetCameraXA()
 end
 
 --------------------------
--- IPC Commands
---------------------------
-
-function AutoRetainerIsBusy()
-    return IPC.AutoRetainer.IsBusy()
-end
-
---------------------------
 -- Player Commands
 --------------------------
 
@@ -412,6 +422,10 @@ function EquipRecommendedGearXA()
         end
         SleepXA(0.1)
     until not IsAddonVisible("RecommendEquip")
+end
+
+function EquipRecommendedGearCmdXA()
+    yield("/equiprecommended")
 end
 
 --------------------------
