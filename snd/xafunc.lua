@@ -1,11 +1,11 @@
 -- ┌-----------------------------------------------------------------------------------------------------------------------
 -- |
--- |  ██╗  ██╗ █████╗     ███████╗██╗   ██╗███╗   ██╗ ██████╗    ██╗     ██╗██████╗ ██████╗  █████╗ ██████╗ ██╗   ██╗
--- |  ╚██╗██╔╝██╔══██╗    ██╔════╝██║   ██║████╗  ██║██╔════╝    ██║     ██║██╔══██╗██╔══██╗██╔══██╗██╔══██╗╚██╗ ██╔╝
--- |   ╚███╔╝ ███████║    █████╗  ██║   ██║██╔██╗ ██║██║         ██║     ██║██████╔╝██████╔╝███████║██████╔╝ ╚████╔╝ 
--- |   ██╔██╗ ██╔══██║    ██╔══╝  ██║   ██║██║╚██╗██║██║         ██║     ██║██╔══██╗██╔══██╗██╔══██║██╔══██╗  ╚██╔╝  
--- |  ██╔╝ ██╗██║  ██║    ██║     ╚██████╔╝██║ ╚████║╚██████╗    ███████╗██║██████╔╝██║  ██║██║  ██║██║  ██║   ██║   
--- |  ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝    ╚══════╝╚═╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   
+-- |   ██╗  ██╗ █████╗     ███████╗██╗   ██╗███╗   ██╗ ██████╗    ██╗     ██╗██████╗ ██████╗  █████╗ ██████╗ ██╗   ██╗
+-- |   ╚██╗██╔╝██╔══██╗    ██╔════╝██║   ██║████╗  ██║██╔════╝    ██║     ██║██╔══██╗██╔══██╗██╔══██╗██╔══██╗╚██╗ ██╔╝
+-- |    ╚███╔╝ ███████║    █████╗  ██║   ██║██╔██╗ ██║██║         ██║     ██║██████╔╝██████╔╝███████║██████╔╝ ╚████╔╝ 
+-- |    ██╔██╗ ██╔══██║    ██╔══╝  ██║   ██║██║╚██╗██║██║         ██║     ██║██╔══██╗██╔══██╗██╔══██║██╔══██╗  ╚██╔╝  
+-- |   ██╔╝ ██╗██║  ██║    ██║     ╚██████╔╝██║ ╚████║╚██████╗    ███████╗██║██████╔╝██║  ██║██║  ██║██║  ██║   ██║   
+-- |   ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝    ╚══════╝╚═╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   
 -- |
 -- | Comprehensive Function Library for FFXIV SomethingNeedDoing Automation
 -- |
@@ -21,6 +21,8 @@
 -- | Last Updated: 2025-10-08 15:05:00
 -- |
 -- | ## Release Notes ##
+-- | v1.1 - Added DismountXA(), WaitForLifestreamXA(), EnableARMultiXA(), DisableARMultiXA(), QSTStartXA(), QSTStopXA(), 
+-- |        QSTReloadXA(), BTBInviteXA(), BTBDisbandXA()
 -- | v1.0 - Initial release
 -- └-----------------------------------------------------------------------------------------------------------------------
 -- ┌---------------------------------------------------------------------------
@@ -52,7 +54,13 @@
 -- |---------------------------------------------------------------------------
 -- | AutoRetainerIsBusy()           -- Check if AutoRetainer is currently processing
 -- | EnableSimpleTweaksXA()         -- Enable recommended SimpleTweaks settings (FixTarget, DisableTitleScreen, etc.)
--- |
+-- | WaitForLifestreamXA()          -- Wait for Lifestream to process
+-- | EnableARMultiXA()              -- Enable AutoRetainer Multi Mode
+-- | DisableARMultiXA()             -- Disable AutoRetainer Multi Mode
+-- | QSTStartXA()                   -- Start Questionable
+-- | QSTStopXA()                    -- Stop Questionable
+-- | QSTReloadXA()                  -- Reload Questionable
+-- | 
 -- | World Info
 -- |---------------------------------------------------------------------------
 -- | EnableTextAdvanceXA()          -- Enable TextAdvance
@@ -69,7 +77,9 @@
 -- | Party Commands
 -- |---------------------------------------------------------------------------
 -- | EnableBTBandInvite()           -- Enable BardToolbox, send mass party invite, then disable
--- |
+-- | BTBInviteXA()                  -- Send out BardToolbox invite
+-- | BTBDisbandXA()                 -- Send out BardToolbox disband and /leave to double check
+-- | 
 -- | Movement Commands
 -- |---------------------------------------------------------------------------
 -- | FullStopMovementXA()           -- Force stop all movement (visland, vnav, automove)
@@ -77,9 +87,11 @@
 -- | CharacterSafeWaitXA()          -- Comprehensive safewait using IsPlayerAvailableXA() & PlayerAndUIReadyXA() 
 -- | DoNavFlySequenceXA()           -- Navigate to flag position with automatic fly/move selection
 -- | MountUpXA()                    -- Automatic mounting with mount roulette when conditions allow
+-- | DismountXA()                   -- Repeat casting /mount until dismounted and Svc.Condition[1] is met
 -- | MovingCheaterXA()              -- Advanced movement using PlayerAndUIReadyXA() & MountUpXA() & DoNavFlySequenceXA()
 -- | return_to_fcXA()               -- Lifestream teleport to FC house with auto-entry
 -- | return_to_homeXA()             -- Lifestream teleport to personal house with auto-entry
+-- | return_to_homeworldXA()        -- Lifestream teleport back to your homeworld
 -- | MoveToXA(x,y,z)                -- Move to coordinates with pathing - Example: MoveToXA(-12.123, 45.454, -18.5456)
 -- | InteractXA()                   -- Interact with selected target
 -- | ResetCameraXA()                -- Reset camera position using END key
@@ -149,6 +161,40 @@ function EnableSimpleTweaksXA()
     else
         EchoXA("SimpleTweaksPlugin is not installed.")
     end
+end
+
+function WaitForLifestreamXA()
+	xakonds = 0
+    EchoXA("Waiting on lifestream")
+	while IPC.Lifestream.IsBusy() do
+		--DEBUG
+		--yield("/echo Waiting on lifestream -> "..sekonds)
+		xakonds = xakonds + 1
+		SleepXA(1)
+	end
+    EchoXA("Lifestream completed")
+end
+
+function EnableARMultiXA()
+    yield("/ays multi e")
+end
+
+function DisableARMultiXA()
+    yield("/ays multi d")
+end
+
+function QSTStartXA()
+    yield("/qst start")
+end
+
+function QSTStopXA()
+    yield("/qst stop")
+    SleepXA(2)
+end
+
+function QSTReloadXA()
+    yield("/qst reload")
+    SleepXA(1)
 end
 
 --------------------------
@@ -322,12 +368,21 @@ end
 -- Party Commands
 -- ------------------------
 
-function EnableBTBandInvite()
+function EnableBTBandInviteXA()
     yield("/xlenableprofile BTB")
     SleepXA(3)
     yield("/btb invite")
     SleepXA(3)
     yield("/xldisableprofile BTB")
+end
+
+function BTBInviteXA()
+    yield("/btb invite")
+end
+
+function BTBDisbandXA()
+    yield("/btb disband")
+    yield("/leave")
 end
 
 -- ------------------------
@@ -473,6 +528,17 @@ function MountUpXA()
     end
 end
 
+function DismountXA()
+    while Svc.Condition[4] do
+        yield("/mount")
+        SleepXA(2)
+    end
+    
+    while not Svc.Condition[1] do
+        SleepXA(0.1)
+    end
+end
+
 function MovingCheaterXA()
     SleepXA(0.5)
 
@@ -505,7 +571,7 @@ end
 -- Setup pathing to door, and have Lifestream settings to Enter House
 function return_to_fcXA()
 	yield("/li fc")
-	WaitForLifestream()
+	WaitForLifestreamXA()
 	SleepXA(2.01)
     CharacterSafeWaitXA()
 	SleepXA(1.01)
@@ -513,7 +579,15 @@ end
 
 function return_to_homeXA()
 	yield("/li home")
-	WaitForLifestream()
+	WaitForLifestreamXA()
+	SleepXA(2.02)
+    CharacterSafeWaitXA()
+	SleepXA(1.02)
+end
+
+function return_to_homeworldXA()
+	yield("/li")
+	WaitForLifestreamXA()
 	SleepXA(2.02)
     CharacterSafeWaitXA()
 	SleepXA(1.02)
