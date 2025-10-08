@@ -1,21 +1,109 @@
--- ----------------------------------------------------------------------------
--- Parts of this script pulls commands from dfunc, ensure you have dfunc before xafunc in your script
--- dfunc; can be found here: https://github.com/McVaxius/dhogsbreakfeast/blob/main/dfunc.lua
--- xafunc; can be found here: https://github.com/xa-io/ffxiv-tools/blob/main/snd/xafunc.lua
---
--- To use these functions in your scripts use the following commands at the start of your scripts
--- require("dfunc")
--- require("xafunc")
--- ----------------------------------------------------------------------------
+-- ┌-----------------------------------------------------------------------------------------------------------------------
+-- |
+-- |  ██╗  ██╗ █████╗     ███████╗██╗   ██╗███╗   ██╗ ██████╗    ██╗     ██╗██████╗ ██████╗  █████╗ ██████╗ ██╗   ██╗
+-- |  ╚██╗██╔╝██╔══██╗    ██╔════╝██║   ██║████╗  ██║██╔════╝    ██║     ██║██╔══██╗██╔══██╗██╔══██╗██╔══██╗╚██╗ ██╔╝
+-- |   ╚███╔╝ ███████║    █████╗  ██║   ██║██╔██╗ ██║██║         ██║     ██║██████╔╝██████╔╝███████║██████╔╝ ╚████╔╝ 
+-- |   ██╔██╗ ██╔══██║    ██╔══╝  ██║   ██║██║╚██╗██║██║         ██║     ██║██╔══██╗██╔══██╗██╔══██║██╔══██╗  ╚██╔╝  
+-- |  ██╔╝ ██╗██║  ██║    ██║     ╚██████╔╝██║ ╚████║╚██████╗    ███████╗██║██████╔╝██║  ██║██║  ██║██║  ██║   ██║   
+-- |  ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝    ╚══════╝╚═╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   
+-- |
+-- | Comprehensive Function Library for FFXIV SomethingNeedDoing Automation
+-- |
+-- | XA Func Library provides a robust collection of helper functions for automating FFXIV gameplay through
+-- | SomethingNeedDoing scripts. This library extends dfunc with additional movement, UI, player management,
+-- | and world interaction utilities designed for reliable multi-character automation workflows.
+-- |
+-- | Important Note: This library requires dfunc.lua to be loaded first in your scripts. Many functions build upon
+-- | dfunc's base functionality. Always use require("dfunc") and require("xafunc") in your automation scripts.
+-- |
+-- | XA Func Library v1.0
+-- | Created by: https://github.com/xa-io
+-- | Last Updated: 2025-10-08 15:05:00
+-- |
+-- | ## Release Notes ##
+-- | v1.0 - Initial release
+-- └-----------------------------------------------------------------------------------------------------------------------
+-- ┌---------------------------------------------------------------------------
+-- | QUICK REFERENCE GUIDE
+-- |---------------------------------------------------------------------------
+-- | 
+-- | Usage: Add these lines at the start of your scripts:
+-- |   require("dfunc")
+-- |   require("xafunc")
+-- |
+-- | Dependencies:
+-- |   - dfunc (required)   - https://github.com/McVaxius/dhogsbreakfeast/blob/main/dfunc.lua
+-- |   - xafunc (this file) - https://github.com/xa-io/ffxiv-tools/blob/main/snd/xafunc.lua
+-- |
+-- | Can add the lua scripts manually in SND or use the github auto updating function.
+-- | The SND scripts will just be named dfunc and xafunc
+-- |
+-- |---------------------------------------------------------------------------
+-- | FUNCTION CATEGORIES
+-- |---------------------------------------------------------------------------
+-- | 
+-- | Misc Things
+-- |---------------------------------------------------------------------------
+-- | EchoXA(text)                   -- Replacement for yield("/echo ...") - Example: EchoXA("Hello World")
+-- | SleepXA(time)                  -- Replacement for yield("/wait ...") - Example: SleepXA(1)
+-- | GetSNDCoords()                 -- Gets the coords in two formats (space and comma separated)
+-- | 
+-- | Plugin Things
+-- |---------------------------------------------------------------------------
+-- | AutoRetainerIsBusy()           -- Check if AutoRetainer is currently processing
+-- | EnableSimpleTweaksXA()         -- Enable recommended SimpleTweaks settings (FixTarget, DisableTitleScreen, etc.)
+-- |
+-- | World Info
+-- |---------------------------------------------------------------------------
+-- | EnableTextAdvanceXA()          -- Enable TextAdvance
+-- | DisableTextAdvanceXA()         -- Disable TextAdvance
+-- | RemoveSproutXA()               -- Remove New Adventurer Status
+-- | GetLevelXA(pjob)               -- Get current job level - Example: GetLevelXA() or GetLevelXA(9000)
+-- | GetZoneIDXA()                  -- Get current Zone/Territory ID
+-- | GetZoneNameXA()                -- Get current Zone/Territory Name
+-- | GetWorldNameXA()               -- Get current World Name with ID
+-- | GetPlayerNameXA()              -- Get Player Name
+-- | GetPlayerNameAndWorldXA()      -- Get Player Name@World format
+-- | MonitorJobLevelArtisanXA(lvl)  -- Monitor job level and stop Artisan when reached - Example: MonitorJobLevelArtisanXA(25)
+-- |
+-- | Party Commands
+-- |---------------------------------------------------------------------------
+-- | EnableBTBandInvite()           -- Enable BardToolbox, send mass party invite, then disable
+-- |
+-- | Movement Commands
+-- |---------------------------------------------------------------------------
+-- | FullStopMovementXA()           -- Force stop all movement (visland, vnav, automove)
+-- | WalkThroughDottedWallXA()      -- Hold W for 2 seconds to pass through dotted walls
+-- | CharacterSafeWaitXA()          -- Comprehensive safewait using IsPlayerAvailableXA() & PlayerAndUIReadyXA() 
+-- | DoNavFlySequenceXA()           -- Navigate to flag position with automatic fly/move selection
+-- | MountUpXA()                    -- Automatic mounting with mount roulette when conditions allow
+-- | MovingCheaterXA()              -- Advanced movement using PlayerAndUIReadyXA() & MountUpXA() & DoNavFlySequenceXA()
+-- | return_to_fcXA()               -- Lifestream teleport to FC house with auto-entry
+-- | return_to_homeXA()             -- Lifestream teleport to personal house with auto-entry
+-- | MoveToXA(x,y,z)                -- Move to coordinates with pathing - Example: MoveToXA(-12.123, 45.454, -18.5456)
+-- | InteractXA()                   -- Interact with selected target
+-- | ResetCameraXA()                -- Reset camera position using END key
+-- |
+-- | Player Commands
+-- |---------------------------------------------------------------------------
+-- | EquipRecommendedGearXA()       -- Equip recommended gear via Character menu callbacks
+-- | EquipRecommendedGearCmdXA()    -- Equip recommended gear via SimpleTweaks /equiprecommended command
+-- |
+-- | Braindead Functions
+-- |---------------------------------------------------------------------------
+-- | EnterHousingWardFromMenu()     -- Navigate housing ward selection menu
+-- | SetNewbieCamera()              -- Set camera to comfortable position for new characters
+-- | ImNotNewbStopWatching()        -- Remove sprout, enable text advance, set camera
+-- | FreshLimsaToSummer()           -- Complete Limsa intro sequence and travel to Summerford Farms
+-- | FreshLimsaToMist()             -- Travel from Limsa to Mist housing district
+-- | FreshSummerToMist()            -- Travel from Summerford Farms to Mist housing district
+-- | FreshUldahToHorizon()          -- Complete Ul'dah intro sequence and travel to Horizon
+-- |
+-- └---------------------------------------------------------------------------
 
 -- ------------------------
 -- Misc Things
 -- ------------------------
-
-function GetSNDCoords()
-    Engines.Native.Run ("/e " .. Entity.Player.Position.X .. " " .. Entity.Player.Position.Y .. " " .. Entity.Player.Position.Z)
-    Engines.Native.Run ("/e " .. Entity.Player.Position.X .. ", " .. Entity.Player.Position.Y .. ", " .. Entity.Player.Position.Z)
-end
 
 function EchoXA(text)
     yield("/echo " .. tostring(text))
@@ -23,6 +111,24 @@ end
 
 function SleepXA(time)
     yield("/wait " .. tostring(time))
+end
+
+function GetSNDCoords()
+    Engines.Native.Run ("/e " .. Entity.Player.Position.X .. " " .. Entity.Player.Position.Y .. " " .. Entity.Player.Position.Z)
+    Engines.Native.Run ("/e " .. Entity.Player.Position.X .. ", " .. Entity.Player.Position.Y .. ", " .. Entity.Player.Position.Z)
+end
+
+function GetSNDCoordsXA()
+    local p = Entity and Entity.Player and Entity.Player.Position
+    if not p then
+        EchoXA("Coords unavailable.")
+        return
+    end
+    local x, y, z = tostring(p.X), tostring(p.Y), tostring(p.Z)
+
+    EchoXA("VNAV: " .. x .. " " .. y .. " " .. z)
+    SleepXA(0.1)
+    EchoXA("MoveToXA: " .. x .. ", " .. y .. ", " .. z)
 end
 
 -- ------------------------
@@ -63,17 +169,6 @@ function RemoveSproutXA()
     EchoXA("Removing New Adventurer Status...")
 end
 
-function GetZoneIDXA()
-    if Svc and Svc.ClientState and Svc.ClientState.TerritoryType then
-        local zone_id = Svc.ClientState.TerritoryType
-        EchoXA("Zone ID: " .. zone_id)
-        return zone_id
-    else
-        EchoXA("Error: Zone data not available")
-        return nil
-    end
-end
-
 function GetLevelXA(pjob)
     pjob = pjob or 9000
     local lvl
@@ -95,14 +190,20 @@ function GetLevelXA(pjob)
     end
 
     lvl = tonumber(lvl) or "?"
-    if type(EchoXA) == "function" then
-        EchoXA("Level: " .. tostring(lvl))
-    else
-        yield("/echo Level: " .. tostring(lvl))
-    end
+    EchoXA("Level: " .. tostring(lvl))
     return lvl
 end
 
+function GetZoneIDXA()
+    if Svc and Svc.ClientState and Svc.ClientState.TerritoryType then
+        local zone_id = Svc.ClientState.TerritoryType
+        EchoXA("Zone ID: " .. zone_id)
+        return zone_id
+    else
+        EchoXA("Error: Zone data not available")
+        return nil
+    end
+end
 
 function GetZoneNameXA()
     local id = (Svc and Svc.ClientState and Svc.ClientState.TerritoryType) or nil
