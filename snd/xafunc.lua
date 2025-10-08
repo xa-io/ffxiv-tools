@@ -40,6 +40,8 @@ function EnableSimpleTweaksXA()
         yield("/tweaks enable EquipJobCommand")
         yield("/tweaks enable RecommendEquipCommand")
         EchoXA("SimpleTweaks has been adjusted.")
+    else
+        EchoXA("SimpleTweaksPlugin is not installed.")
     end
 end
 
@@ -50,6 +52,10 @@ end
 function EnableTextAdvanceXA()
     yield("/at y")
     EchoXA("Enabling Text Advance...")
+end
+function DisableTextAdvanceXA()
+    yield("/at n")
+    EchoXA("Disabling Text Advance...")
 end
 
 function RemoveSproutXA()
@@ -67,6 +73,36 @@ function GetZoneIDXA()
         return nil
     end
 end
+
+function GetLevelXA(pjob)
+    pjob = pjob or 9000
+    local lvl
+
+    -- try your GetLevel() first
+    if type(GetLevel) == "function" then
+        local ok, v = pcall(GetLevel, pjob)
+        if ok then lvl = v end
+    end
+
+    -- fallback if needed
+    if lvl == nil then
+        if pjob < 9000 and Player and Player.GetJob then
+            local ok, v = pcall(function() return Player.GetJob(pjob + 1).Level end)
+            if ok then lvl = v end
+        elseif Player and Player.Job then
+            lvl = Player.Job.Level
+        end
+    end
+
+    lvl = tonumber(lvl) or "?"
+    if type(EchoXA) == "function" then
+        EchoXA("Level: " .. tostring(lvl))
+    else
+        yield("/echo Level: " .. tostring(lvl))
+    end
+    return lvl
+end
+
 
 function GetZoneNameXA()
     local id = (Svc and Svc.ClientState and Svc.ClientState.TerritoryType) or nil
@@ -120,6 +156,65 @@ function GetPlayerNameAndWorldXA()
         EchoXA("Error: Player data not available")
         return nil
     end
+end
+
+-- MonitorJobLevelArtisanXA()      -- BAD Usage - script will not trigger if no level is mentioned
+-- MonitorJobLevelArtisanXA(5)     -- GOOD Usage - monitors to reaching 5, then runs the stop/close/restart sequence
+function MonitorJobLevelArtisanXA(target_level, pjob)
+    if target_level == nil then
+        EchoXA("No level has been set, no functionality being used.")
+        return false
+    end
+
+    target_level = tonumber(target_level)
+    if not target_level or target_level <= 0 then
+        EchoXA("Invalid level provided, no functionality being used.")
+        return false
+    end
+
+    local function _getlvl()
+        return tonumber(GetLevelXA and GetLevelXA(pjob)) 
+               or (Player and Player.Job and tonumber(Player.Job.Level)) 
+               or 0
+    end
+
+    local characterLevel = _getlvl()
+
+    if characterLevel < target_level then
+        EchoXA("Level " .. target_level .. " not yet reached; we're level " .. characterLevel .. ". Waiting...")
+        local lastAnnounced = characterLevel
+        repeat
+            SleepXA(5)
+            characterLevel = _getlvl()
+            -- Only echo when level changes to avoid spam
+            if characterLevel ~= lastAnnounced and characterLevel < target_level then
+                EchoXA("Level " .. target_level .. " not yet reached; we're level " .. characterLevel .. ".")
+                lastAnnounced = characterLevel
+            end
+        until characterLevel >= target_level
+    else
+        EchoXA("Already level " .. characterLevel .. " (target " .. target_level .. ").")
+    end
+
+    EchoXA("Force stop crafting as we've reached level " .. target_level .. ".")
+    yield("/xldisableprofile Artisan")
+    EchoXA("Disabled Artisan")
+    SleepXA(8)
+
+    -- Close crafting/recipe UIs until back to normal (minimal & safe)
+    while type(GetCharacterCondition) == "function" and not GetCharacterCondition(1) do
+        yield("/callback Synthesis true -1")
+        SleepXA(1)
+        yield("/callback SynthesisSimple true -1")
+        SleepXA(5)
+        yield("/callback RecipeNote True -1")
+        SleepXA(5)
+    end
+
+    yield("/xlenableprofile Artisan")
+    EchoXA("Enabled Artisan")
+    SleepXA(5)
+    return true
 end
 
 -- ------------------------
@@ -343,6 +438,9 @@ function get_coordinates(coords)
     return coords[position]
 end
 
+-- Use GetSNDCoords() and then reference the long coords with the commas
+-- MoveToXA(-12.123, 45.454, -18.5456) -- GOOD Usage
+-- Will keep waiting SleepXA(0.507) while PathIsRunning/PathfindInProgress
 function MoveToXA(valuex, valuey, valuez, stopdistance, FlyOrWalk)
     -- stopdistance and FlyOrWalk are optional (kept for backwards compatibility)
     SleepXA(0.1)
