@@ -32,10 +32,12 @@
 -- |   - Two setup processes, 1) SND > Add script, name dfunc and another xafunc paste the code.
 -- |   - 2) SND > Add script name the same as before, add github url and save, can update through SND
 -- | 
--- | XA Lazy Crafter v7.3
--- | Automated FFXIV crafting leveling script for blacksmith 1-25
+-- | XA Lazy Crafter v7.35
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-09-13 21:54
+-- | Last Updated: 2025-10-09 13:45
+-- | 
+-- | ## Release Notes ##
+-- | v7.35 - Revamped codebase using new xafunc functions for better readability and maintainability
 -- └-----------------------------------------------------------------------------------------------------------------------
 -- ┌-----------------------------------------------------------------------------------------------------------------------
 -- | ********************************************************************************************************
@@ -50,6 +52,7 @@
 -- | teleport you there. Once in Lower Decks, the script checks your Gil and Fire Shards
 -- | inventory. If you're missing any items, the script will wait in Limsa for Tony to trade 
 -- | them to you using Dropbox, so ensure you have dropbox turned on for the low level toon.
+-- | I recommend preloading 85k gil and 600 fire shards to avoid bottlenecks.
 -- | 
 -- | If no items are needed from Tony, the script will proceed to purchase the required materials
 -- | from various vendors. After purchasing, it will head to the Blacksmith to complete the first
@@ -162,10 +165,11 @@
 -- └-----------------------------------------------------------------------------------------------------------------------
 
 -- DO NOT TOUCH THESE LINES BELOW
-    require("dfunc")
-    require("xafunc")
-    yield("/rotation Cancel")
-    EnableArtisanXA()
+require("dfunc")
+require("xafunc")
+DisableARMultiXA()
+EnableArtisanXA()
+rsrXA("off")
 -- DO NOT TOUCH THESE LINES ABOVE
 
 -- ---------------------------------------
@@ -372,7 +376,7 @@ local function buy_in_batches(item_data, max_per_purchase)
         
         for i = 1, batches do
             local to_buy = math.min(max_per_purchase, needed)
-            yield("/callback Shop True 0 " .. item_data.menu_index .. " " .. to_buy)
+            callbackXA("Shop True 0 " .. item_data.menu_index .. " " .. to_buy)
             SleepXA(2)
             needed = needed - to_buy -- Reduce the remaining amount needed
         end
@@ -408,7 +412,7 @@ local function buy_missing_items(vendor_name, items, coords)
         TargetXA(vendor_name)
         SleepXA(1)
         InteractXA()
-        SleepXA(5)
+        SleepXA(1)
 
         for _, item_data in pairs(items) do
             local item_count = GetItemCount(item_data.item_id)
@@ -418,7 +422,7 @@ local function buy_missing_items(vendor_name, items, coords)
         end -- This closes the inner for loop
 
         zungazunga()
-		yield("/callback SystemMenu true -1") -- Close The Escape Menu If Still Open
+		callbackXA("SystemMenu true -1") -- Close The Escape Menu If Still Open
         SleepXA(2.5)
     else
         EchoXA("Skipping " .. vendor_name .. ", all items in stock.")
@@ -450,7 +454,7 @@ local function LazyCrafterXA()
         EchoXA("Already in Limsa Lominsa Lower Decks. Checking Fire Shards...")
     else
         EchoXA("Not in Limsa Lominsa Lower Decks. Teleporting now.")
-        yield("/li Limsa Lominsa Lower Decks")
+        LifestreamCmdXA("Limsa Lominsa Lower Decks")
         SleepXA(12)
         CharacterSafeWaitXA()
     end
@@ -544,7 +548,7 @@ local function LazyCrafterXA()
     coords = get_coordinates(aethernet_coords)
     move_to(coords)
 
-    yield("/li Aftcastle")
+    LifestreamCmdXA("Aftcastle")
     SleepXA(8)
     CharacterSafeWaitXA()
 
@@ -577,7 +581,7 @@ local function LazyCrafterXA()
 
     if missing_items then
         EchoXA("Missing items detected before crafting, teleporting back to Limsa Lominsa.")
-        yield("/li Limsa Lominsa Lower Decks")
+        LifestreamCmdXA("Limsa Lominsa Lower Decks")
         SleepXA(12)
         CharacterSafeWaitXA()
         if not all_items_in_stock(engerrand_items) then
@@ -624,13 +628,9 @@ local function LazyCrafterXA()
     TargetXA("Randwulf")
     SleepXA(1)
     InteractXA()
-    SleepXA(5)
-    CharacterSafeWaitXA()
     TargetXA("Randwulf")
     SleepXA(1)
     InteractXA()
-    SleepXA(5)
-    CharacterSafeWaitXA()
 
     coords = get_coordinates(brithael_coords)
     move_to(coords)
@@ -641,8 +641,6 @@ local function LazyCrafterXA()
     TargetXA("Brithael")
     SleepXA(1)
     InteractXA()
-    SleepXA(8)
-    CharacterSafeWaitXA()
 
     coords = get_coordinates(mender_coords)
     move_to(coords)
@@ -679,11 +677,11 @@ local function LazyCrafterXA()
     SleepXA(1)
     yield("/send C")
     SleepXA(1)
-    yield("/callback Character True 12")
+    callbackXA("Character True 12")
     SleepXA(1)
-    yield("/callback RecommendEquip True 0")
+    callbackXA("RecommendEquip True 0")
     SleepXA(1)
-    yield("/callback CharacterStatus True -2")
+    callbackXA("CharacterStatus True -2")
     EchoXA("All items checked, ready to craft!")
 
     EchoXA("Starting crafting 1-12")
@@ -695,13 +693,13 @@ local function LazyCrafterXA()
         SleepXA(0.5)
         yield("/send C")
         SleepXA(1)
-        yield("/callback Character True 12")
+        callbackXA("Character True 12")
         SleepXA(1)
-        yield("/callback RecommendEquip True 0")
+        callbackXA("RecommendEquip True 0")
         SleepXA(1)
-        yield("/callback CharacterStatus True -2")
+        callbackXA("CharacterStatus True -2")
         SleepXA(1)
-        yield("/callback SystemMenu true -1")
+        callbackXA("SystemMenu true -1")
         SleepXA(0.5)
         EchoXA("Starting crafting 12-25")
         list_id = get_crafting_list("levels_12_25")
@@ -725,12 +723,12 @@ local function XALazyCrafter()
     for _, owner in ipairs(franchise_owners) do
         local character = owner[1]
         EchoXA("Logging in as " .. character)
-        yield("/ays relog " .. character)
+        ARRelogXA(character)
         SleepXA(5)
         CharacterSafeWaitXA()
         LazyCrafterXA()
     end
-    yield("/logout")
+    LogoutXA()
     EnableARMultiXA()
 end
 
