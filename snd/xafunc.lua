@@ -16,11 +16,12 @@
 -- | Important Note: This library requires dfunc.lua to be loaded first in your scripts. Many functions build upon
 -- | dfunc's base functionality. Always use require("dfunc") and require("xafunc") in your automation scripts.
 -- |
--- | XA Func Library v1.2
+-- | XA Func Library v1.3
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-08 20:20
+-- | Last Updated: 2025-10-09 13:45
 -- |
 -- | ## Release Notes ##
+-- | v1.3 - Added ARDiscardXA(), WaitForARToFinishXA(), ARRelogXA(), FreeCompanyCmdXA()
 -- | v1.2 - Added OpenArmouryChestXA(), TargetXA(targetname), FocusTargetXA(), EnableArtisanXA(), DisableArtisanXA(),
 -- |        CloseCraftingWindowsXA(), OpenDropboxXA(), LifestreamCmdXA()
 -- | v1.1 - Added DismountXA(), WaitForLifestreamXA(), EnableARMultiXA(), DisableARMultiXA(), QSTStartXA(), QSTStopXA(), 
@@ -48,46 +49,53 @@
 -- | 
 -- | Misc Things
 -- |---------------------------------------------------------------------------
--- | EchoXA(text)                   -- Replacement for yield("/echo ...") - Example: EchoXA("Hello World")
--- | SleepXA(time)                  -- Replacement for yield("/wait ...") - Example: SleepXA(1)
--- | TargetXA(targetname)           -- Replacement for yield("/target ...") - Example: TargetXA("Sorcha")
--- | FocusTargetXA()                -- Focus Selected Target
--- | GetSNDCoords()                 -- Gets the coords in two formats (space and comma separated)
+-- | EchoXA(text)                   -- Usage: EchoXA("Hello World In Echo Chat")
+-- | SleepXA(time)                  -- Usage: SleepXA(5) -- Will use /wait 5
+-- | TargetXA(targetname)           -- Usage: TargetXA("Player'or NPC-name")
+-- | FocusTargetXA()                -- Usage: FocusTargetXA()
+-- | vbmaiXA(text)                  -- Usage: vbmaiXA("on")
+-- | bmraiXA(text)                  -- Usage: bmraiXA("on")
+-- | rsrXA(text)                    -- Usage: rsrXA("manual")
+-- | adXA(text)                     -- Usage: adXA("stop")
+-- | callbackXA(text)               -- Usage: callbackXA("SelectYesno true 0")
+-- | SelectYesnoXA()                -- Selects Yes if there is a popup
 -- | 
 -- | Plugin Things
 -- |---------------------------------------------------------------------------
 -- | AutoRetainerIsBusy()           -- Check if AutoRetainer is currently processing
+-- | WaitForARToFinishXA()          -- Wait for AutoRetainerIsBusy()
 -- | EnableSimpleTweaksXA()         -- Enable recommended SimpleTweaks settings (FixTarget, DisableTitleScreen, etc.)
 -- | WaitForLifestreamXA()          -- Wait for Lifestream to process
+-- | ARRelogXA(name)                -- Runs /ays relog, Usage: ARRelogXA("Toon Name@World")
 -- | EnableARMultiXA()              -- Enable AutoRetainer Multi Mode
 -- | DisableARMultiXA()             -- Disable AutoRetainer Multi Mode
+-- | ARDiscardXA()                  -- Discard items and wait for AR to finish
 -- | QSTStartXA()                   -- Start Questionable
 -- | QSTStopXA()                    -- Stop Questionable
 -- | QSTReloadXA()                  -- Reload Questionable
+-- | EnableTextAdvanceXA()          -- Enable TextAdvance
+-- | DisableTextAdvanceXA()         -- Disable TextAdvance
 -- | 
 -- | World Info
 -- |---------------------------------------------------------------------------
--- | EnableTextAdvanceXA()          -- Enable TextAdvance
--- | DisableTextAdvanceXA()         -- Disable TextAdvance
+-- | GetSNDCoords()                 -- Gets the coords in two formats (space and comma separated)
+-- | GetSNDCoordsXA()               -- Gets the coords with specificed usage listed above
 -- | RemoveSproutXA()               -- Remove New Adventurer Status
--- | GetLevelXA(pjob)               -- Get current job level - Example: GetLevelXA() or GetLevelXA(9000)
+-- | GetLevelXA(pjob)               -- Get current job level - Usage: GetLevelXA() or GetLevelXA(9000)
 -- | GetZoneIDXA()                  -- Get current Zone/Territory ID
 -- | GetZoneNameXA()                -- Get current Zone/Territory Name
 -- | GetWorldNameXA()               -- Get current World Name with ID
 -- | GetPlayerNameXA()              -- Get Player Name
 -- | GetPlayerNameAndWorldXA()      -- Get Player Name@World format
+-- | FreeCompanyCmdXA()             -- Opens FC Window so AR can collect data
 -- |
 -- | Party Commands
 -- |---------------------------------------------------------------------------
--- | EnableBTBandInvite()           -- Enable BardToolbox, send mass party invite, then disable
+-- | EnableBTBandInviteXA()         -- Enable BardToolbox, send mass party invite, then disable
 -- | BTBInviteXA()                  -- Send out BardToolbox invite
 -- | BTBDisbandXA()                 -- Send out BardToolbox disband and /leave to double check
 -- | OpenArmouryChestXA()           -- Opens Armoury Chest
 -- | OpenDropboxXA()                -- Opens Dropbox
--- | EnableArtisanXA()              -- Enable plugin collections named Artisan
--- | DisableArtisanXA()             -- Disable plugin collections named Artisan
--- | MonitorJobLevelArtisanXA(lvl)  -- Monitor job level and stop Artisan when reached - Example: MonitorJobLevelArtisanXA(25)
--- | CloseCraftingWindowsXA()       -- Close all crafting windows
 -- | 
 -- | Movement Commands
 -- |---------------------------------------------------------------------------
@@ -100,16 +108,21 @@
 -- | MovingCheaterXA()              -- Advanced movement using PlayerAndUIReadyXA() & MountUpXA() & DoNavFlySequenceXA()
 -- | return_to_fcXA()               -- Lifestream teleport to FC house with auto-entry
 -- | return_to_homeXA()             -- Lifestream teleport to personal house with auto-entry
+-- | return_to_autoXA()             -- Lifestream teleport to select using auto list configuration
 -- | return_to_homeworldXA()        -- Lifestream teleport back to your homeworld
--- | LifestreamCmdXA(name)          -- Replacement for yield("/li Limsa") - Example: LifestreamCmdXA("Limsa")
--- | MoveToXA(x,y,z)                -- Move to coordinates with pathing - Example: MoveToXA(-12.123, 45.454, -18.5456)
--- | InteractXA()                   -- Interact with selected target
--- | ResetCameraXA()                -- Reset camera position using END key
+-- | LifestreamCmdXA(name)          -- Replacement for yield("/li Limsa") - Usage: LifestreamCmdXA("Limsa")
+-- | MoveToXA(x,y,z)                -- Fly/Run to coordinates with pathing - Usage: MoveToXA(-12.123, 45.454, -18.5456)
 -- |
 -- | Player Commands
 -- |---------------------------------------------------------------------------
+-- | InteractXA()                   -- Interact with selected target
+-- | ResetCameraXA()                -- Reset camera position using END key
 -- | EquipRecommendedGearXA()       -- Equip recommended gear via Character menu callbacks
 -- | EquipRecommendedGearCmdXA()    -- Equip recommended gear via SimpleTweaks /equiprecommended command
+-- | EnableArtisanXA()              -- Enable plugin collections named Artisan
+-- | DisableArtisanXA()             -- Disable plugin collections named Artisan
+-- | CloseCraftingWindowsXA()       -- Close all crafting windows
+-- | MonitorJobLevelArtisanXA(lvl)  -- Monitor job level and stop Artisan when reached - Usage: MonitorJobLevelArtisanXA(25)
 -- |
 -- | Braindead Functions
 -- |---------------------------------------------------------------------------
@@ -127,47 +140,57 @@
 -- Misc Things
 -- ------------------------
 
-function EchoXA(text)
+function EchoXA(text) -- Usage: EchoXA("Hello World In Echo Chat")
     yield("/echo " .. tostring(text))
 end
 
-function SleepXA(time)
+function SleepXA(time) -- Usage: SleepXA(5) -- Will use /wait 5
     yield("/wait " .. tostring(time))
 end
 
-function TargetXA(targetname)
+function TargetXA(targetname) -- Usage: TargetXA("Player'or NPC-name")
     yield('/target "' .. tostring(targetname) .. '"')
 end
 
-function FocusTargetXA()
+function FocusTargetXA() -- Usage: FocusTargetXA()
     yield("/focustarget")
     SleepXA(0.07)
 end
 
-function GetSNDCoords()
-    Engines.Native.Run ("/e " .. Entity.Player.Position.X .. " " .. Entity.Player.Position.Y .. " " .. Entity.Player.Position.Z)
-    Engines.Native.Run ("/e " .. Entity.Player.Position.X .. ", " .. Entity.Player.Position.Y .. ", " .. Entity.Player.Position.Z)
+function vbmaiXA(text) -- Usage: vbmaiXA("on")
+    yield("/vbmai " .. tostring(text))
 end
 
-function GetSNDCoordsXA()
-    local p = Entity and Entity.Player and Entity.Player.Position
-    if not p then
-        EchoXA("Coords unavailable.")
-        return
-    end
-    local x, y, z = tostring(p.X), tostring(p.Y), tostring(p.Z)
-
-    EchoXA("VNAV: " .. x .. " " .. y .. " " .. z)
-    SleepXA(0.1)
-    EchoXA("MoveToXA: " .. x .. ", " .. y .. ", " .. z)
+function bmraiXA(text) -- Usage: bmraiXA("on")
+    yield("/bmrai " .. tostring(text))
 end
 
+function rsrXA(text) -- Usage: rsrXA("manual")
+    yield("/rsr " .. tostring(text))
+end
+
+function adXA(text) -- Usage: adXA("stop")
+    yield("/ad " .. tostring(text))
+end
+
+function callbackXA(text) -- Usage: callbackXA("SelectYesno true 0")
+    yield("/callback " .. tostring(text))
+
+function SelectYesnoXA()
+    if IsAddonReady("SelectYesno") then yield("/callback SelectYesno true 0") end
+end
 -- ------------------------
 -- Plugin Things
 -- ------------------------
 
 function AutoRetainerIsBusy()
     return IPC.AutoRetainer.IsBusy()
+end
+
+function WaitForARToFinishXA()
+    repeat
+        SleepXA(1)
+    until not IPC.AutoRetainer.IsBusy()
 end
 
 function EnableSimpleTweaksXA()
@@ -194,6 +217,20 @@ function WaitForLifestreamXA()
     EchoXA("Lifestream completed")
 end
 
+function ARRelogXA(name)
+    local who = (type(name) == "string") and name:match('^%s*(.-)%s*$') or ""
+    -- strip accidental wrapping quotes if caller included them
+    who = who:gsub('^"(.*)"$', '%1'):gsub("^'(.*)'$", "%1")
+
+    if who == "" then
+        EchoXA("ARRelogXA: No character provided.")
+        return false
+    end
+
+    yield("/ays relog " .. who)
+    return true
+end
+
 function EnableARMultiXA()
     yield("/ays multi e")
 end
@@ -202,23 +239,31 @@ function DisableARMultiXA()
     yield("/ays multi d")
 end
 
+function ARDiscardXA()
+    yield("/ays discard")
+    while AutoRetainerIsBusy() do
+        SleepXA(1)
+    end
+    return true
+end
+
 function QSTStartXA()
+    SleepXA(1)
     yield("/qst start")
+    SleepXA(2)
 end
 
 function QSTStopXA()
+    SleepXA(1)
     yield("/qst stop")
     SleepXA(2)
 end
 
 function QSTReloadXA()
-    yield("/qst reload")
     SleepXA(1)
+    yield("/qst reload")
+    SleepXA(2)
 end
-
---------------------------
--- World Info
---------------------------
 
 function EnableTextAdvanceXA()
     yield("/at y")
@@ -227,6 +272,29 @@ end
 function DisableTextAdvanceXA()
     yield("/at n")
     EchoXA("Disabling Text Advance...")
+end
+
+--------------------------
+-- World Info
+--------------------------
+end
+
+function GetSNDCoords()
+    Engines.Native.Run ("/e " .. Entity.Player.Position.X .. " " .. Entity.Player.Position.Y .. " " .. Entity.Player.Position.Z)
+    Engines.Native.Run ("/e " .. Entity.Player.Position.X .. ", " .. Entity.Player.Position.Y .. ", " .. Entity.Player.Position.Z)
+end
+
+function GetSNDCoordsXA()
+    local p = Entity and Entity.Player and Entity.Player.Position
+    if not p then
+        EchoXA("Coords unavailable.")
+        return
+    end
+    local x, y, z = tostring(p.X), tostring(p.Y), tostring(p.Z)
+
+    EchoXA("VNAV: " .. x .. " " .. y .. " " .. z)
+    SleepXA(0.1)
+    EchoXA("MoveToXA: " .. x .. ", " .. y .. ", " .. z)
 end
 
 function RemoveSproutXA()
@@ -324,25 +392,45 @@ function GetPlayerNameAndWorldXA()
     end
 end
 
+function FreeCompanyCmdXA()
+    yield("/freecompanycmd")
+    SleepXA(1)
+end
+
 -- ------------------------
 -- Party Commands
 -- ------------------------
 
 function EnableBTBandInviteXA()
     yield("/xlenableprofile BTB")
-    SleepXA(3)
-    yield("/btb invite")
+    EchoXA("BTB collection enabled. Waiting 8 seconds.")
+    SleepXA(8)
+    BTBInviteXA()
+    EchoXA("BTB Invite has been sent. Waiting 3 seconds.")
     SleepXA(3)
     yield("/xldisableprofile BTB")
+    EchoXA("BTB collection disabled. Waiting 3 seconds.")
+    SleepXA(3)
 end
 
 function BTBInviteXA()
+    yield("/btb disband")
+    SleepXA(2)
     yield("/btb invite")
+    SleepXA(1)
 end
 
 function BTBDisbandXA()
     yield("/btb disband")
+    SleepXA(2)
+    yield("/pcmd breakup")
+    SleepXA(1)
+    SelectYesnoXA()
+    SleepXA(1)
     yield("/leave")
+    SleepXA(1)
+    SelectYesnoXA()
+    SleepXA(1)
 end
 
 function OpenArmouryChestXA()
@@ -357,78 +445,6 @@ end
 function OpenDropboxXA()
     yield("/dropbox")
     SleepXA(0.5)
-end
-
-function EnableArtisanXA()
-    yield("/xlenableprofile Artisan")
-    EchoXA("Enabled Artisan")
-end
-
-function DisableArtisanXA()
-    yield("/xldisableprofile Artisan")
-    EchoXA("Disabled Artisan")
-end
-
-function CloseCraftingWindowsXA()
-    yield("/callback Synthesis true -1") -- Cancel the current craft
-    SleepXA(1) -- Shorter wait to retry frequently
-    yield("/callback SynthesisSimple true -1") -- Cancel the current quick craft
-    SleepXA(5) -- Shorter wait to retry frequently
-    yield("/callback RecipeNote True -1") -- Close the crafting menu
-    SleepXA(5) -- Brief wait to ensure the menu closes
-end
-
--- MonitorJobLevelArtisanXA()      -- BAD Usage - script will not trigger if no level is mentioned
--- MonitorJobLevelArtisanXA(5)     -- GOOD Usage - monitors to reaching 5, then runs the stop/close/restart sequence
-function MonitorJobLevelArtisanXA(target_level, pjob)
-    if target_level == nil then
-        EchoXA("No level has been set, no functionality being used.")
-        return false
-    end
-
-    target_level = tonumber(target_level)
-    if not target_level or target_level <= 0 then
-        EchoXA("Invalid level provided, no functionality being used.")
-        return false
-    end
-
-    local function _getlvl()
-        return tonumber(GetLevelXA and GetLevelXA(pjob)) 
-               or (Player and Player.Job and tonumber(Player.Job.Level)) 
-               or 0
-    end
-
-    local characterLevel = _getlvl()
-
-    if characterLevel < target_level then
-        EchoXA("Level " .. target_level .. " not yet reached; we're level " .. characterLevel .. ". Waiting...")
-        local lastAnnounced = characterLevel
-        repeat
-            SleepXA(5)
-            characterLevel = _getlvl()
-            -- Only echo when level changes to avoid spam
-            if characterLevel ~= lastAnnounced and characterLevel < target_level then
-                EchoXA("Level " .. target_level .. " not yet reached; we're level " .. characterLevel .. ".")
-                lastAnnounced = characterLevel
-            end
-        until characterLevel >= target_level
-    else
-        EchoXA("Already level " .. characterLevel .. " (target " .. target_level .. ").")
-    end
-
-    EchoXA("Force stop crafting as we've reached level " .. target_level .. ".")
-
-    DisableArtisanXA()
-    SleepXA(8)
-
-    -- Close crafting/recipe UIs until back to normal (minimal & safe)
-    while not GetCharacterCondition(1) do
-        CloseCraftingWindowsXA()
-    end
-
-    EnableArtisanXA()
-    SleepXA(5)
-    return true
 end
 
 -- ------------------------
@@ -631,6 +647,14 @@ function return_to_homeXA()
 	SleepXA(1.02)
 end
 
+function return_to_autoXA()
+	yield("/li auto")
+	WaitForLifestreamXA()
+	SleepXA(2.02)
+    CharacterSafeWaitXA()
+	SleepXA(1.02)
+end
+
 function return_to_homeworldXA()
 	yield("/li")
 	WaitForLifestreamXA()
@@ -725,6 +749,10 @@ function move_to(coords)
     end
 end
 
+--------------------------
+-- Player Commands
+--------------------------
+
 function InteractXA()
     SleepXA(0.5)
     yield("/interact")
@@ -736,10 +764,6 @@ function ResetCameraXA()
     yield("/send END")
     SleepXA(0.5)
 end
-
---------------------------
--- Player Commands
---------------------------
 
 function EquipRecommendedGearXA()
     CharacterSafeWaitXA()
@@ -767,6 +791,79 @@ end
 
 function EquipRecommendedGearCmdXA()
     yield("/equiprecommended")
+    SleepXA(2)
+end
+
+function EnableArtisanXA()
+    yield("/xlenableprofile Artisan")
+    EchoXA("Enabled Artisan")
+end
+
+function DisableArtisanXA()
+    yield("/xldisableprofile Artisan")
+    EchoXA("Disabled Artisan")
+end
+
+function CloseCraftingWindowsXA()
+    yield("/callback Synthesis true -1") -- Cancel the current craft
+    SleepXA(1) -- Shorter wait to retry frequently
+    yield("/callback SynthesisSimple true -1") -- Cancel the current quick craft
+    SleepXA(5) -- Shorter wait to retry frequently
+    yield("/callback RecipeNote True -1") -- Close the crafting menu
+    SleepXA(5) -- Brief wait to ensure the menu closes
+end
+
+-- MonitorJobLevelArtisanXA()      -- BAD Usage - script will not trigger if no level is mentioned
+-- MonitorJobLevelArtisanXA(5)     -- GOOD Usage - monitors to reaching 5, then runs the stop/close/restart sequence
+function MonitorJobLevelArtisanXA(target_level, pjob)
+    if target_level == nil then
+        EchoXA("No level has been set, no functionality being used.")
+        return false
+    end
+
+    target_level = tonumber(target_level)
+    if not target_level or target_level <= 0 then
+        EchoXA("Invalid level provided, no functionality being used.")
+        return false
+    end
+
+    local function _getlvl()
+        return tonumber(GetLevelXA and GetLevelXA(pjob)) 
+               or (Player and Player.Job and tonumber(Player.Job.Level)) 
+               or 0
+    end
+
+    local characterLevel = _getlvl()
+
+    if characterLevel < target_level then
+        EchoXA("Level " .. target_level .. " not yet reached; we're level " .. characterLevel .. ". Waiting...")
+        local lastAnnounced = characterLevel
+        repeat
+            SleepXA(5)
+            characterLevel = _getlvl()
+            -- Only echo when level changes to avoid spam
+            if characterLevel ~= lastAnnounced and characterLevel < target_level then
+                EchoXA("Level " .. target_level .. " not yet reached; we're level " .. characterLevel .. ".")
+                lastAnnounced = characterLevel
+            end
+        until characterLevel >= target_level
+    else
+        EchoXA("Already level " .. characterLevel .. " (target " .. target_level .. ").")
+    end
+
+    EchoXA("Force stop crafting as we've reached level " .. target_level .. ".")
+
+    DisableArtisanXA()
+    SleepXA(8)
+
+    -- Close crafting/recipe UIs until back to normal (minimal & safe)
+    while not GetCharacterCondition(1) do
+        CloseCraftingWindowsXA()
+    end
+
+    EnableArtisanXA()
+    SleepXA(5)
+    return true
 end
 
 --------------------------
