@@ -6,14 +6,7 @@
 -- |    ██╔██╗ ██╔══██║    ██╔══██╗██╔══██║██║   ██║██║╚██╔╝██║██╔══██║██║╚██╗██║
 -- |   ██╔╝ ██╗██║  ██║    ██████╔╝██║  ██║╚██████╔╝██║ ╚═╝ ██║██║  ██║██║ ╚████║
 -- |   ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
--- |                                                                           
--- |   ██╗   ██╗███████╗ ██████╗                                                 
--- |   ██║   ██║╚════██║ ╚════██╗                                                
--- |   ██║   ██║    ██╔╝  █████╔╝                                                
--- |   ╚██╗ ██╔╝   ██╔╝   ╚═══██╗                                                
--- |    ╚████╔╝    ██║██╗██████╔╝                                                
--- |     ╚═══╝     ╚═╝╚═╝╚═════╝                                                 
--- | 
+-- |                                                                                                                         
 -- | Automated FFXIV bagman script for collecting and distributing resources across multiple characters
 -- | 
 -- | This script automates the process of collecting gil, treasure maps, dyes, and valuable items from multiple 
@@ -30,8 +23,7 @@
 -- | • Enhanced character availability detection with false positive prevention
 -- | • Support for custom Tony coordinates and meeting locations
 -- | 
--- | Important Note: Requires dfunc/xafunc and Dropbox plugin. All characters must have Lifestream 
--- | configured with FC pathing. This script handles valuable resources - ensure proper backup procedures.
+-- | Important Note: All characters MUST have Lifestream configured with FC pathing AND Enter House as setup. 
 -- | 
 -- | Requires:
 -- |  dfunc; can be found here: https://github.com/McVaxius/dhogsbreakfeast/blob/main/dfunc.lua
@@ -39,41 +31,32 @@
 -- |   - Two setup processes, 1) SND > Add script, name dfunc and another xafunc paste the code.
 -- |   - 2) SND > Add script name the same as before, add github url and save, can update through SND
 -- | 
--- | XA Bagman Type 69 v1.1
--- | Automated FFXIV bagman script for collecting and distributing resources
--- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-08-28 16:50:26
--- | 
--- | ## Release Notes ##
--- | 
--- | v1.1 - Fixed CharacterSafeWait/PlayerAvailable false positives with new functions
--- | 
--- | v1.0 - Initial release with integrated minimum fuel and repair materials keep functionality
--- | - This would be useful for any retainer farmers with a surpluss of supplies that can be used to balance out alts
--- | - Set this number to something like 9999999 if you don't want to use the minimum filter to ensure it doesn't filter out your supplies
--- | - Added support for Lifestream pathing to FC entrances
--- | 
--- | ## Important Notes ##
--- | 
--- | *** LIFESTREAM REQUIREMENT for ALL franchise_owners***
--- | Set up lifestream teleportation priority list in the config so it'll go to the correct area, like FC when running /li commands.
--- | Register every FC house in Lifestream with pathing to the door, and have lifestream config to run to the door.
--- | 
 -- | *** CHECK DROPBOX!! ***
 -- | If you do not have Dropbox open, and on the Items tab, nothing will work!!
 -- | 
 -- | It is to be assumed that you have read the original bagman notes and understand how to run things from this point on.
 -- | 
--- | Have fun you dirty lil sublord you!
+-- | XA Bagman Type 69 v7.35
+-- | Created by: https://github.com/xa-io
+-- | Last Updated: 2025-10-09 13:45
+-- | 
+-- | ## Release Notes ##
+-- | v7.35 - Revamped codebase using new xafunc functions for better readability and maintainability
+-- | v7.3.1 - Fixed CharacterSafeWait/PlayerAvailable false positives with new functions
+-- | v7.3 - Initial release with integrated minimum fuel and repair materials keep functionality
+-- | - This would be useful for any retainer farmers with a surpluss of supplies that can be used to balance out alts
+-- | - Set this number to something like 9999999 if you don't want to use the minimum filter to ensure it doesn't filter out your supplies
+-- | - Added support for Lifestream pathing to FC entrances
 -- └-----------------------------------------------------------------------------------------------------------------------
 
 -- DO NOT TOUCH THESE LINES BELOW
-    require("dfunc")
-    require("xafunc")
-    PandoraSetFeatureState("Auto-Fill Numeric Dialogs", false)
-    yield("/rotation Cancel")
-    bagman_type = 69 -- That's one sexy bag of loot
-    tony_type = 420 -- We're meeting at public smoking spot
+require("dfunc")
+require("xafunc")
+DisableARMultiXA()
+PandoraSetFeatureState("Auto-Fill Numeric Dialogs", false)
+rsrXA("off")
+bagman_type = 69 -- That's one sexy bag of loot
+tony_type = 420 -- We're meeting at public smoking spot
 -- DO NOT TOUCH THESE LINES ABOVE
 
 -- ---------------------------------------
@@ -81,14 +64,14 @@
 -- ---------------------------------------
 
 -- Where are we meeting Tony
-tonys_turf = "Sephirot"            -- Which server are we bringing treasure to?
-tonys_spot = "Summerford Farms"    -- What is the Aetheryte name to teleport to?
+tonys_turf = "Sephirot"          -- Which server are we bringing treasure to?
+tonys_spot = "Summerford Farms"  -- What is the Aetheryte name to teleport to?
 tony_zoneID = 134                -- ZoneID Check for tony_spot
 
--- Inventory Management         -- This will also give you all dyes now.
-bagmans_take = 50000            -- Keep this much Gil on alts, give the rest to Tony
-min_fuel_keep = 999999          -- Keep this much Ceruleum Fuel on alts, give the rest to Tony
-min_repair_mats_keep = 999999   -- Keep this much Magitek Repair Mats on alts, give the rest to Tony
+-- Inventory Management          -- This will also give you all dyes now.
+bagmans_take = 50000             -- Keep this much Gil on alts, give the rest to Tony
+min_fuel_keep = 999999           -- Keep this much Ceruleum Fuel on alts, give the rest to Tony
+min_repair_mats_keep = 999999    -- Keep this much Magitek Repair Mats on alts, give the rest to Tony
 
 -- I'll have Tony run - yield("/vnav moveto 233.6580657959 112.37239837646 -262.73318481445") - to make sure he's in a good spot within reach.
 
@@ -141,7 +124,6 @@ function are_we_there_yet_jimmy()
     return woah_bruv
 end
 
-DisableARMultiXA()
 fat_tony = "Firstname Lastname" -- Placeholder, do not change
 
 local function distance(x1, y1, z1, x2, y2, z2)
@@ -216,7 +198,7 @@ local function shake_hands()
             if snaccman < 0 then
                 snaccman = 0
             end
-            OpenDropboxItemTabXA()
+            OpenDropboxXA()
             SleepXA(0.5)
             if snaccman > 0 then
                 DropboxSetItemQuantity(1,false,snaccman) -- Gil
@@ -402,7 +384,7 @@ for i=1,#franchise_owners do
         EchoXA("Processing Bagman "..i.."/"..#franchise_owners)
 
     if GetCharacterName(true) ~= franchise_owners[i][1] then
-        yield("/ays relog " ..franchise_owners[i][1])
+        ARRelogXA(franchise_owners[i][1])
         SleepXA(2)
         CharacterSafeWaitXA()
         EnableTextAdvanceXA()
@@ -420,22 +402,14 @@ for i=1,#franchise_owners do
         EchoXA("bagmans_take -> "..bagmans_take)
 
     road_trip = 1
-        yield("/li "..tonys_turf)
-        WaitForLifestreamXA()
-        SleepXA(1.08)
-        yield("/li "..tonys_turf)
-        WaitForLifestreamXA()
-        SleepXA(1.09)
-        yield("/li "..tonys_turf)
-        WaitForLifestreamXA()
-        SleepXA(1.10)
-        CharacterSafeWaitXA()
+        LifestreamCmdXA(tonys_turf)
+        LifestreamCmdXA(tonys_turf)
             EchoXA("Processing Bagman "..i.."/"..#franchise_owners)
 
     if tony_type == 420 then
         EchoXA(fat_tony.." is meeting us in the alleyways.. watch your back")
         while tony_zoneID ~= Svc.ClientState.TerritoryType do
-            yield("/li "..tonys_spot)
+            LifestreamCmdXA(tonys_spot)
             SleepXA(4)
             CharacterSafeWaitXA()
         end
@@ -465,8 +439,9 @@ zungazunga()
                 if franchise_owners[i][3] == 69 then
                     SleepXA(5.04)
                     return_to_fcXA()
-                    CharacterSafeWaitXA()
                     WaitForLifestreamXA()
+                    CharacterSafeWaitXA()
+                    FreeCompanyCmdXA()
                 end
         end
     end
