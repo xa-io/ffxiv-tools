@@ -16,11 +16,13 @@
 -- | Important Note: This library requires dfunc.lua to be loaded first in your scripts. Many functions build upon
 -- | dfunc's base functionality. Always use require("dfunc") and require("xafunc") in your automation scripts.
 -- |
--- | XA Func Library v1.1
+-- | XA Func Library v1.2
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-08 18:05:00
+-- | Last Updated: 2025-10-08 20:20
 -- |
 -- | ## Release Notes ##
+-- | v1.2 - Added OpenArmouryChestXA(), TargetXA(targetname), FocusTargetXA(), EnableArtisanXA(), DisableArtisanXA(),
+-- |        CloseCraftingWindowsXA(), OpenDropboxXA(), LifestreamCmdXA()
 -- | v1.1 - Added DismountXA(), WaitForLifestreamXA(), EnableARMultiXA(), DisableARMultiXA(), QSTStartXA(), QSTStopXA(), 
 -- |        QSTReloadXA(), BTBInviteXA(), BTBDisbandXA()
 -- | v1.0 - Initial release
@@ -48,6 +50,8 @@
 -- |---------------------------------------------------------------------------
 -- | EchoXA(text)                   -- Replacement for yield("/echo ...") - Example: EchoXA("Hello World")
 -- | SleepXA(time)                  -- Replacement for yield("/wait ...") - Example: SleepXA(1)
+-- | TargetXA(targetname)           -- Replacement for yield("/target ...") - Example: TargetXA("Sorcha")
+-- | FocusTargetXA()                -- Focus Selected Target
 -- | GetSNDCoords()                 -- Gets the coords in two formats (space and comma separated)
 -- | 
 -- | Plugin Things
@@ -72,13 +76,18 @@
 -- | GetWorldNameXA()               -- Get current World Name with ID
 -- | GetPlayerNameXA()              -- Get Player Name
 -- | GetPlayerNameAndWorldXA()      -- Get Player Name@World format
--- | MonitorJobLevelArtisanXA(lvl)  -- Monitor job level and stop Artisan when reached - Example: MonitorJobLevelArtisanXA(25)
 -- |
 -- | Party Commands
 -- |---------------------------------------------------------------------------
 -- | EnableBTBandInvite()           -- Enable BardToolbox, send mass party invite, then disable
 -- | BTBInviteXA()                  -- Send out BardToolbox invite
 -- | BTBDisbandXA()                 -- Send out BardToolbox disband and /leave to double check
+-- | OpenArmouryChestXA()           -- Opens Armoury Chest
+-- | OpenDropboxXA()                -- Opens Dropbox
+-- | EnableArtisanXA()              -- Enable plugin collections named Artisan
+-- | DisableArtisanXA()             -- Disable plugin collections named Artisan
+-- | MonitorJobLevelArtisanXA(lvl)  -- Monitor job level and stop Artisan when reached - Example: MonitorJobLevelArtisanXA(25)
+-- | CloseCraftingWindowsXA()       -- Close all crafting windows
 -- | 
 -- | Movement Commands
 -- |---------------------------------------------------------------------------
@@ -92,6 +101,7 @@
 -- | return_to_fcXA()               -- Lifestream teleport to FC house with auto-entry
 -- | return_to_homeXA()             -- Lifestream teleport to personal house with auto-entry
 -- | return_to_homeworldXA()        -- Lifestream teleport back to your homeworld
+-- | LifestreamCmdXA(name)          -- Replacement for yield("/li Limsa") - Example: LifestreamCmdXA("Limsa")
 -- | MoveToXA(x,y,z)                -- Move to coordinates with pathing - Example: MoveToXA(-12.123, 45.454, -18.5456)
 -- | InteractXA()                   -- Interact with selected target
 -- | ResetCameraXA()                -- Reset camera position using END key
@@ -123,6 +133,15 @@ end
 
 function SleepXA(time)
     yield("/wait " .. tostring(time))
+end
+
+function TargetXA(targetname)
+    yield('/target "' .. tostring(targetname) .. '"')
+end
+
+function FocusTargetXA()
+    yield("/focustarget")
+    SleepXA(0.07)
 end
 
 function GetSNDCoords()
@@ -305,6 +324,60 @@ function GetPlayerNameAndWorldXA()
     end
 end
 
+-- ------------------------
+-- Party Commands
+-- ------------------------
+
+function EnableBTBandInviteXA()
+    yield("/xlenableprofile BTB")
+    SleepXA(3)
+    yield("/btb invite")
+    SleepXA(3)
+    yield("/xldisableprofile BTB")
+end
+
+function BTBInviteXA()
+    yield("/btb invite")
+end
+
+function BTBDisbandXA()
+    yield("/btb disband")
+    yield("/leave")
+end
+
+function OpenArmouryChestXA()
+    yield("/hold CONTROL")
+    SleepXA(0.07)
+    yield("/send I")
+    SleepXA(0.07)
+    yield("/release CONTROL")
+    SleepXA(0.07)
+end
+
+function OpenDropboxXA()
+    yield("/dropbox")
+    SleepXA(0.5)
+end
+
+function EnableArtisanXA()
+    yield("/xlenableprofile Artisan")
+    EchoXA("Enabled Artisan")
+end
+
+function DisableArtisanXA()
+    yield("/xldisableprofile Artisan")
+    EchoXA("Disabled Artisan")
+end
+
+function CloseCraftingWindowsXA()
+    yield("/callback Synthesis true -1") -- Cancel the current craft
+    SleepXA(1) -- Shorter wait to retry frequently
+    yield("/callback SynthesisSimple true -1") -- Cancel the current quick craft
+    SleepXA(5) -- Shorter wait to retry frequently
+    yield("/callback RecipeNote True -1") -- Close the crafting menu
+    SleepXA(5) -- Brief wait to ensure the menu closes
+end
+
 -- MonitorJobLevelArtisanXA()      -- BAD Usage - script will not trigger if no level is mentioned
 -- MonitorJobLevelArtisanXA(5)     -- GOOD Usage - monitors to reaching 5, then runs the stop/close/restart sequence
 function MonitorJobLevelArtisanXA(target_level, pjob)
@@ -344,45 +417,18 @@ function MonitorJobLevelArtisanXA(target_level, pjob)
     end
 
     EchoXA("Force stop crafting as we've reached level " .. target_level .. ".")
-    yield("/xldisableprofile Artisan")
-    EchoXA("Disabled Artisan")
+
+    DisableArtisanXA()
     SleepXA(8)
 
     -- Close crafting/recipe UIs until back to normal (minimal & safe)
-    while type(GetCharacterCondition) == "function" and not GetCharacterCondition(1) do
-        yield("/callback Synthesis true -1")
-        SleepXA(1)
-        yield("/callback SynthesisSimple true -1")
-        SleepXA(5)
-        yield("/callback RecipeNote True -1")
-        SleepXA(5)
+    while not GetCharacterCondition(1) do
+        CloseCraftingWindowsXA()
     end
 
-    yield("/xlenableprofile Artisan")
-    EchoXA("Enabled Artisan")
+    EnableArtisanXA()
     SleepXA(5)
     return true
-end
-
--- ------------------------
--- Party Commands
--- ------------------------
-
-function EnableBTBandInviteXA()
-    yield("/xlenableprofile BTB")
-    SleepXA(3)
-    yield("/btb invite")
-    SleepXA(3)
-    yield("/xldisableprofile BTB")
-end
-
-function BTBInviteXA()
-    yield("/btb invite")
-end
-
-function BTBDisbandXA()
-    yield("/btb disband")
-    yield("/leave")
 end
 
 -- ------------------------
@@ -593,6 +639,27 @@ function return_to_homeworldXA()
 	SleepXA(1.02)
 end
 
+function LifestreamCmdXA(name)
+    local dest = (type(name) == "string") and name:match("^%s*(.-)%s*$") or ""
+    if dest == "" then
+        EchoXA("No Location Set.")
+        return false
+    end
+
+    yield("/li " .. dest)
+    WaitForLifestreamXA()
+    SleepXA(1.02)
+    CharacterSafeWaitXA()
+    SleepXA(1.03)
+    CharacterSafeWaitXA()
+    SleepXA(1.04)
+    CharacterSafeWaitXA()
+    SleepXA(1.05)
+    CharacterSafeWaitXA()
+    SleepXA(1.06)
+    return true
+end
+
 function GetDistanceToPoint(target_x, target_y, target_z)
     local player_x = GetPlayerRawXPos()
     local player_y = GetPlayerRawYPos()
@@ -661,7 +728,8 @@ end
 function InteractXA()
     SleepXA(0.5)
     yield("/interact")
-    SleepXA(2)
+    SleepXA(5)
+    CharacterSafeWaitXA()
 end
 
 function ResetCameraXA()
@@ -751,13 +819,13 @@ function FreshLimsaToSummer()
 
     -- Limsi Intro
     MoveToXA(-41.603382110596, 19.999998092651, -3.9526710510254)
-    yield("/target Ryssfloh")
+    TargetXA("Ryssfloh")
     InteractXA()
     CharacterSafeWaitXA()
 
     -- Run to elevator
     MoveToXA(7.9892959594727, 20.99979019165, 11.781483650208)
-    yield("/target Grehfarr")
+    TargetXA("Grehfarr")
     InteractXA()
     CharacterSafeWaitXA()
 
@@ -765,7 +833,7 @@ function FreshLimsaToSummer()
     MoveToXA(16.344181060791, 40.199962615967, -2.5296859741211)
 
     -- Complete MSQ Quest - Coming to Limsa Lominsa
-    yield("/target Baderon")
+    TargetXA("Baderon")
     InteractXA()
     -- yield("/callback SelectIconString true 1") -- Drowning Wench
     -- SleepXA(2)
@@ -773,10 +841,10 @@ function FreshLimsaToSummer()
     CharacterSafeWaitXA()
 
     -- Accept MSQ Quest - Close to Home
-    yield("/target Baderon")
+    TargetXA("Baderon")
     InteractXA()
     CharacterSafeWaitXA()
-    yield("/target Baderon") -- Double check
+    TargetXA("Baderon") -- Double check
     InteractXA()
     CharacterSafeWaitXA()
 
@@ -784,13 +852,13 @@ function FreshLimsaToSummer()
     MoveToXA(7.4269256591797, 39.517566680908, -0.30605334043503)
     MoveToXA(7.8499450683594, 39.517566680908, 1.793778181076)
     ResetCameraXA()
-    yield("/target Niniya")
+    TargetXA("Niniya")
     InteractXA()
     CharacterSafeWaitXA()
 
     -- Run to elevator
     MoveToXA(6.0743732452393, 39.866470336914, 12.235060691833)
-    yield("/target Skaenrael")
+    TargetXA("Skaenrael")
     InteractXA()
     yield("/callback SelectIconString true 1") -- Bulwark Hall
     SleepXA(2)
@@ -843,23 +911,23 @@ function FreshUldahToHorizon()
 
     -- Uldah Intro
     MoveToXA(35.676815032959, 4.0, -151.50312805176)
-    yield("/target Wymond")
+    TargetXA("Wymond")
     InteractXA()
     CharacterSafeWaitXA()
 
     -- Run to bar
     MoveToXA(21.875730514526, 6.9999952316284, -81.64680480957)
-    yield("/target Momodi")
+    TargetXA("Momodi")
     InteractXA()
     CharacterSafeWaitXA()
 
     -- Complete MSQ Quest
-    yield("/target Momodi")
+    TargetXA("Momodi")
     InteractXA()
     CharacterSafeWaitXA()
 
     -- Confirm
-    yield("/target Momodi")
+    TargetXA("Momodi")
     InteractXA()
     CharacterSafeWaitXA()
 
