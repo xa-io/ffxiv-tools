@@ -165,7 +165,7 @@ function vbmaiXA(text) -- Usage: vbmaiXA("on")
     yield("/vbmai " .. tostring(text))
 end
 
-function vbmarXA()  -- Usage: vbmarXA("disable")
+function vbmarXA(text)  -- Usage: vbmarXA("disable")
     yield("/vbm ar " .. tostring(text))
 end
 
@@ -300,8 +300,11 @@ end
 -- ------------------------
 
 function GetSNDCoords()
+    SleepXA(0.1)
     Engines.Native.Run ("/e " .. Entity.Player.Position.X .. " " .. Entity.Player.Position.Y .. " " .. Entity.Player.Position.Z)
+    SleepXA(0.1)
     Engines.Native.Run ("/e " .. Entity.Player.Position.X .. ", " .. Entity.Player.Position.Y .. ", " .. Entity.Player.Position.Z)
+    SleepXA(0.1)
 end
 
 function GetSNDCoordsXA()
@@ -312,9 +315,11 @@ function GetSNDCoordsXA()
     end
     local x, y, z = tostring(p.X), tostring(p.Y), tostring(p.Z)
 
+    SleepXA(0.1)
     EchoXA("/vnav moveto " .. x .. " " .. y .. " " .. z)
     SleepXA(0.1)
     EchoXA("MoveToXA(" .. x .. ", " .. y .. ", " .. z .. ")")
+    SleepXA(0.1)
 end
 
 function RemoveSproutXA()
@@ -747,7 +752,7 @@ function MoveToXA(valuex, valuey, valuez, stopdistance, FlyOrWalk)
         end
     end
 
-    EchoXA("[MoveTo] Completed")
+    EchoXA("[MoveToXA] Completed")
 end
 
 function log_coordinates(coords)
