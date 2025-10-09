@@ -179,11 +179,11 @@ end
 local function handle_tony_movement()
     -- Check if we are on the correct world
     yield("/li " .. TonyTurf)
-    WaitForLifestream()
+    WaitForLifestreamXA()
     SleepXA(1.01)
-    WaitForLifestream()
+    WaitForLifestreamXA()
     SleepXA(1.02)
-    WaitForLifestream()
+    WaitForLifestreamXA()
     SleepXA(1.03)
     CharacterSafeWaitXA()
     
@@ -194,7 +194,7 @@ local function handle_tony_movement()
         approach_tony()
     else
         EchoXA("Not in Summerford Farms. Teleporting now.")
-        yield("/tp Summerford Farms")
+        yield("/li Summerford Farms")
         SleepXA(12)
         CharacterSafeWaitXA()
         approach_tony()
@@ -238,8 +238,6 @@ end
 -- Execute the cycle_characters function to run the sequence
 cycle_characters()
 
---[[
-##################################
-#### End of XA Inverse Bagman ####
-##################################
-]]
+-- ------------------------------
+-- -- End of XA Inverse Bagman --
+-- ------------------------------
