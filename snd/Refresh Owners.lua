@@ -47,7 +47,7 @@ local franchise_owners = {
 -- -- Start of XA Relogger --
 -- --------------------------
 
-yield("/ays multi d")
+DisableARMultiXA()
 
 for i = 1, #franchise_owners do
     local who = franchise_owners[i][1]
@@ -73,7 +73,7 @@ end
 
 EchoXA("All characters processed. Relog-only run complete.")
 
-yield("/ays multi e")
+EnableARMultiXA()
 
 -- ------------------------
 -- -- End of XA Relogger --
