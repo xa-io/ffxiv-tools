@@ -176,11 +176,17 @@ end
 
 function callbackXA(text) -- Usage: callbackXA("SelectYesno true 0")
     yield("/callback " .. tostring(text))
+end
 
 function SelectYesnoXA()
     SleepXA(1.5)
     if IsAddonReady("SelectYesno") then yield("/callback SelectYesno true 0") end
 end
+
+function DidWeLoadcorrectlyXA()
+	EchoXA("XA functions file read successfully!")
+end
+
 -- ------------------------
 -- Plugin Things
 -- ------------------------
@@ -282,10 +288,9 @@ function DisableTextAdvanceXA()
     EchoXA("Disabling Text Advance...")
 end
 
---------------------------
+-- ------------------------
 -- World Info
---------------------------
-end
+-- ------------------------
 
 function GetSNDCoords()
     Engines.Native.Run ("/e " .. Entity.Player.Position.X .. " " .. Entity.Player.Position.Y .. " " .. Entity.Player.Position.Z)
@@ -757,9 +762,9 @@ function move_to(coords)
     end
 end
 
---------------------------
+-- ------------------------
 -- Player Commands
---------------------------
+-- ------------------------
 
 function InteractXA()
     SleepXA(0.5)
@@ -874,9 +879,9 @@ function MonitorJobLevelArtisanXA(target_level, pjob)
     return true
 end
 
---------------------------
+-- ------------------------
 -- Braindead Functions
---------------------------
+-- ------------------------
 
 function EnterHousingWardFromMenu()
     SleepXA(3)
