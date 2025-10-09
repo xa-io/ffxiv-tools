@@ -21,7 +21,8 @@
 -- | Last Updated: 2025-10-09 13:45
 -- |
 -- | ## Release Notes ##
--- | v1.3 - Added ARDiscardXA(), WaitForARToFinishXA(), ARRelogXA(), FreeCompanyCmdXA()
+-- | v1.3 - Added ARDiscardXA(), WaitForARToFinishXA(), ARRelogXA(), FreeCompanyCmdXA(), vbmaiXA(), bmraiXA(), adXA(),
+-- |        callbackXA(), SelectYesnoXA()
 -- | v1.2 - Added OpenArmouryChestXA(), TargetXA(targetname), FocusTargetXA(), EnableArtisanXA(), DisableArtisanXA(),
 -- |        CloseCraftingWindowsXA(), OpenDropboxXA(), LifestreamCmdXA()
 -- | v1.1 - Added DismountXA(), WaitForLifestreamXA(), EnableARMultiXA(), DisableARMultiXA(), QSTStartXA(), QSTStopXA(), 
@@ -177,6 +178,7 @@ function callbackXA(text) -- Usage: callbackXA("SelectYesno true 0")
     yield("/callback " .. tostring(text))
 
 function SelectYesnoXA()
+    SleepXA(1.5)
     if IsAddonReady("SelectYesno") then yield("/callback SelectYesno true 0") end
 end
 -- ------------------------
@@ -229,6 +231,12 @@ function ARRelogXA(name)
 
     yield("/ays relog " .. who)
     return true
+end
+
+function LogoutXA()
+    yield("/logout")
+    SelectYesnoXA()
+    SleepXA(1)
 end
 
 function EnableARMultiXA()
