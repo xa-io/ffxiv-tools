@@ -7,25 +7,31 @@
 -- |   ██╔╝ ██╗██║  ██║    ██║  ██║███████╗███████╗╚██████╔╝╚██████╔╝╚██████╔╝███████╗██║  ██║
 -- |   ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚══════╝╚═╝  ╚═╝
 -- | 
--- | XA Relogger — Franchise owner login loop (no travel, no trading)
--- | - Logs into each character from a simple list ("Name@World")
--- | - Waits for CharacterSafeWaitXA() after each login
--- | - Immediately proceeds to the next character using /ays relog
+-- | XA Relogger — Mass toon house tapping. Checks Personal plots and FC plots.
 -- | 
--- | - Use for FC Owners that do not log in often. Used to prevent transfer of ownership due to inactivity.
+-- | - Useful for toons that do not log in often. Used to prevent transfer of ownership and demo due to inactivity.
+-- | 
+-- | Important Note: All characters MUST have Lifestream configured with FC pathing AND Enter House as setup. 
 -- | 
 -- | Requires:
 -- |  dfunc; can be found here: https://github.com/McVaxius/dhogsbreakfeast/blob/main/dfunc.lua
 -- |  xafunc; can be found here: https://github.com/xa-io/ffxiv-tools/blob/main/snd/xafunc.lua
 -- |   - Two setup processes, 1) SND > Add script, name dfunc and another xafunc paste the code.
 -- |   - 2) SND > Add script name the same as before, add github url and save, can update through SND
+-- | 
+-- | Refresh Owners v7.35
+-- | Created by: https://github.com/xa-io
+-- | Last Updated: 2025-10-09 13:45
+-- |
+-- | ## Release Notes ##
+-- | v7.35 - Revamped codebase using new xafunc functions for better readability and maintainability
 -- └-----------------------------------------------------------------------------------------------------------------------
 
 -- DO NOT TOUCH THESE LINES BELOW
-    require("dfunc")
-    require("xafunc")
-    PandoraSetFeatureState("Auto-Fill Numeric Dialogs", false)
-    yield("/rotation Cancel")
+require("dfunc")
+require("xafunc")
+DisableARMultiXA()
+rsrXA("off")
 -- DO NOT TOUCH THESE LINES ABOVE
 
 -- ---------------------------------------
@@ -47,8 +53,6 @@ local franchise_owners = {
 -- -- Start of XA Relogger --
 -- --------------------------
 
-DisableARMultiXA()
-
 for i = 1, #franchise_owners do
     local who = franchise_owners[i][1]
     local current = GetCharacterName(true)  -- includes @World
@@ -57,7 +61,7 @@ for i = 1, #franchise_owners do
 
     -- Relog if we're not already on the target character
     if current ~= who then
-        yield("/ays relog " .. who)
+        ARRelogXA(who)
         SleepXA(2)
     else
         EchoXA("Already logged in as " .. who)
@@ -68,10 +72,13 @@ for i = 1, #franchise_owners do
     EnableTextAdvanceXA()
     RemoveSproutXA()
     return_to_homeXA()
+    WaitForLifestreamXA()
+    CharacterSafeWaitXA()
     return_to_fcXA()
+    WaitForLifestreamXA()
+    CharacterSafeWaitXA()
+    FreeCompanyCmdXA()
 end
-
-EchoXA("All characters processed. Relog-only run complete.")
 
 EnableARMultiXA()
 
