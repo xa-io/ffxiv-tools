@@ -21,6 +21,7 @@
 -- | Last Updated: 2025-10-09 13:45
 -- |
 -- | ## Release Notes ##
+-- | v1.4 - Added vbmarXA(), Updated GetSNDCoordsXA()
 -- | v1.3 - Added ARDiscardXA(), WaitForARToFinishXA(), ARRelogXA(), FreeCompanyCmdXA(), vbmaiXA(), bmraiXA(), adXA(),
 -- |        callbackXA(), SelectYesnoXA()
 -- | v1.2 - Added OpenArmouryChestXA(), TargetXA(targetname), FocusTargetXA(), EnableArtisanXA(), DisableArtisanXA(),
@@ -55,6 +56,7 @@
 -- | TargetXA(targetname)           -- Usage: TargetXA("Player'or NPC-name")
 -- | FocusTargetXA()                -- Usage: FocusTargetXA()
 -- | vbmaiXA(text)                  -- Usage: vbmaiXA("on")
+-- | vbmarXA()                      -- Usage: vbmarXA("disable")
 -- | bmraiXA(text)                  -- Usage: bmraiXA("on")
 -- | rsrXA(text)                    -- Usage: rsrXA("manual")
 -- | adXA(text)                     -- Usage: adXA("stop")
@@ -137,6 +139,7 @@
 -- |
 -- └---------------------------------------------------------------------------
 
+
 -- ------------------------
 -- Misc Things
 -- ------------------------
@@ -160,6 +163,10 @@ end
 
 function vbmaiXA(text) -- Usage: vbmaiXA("on")
     yield("/vbmai " .. tostring(text))
+end
+
+function vbmarXA()  -- Usage: vbmarXA("disable")
+    yield("/vbm ar " .. tostring(text))
 end
 
 function bmraiXA(text) -- Usage: bmraiXA("on")
@@ -305,9 +312,9 @@ function GetSNDCoordsXA()
     end
     local x, y, z = tostring(p.X), tostring(p.Y), tostring(p.Z)
 
-    EchoXA("VNAV: " .. x .. " " .. y .. " " .. z)
+    EchoXA("/vnav moveto " .. x .. " " .. y .. " " .. z)
     SleepXA(0.1)
-    EchoXA("MoveToXA: " .. x .. ", " .. y .. ", " .. z)
+    EchoXA("MoveToXA(" .. x .. ", " .. y .. ", " .. z .. ")")
 end
 
 function RemoveSproutXA()
