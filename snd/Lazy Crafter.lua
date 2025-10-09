@@ -165,6 +165,7 @@
     require("dfunc")
     require("xafunc")
     yield("/rotation Cancel")
+    EnableArtisanXA()
 -- DO NOT TOUCH THESE LINES ABOVE
 
 -- ---------------------------------------
@@ -349,19 +350,14 @@ local function MonitorJobLevel(target_level, next_step, pjob)
     
     EchoXA("Force stop crafting as we've reached level " .. target_level .. ".")
     
-    yield("/xldisableprofile Artisan") -- Stop the crafting
+    DisableArtisanXA() -- Stop the crafting
     SleepXA(5) -- Brief wait to let the profile stop
     
     while not GetCharacterCondition(1) do
-        yield("/callback Synthesis true -1") -- Cancel the current craft
-        SleepXA(1) -- Shorter wait to retry frequently
-        yield("/callback SynthesisSimple true -1") -- Cancel the current quick craft
-        SleepXA(5) -- Shorter wait to retry frequently
-        yield("/callback RecipeNote True -1") -- Close the crafting menu
-        SleepXA(5) -- Brief wait to ensure the menu closes
+        CloseCraftingWindowsXA()
     end
     
-    yield("/xlenableprofile Artisan")
+    EnableArtisanXA()
     SleepXA(5)
     
     next_step()
@@ -407,11 +403,11 @@ local function buy_missing_items(vendor_name, items, coords)
     if missing_items then
         move_to(coords)
         SleepXA(1)
-        yield("/send END")
+        ResetCameraXA()
         SleepXA(1)
-        yield("/target \"" .. vendor_name .. "\"")
+        TargetXA(vendor_name)
         SleepXA(1)
-        yield("/interact")
+        InteractXA()
         SleepXA(5)
 
         for _, item_data in pairs(items) do
@@ -454,7 +450,7 @@ local function LazyCrafterXA()
         EchoXA("Already in Limsa Lominsa Lower Decks. Checking Fire Shards...")
     else
         EchoXA("Not in Limsa Lominsa Lower Decks. Teleporting now.")
-        yield("/tp Limsa Lominsa Lower Decks")
+        yield("/li Limsa Lominsa Lower Decks")
         SleepXA(12)
         CharacterSafeWaitXA()
     end
@@ -581,7 +577,7 @@ local function LazyCrafterXA()
 
     if missing_items then
         EchoXA("Missing items detected before crafting, teleporting back to Limsa Lominsa.")
-        yield("/tp Limsa Lominsa Lower Decks")
+        yield("/li Limsa Lominsa Lower Decks")
         SleepXA(12)
         CharacterSafeWaitXA()
         if not all_items_in_stock(engerrand_items) then
@@ -623,16 +619,16 @@ local function LazyCrafterXA()
     move_to(coords)
 
     SleepXA(1)
-    yield("/send END")
+    ResetCameraXA()
     SleepXA(1)
-    yield("/target \"Randwulf\"")
+    TargetXA("Randwulf")
     SleepXA(1)
-    yield("/interact")
+    InteractXA()
     SleepXA(5)
     CharacterSafeWaitXA()
-    yield("/target \"Randwulf\"")
+    TargetXA("Randwulf")
     SleepXA(1)
-    yield("/interact")
+    InteractXA()
     SleepXA(5)
     CharacterSafeWaitXA()
 
@@ -640,18 +636,18 @@ local function LazyCrafterXA()
     move_to(coords)
 
     SleepXA(1)
-    yield("/send END")
+    ResetCameraXA()
     SleepXA(1)
-    yield("/target \"Brithael\"")
+    TargetXA("Brithael")
     SleepXA(1)
-    yield("/interact")
+    InteractXA()
     SleepXA(8)
     CharacterSafeWaitXA()
 
     coords = get_coordinates(mender_coords)
     move_to(coords)
 
-    yield("/send END")
+    ResetCameraXA()
     SleepXA(1)
 
     local function is_near_mender(stop_distance)
@@ -735,7 +731,7 @@ local function XALazyCrafter()
         LazyCrafterXA()
     end
     yield("/logout")
-    yield("/ays multi e")
+    EnableARMultiXA()
 end
 
 XALazyCrafter()
