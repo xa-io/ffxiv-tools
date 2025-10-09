@@ -141,7 +141,7 @@ function are_we_there_yet_jimmy()
     return woah_bruv
 end
 
-yield("/ays multi d")
+DisableARMultiXA()
 fat_tony = "Firstname Lastname" -- Placeholder, do not change
 
 local function distance(x1, y1, z1, x2, y2, z2)
@@ -193,15 +193,15 @@ local function shake_hands()
             mats_to_deliver = 0
         end
 
-    yield("/target "..fat_tony)
+    TargetXA(fat_tony)
     SleepXA(1.04)
     while string.len(GetTargetName()) == 0 do
-        yield("/target "..fat_tony)
+        TargetXA(fat_tony)
         SleepXA(1.05)
     end
 
     while distance(EntityPlayerPositionX(), EntityPlayerPositionY(), EntityPlayerPositionZ(), GetObjectRawXPos(fat_tony),GetObjectRawYPos(fat_tony),GetObjectRawZPos(fat_tony)) > 1.5 do
-        yield("/target \""..fat_tony.."\"")
+        TargetXA(fat_tony)
         SleepXA(1.06)
     end
 
@@ -209,14 +209,14 @@ local function shake_hands()
         if (GetGil() < (bagmans_take + 1)) and (tony_type == 420) then
             get_to_the_choppa = 1
         end
-        yield("/target "..fat_tony)
+        TargetXA(fat_tony)
 
         if bagman_type == 69 then
             snaccman = GetGil() - bagmans_take
             if snaccman < 0 then
                 snaccman = 0
             end
-            yield("/dropbox")
+            OpenDropboxItemTabXA()
             SleepXA(0.5)
             if snaccman > 0 then
                 DropboxSetItemQuantity(1,false,snaccman) -- Gil
@@ -375,15 +375,9 @@ local function shake_hands()
         end
     end
         SleepXA(0.99)
-        yield("/focustarget")
+        FocusTargetXA()
         DropboxStart()
-        SleepXA(0.57)
-        yield("/hold CONTROL")
-        SleepXA(0.07)
-        yield("/send I")
-        SleepXA(0.07)
-        yield("/release CONTROL")
-        SleepXA(0.07)
+        OpenArmouryChestXA()
         floo = DropboxIsBusy()
         while floo == true do
             floo = DropboxIsBusy()
@@ -427,13 +421,13 @@ for i=1,#franchise_owners do
 
     road_trip = 1
         yield("/li "..tonys_turf)
-        WaitForLifestream()
+        WaitForLifestreamXA()
         SleepXA(1.08)
         yield("/li "..tonys_turf)
-        WaitForLifestream()
+        WaitForLifestreamXA()
         SleepXA(1.09)
         yield("/li "..tonys_turf)
-        WaitForLifestream()
+        WaitForLifestreamXA()
         SleepXA(1.10)
         CharacterSafeWaitXA()
             EchoXA("Processing Bagman "..i.."/"..#franchise_owners)
@@ -441,7 +435,7 @@ for i=1,#franchise_owners do
     if tony_type == 420 then
         EchoXA(fat_tony.." is meeting us in the alleyways.. watch your back")
         while tony_zoneID ~= Svc.ClientState.TerritoryType do
-            yield("/tp "..tonys_spot)
+            yield("/li "..tonys_spot)
             SleepXA(4)
             CharacterSafeWaitXA()
         end
@@ -461,24 +455,24 @@ zungazunga()
         end
 
         if franchise_owners[i][2] == 1 then
-            yield("/li")
+            return_to_homeworldXA()
             EchoXA("See ya "..fat_tony..", a pleasure.")
-            WaitForLifestream()
+            WaitForLifestreamXA()
             SleepXA(5.03)
             CharacterSafeWaitXA()
-            WaitForLifestream()
+            WaitForLifestreamXA()
 
                 if franchise_owners[i][3] == 69 then
                     SleepXA(5.04)
                     return_to_fcXA()
                     CharacterSafeWaitXA()
-                    WaitForLifestream()
+                    WaitForLifestreamXA()
                 end
         end
     end
 end
 
-yield("/ays multi e")
+EnableARMultiXA()
 
 -- ----------------------
 -- -- End of XA Bagman --
