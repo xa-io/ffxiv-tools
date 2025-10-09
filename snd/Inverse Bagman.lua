@@ -7,45 +7,47 @@
 -- |   ██╔╝ ██╗██║  ██║    ██║██║ ╚████║ ╚████╔╝ ███████╗██║  ██║███████║███████╗          
 -- |   ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝╚═╝  ╚═══╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝          
 -- |                                                                                     
--- |   ██████╗  █████╗  ██████╗ ███╗   ███╗ █████╗ ███╗   ██╗    ██╗   ██╗███████╗ ██████╗ 
--- |   ██╔══██╗██╔══██╗██╔════╝ ████╗ ████║██╔══██╗████╗  ██║    ██║   ██║╚════██║ ╚════██╗
--- |   ██████╔╝███████║██║  ███╗██╔████╔██║███████║██╔██╗ ██║    ██║   ██║    ██╔╝  █████╔╝
--- |   ██╔══██╗██╔══██║██║   ██║██║╚██╔╝██║██╔══██║██║╚██╗██║    ╚██╗ ██╔╝   ██╔╝   ╚═══██╗
--- |   ██████╔╝██║  ██║╚██████╔╝██║ ╚═╝ ██║██║  ██║██║ ╚████║     ╚████╔╝    ██║██╗██████╔╝
--- |   ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝      ╚═══╝     ╚═╝╚═╝╚═════╝ 
+-- |   ██████╗  █████╗  ██████╗ ███╗   ███╗ █████╗ ███╗   ██╗
+-- |   ██╔══██╗██╔══██╗██╔════╝ ████╗ ████║██╔══██╗████╗  ██║
+-- |   ██████╔╝███████║██║  ███╗██╔████╔██║███████║██╔██╗ ██║
+-- |   ██╔══██╗██╔══██║██║   ██║██║╚██╔╝██║██╔══██║██║╚██╗██║
+-- |   ██████╔╝██║  ██║╚██████╔╝██║ ╚═╝ ██║██║  ██║██║ ╚████║
+-- |   ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
 -- | 
--- |  Automated inventory management system for FFXIV submarine operations.
+-- | Automated inventory management system for FFXIV submarine operations.
 -- | 
--- |  This script cycles through multiple characters to check their inventory status for submarine-related
--- |  materials and resources. It automatically logs into each character, teleports to Tony's location,
--- |  and reports needed items for efficient resource management across your submarine fleet.
+-- | This script cycles through multiple characters to check their inventory status for submarine-related
+-- | materials and resources. It automatically logs into each character, teleports to Tony's location,
+-- | and reports needed items for efficient resource management across your submarine fleet.
 -- | 
--- |  Core Features:
--- |  • Multi-character inventory scanning with automatic login rotation
--- |  • Submarine resource tracking (fuel, repair materials, parts, gil)
--- |  • Automated movement to Tony's location in Summerford Farms
--- |  • Configurable minimum thresholds for all tracked resources
--- |  • Real-time inventory status reporting via in-game chat
--- |  • Safe character switching with proper wait states and error handling
--- |  • Customizable item requirements for different submarine operations
--- |  • Automatic return to FC house after inventory checks
--- | 
--- |  Important Note: Requires SomethingNeedDoing plugin and proper character configuration. Ensure all
--- |  characters in the franchise_owners list have access to the required zones and permissions.
--- | 
+-- | Core Features:
+-- | • Multi-character inventory scanning with automatic login rotation
+-- | • Submarine resource tracking (fuel, repair materials, parts, gil)
+-- | • Automated movement to Tony's location in Summerford Farms
+-- | • Configurable minimum thresholds for all tracked resources
+-- | • Real-time inventory status reporting via in-game chat
+-- | • Safe character switching with proper wait states and error handling
+-- | • Customizable item requirements for different submarine operations
+-- | • Automatic return to FC house after inventory checks
+-- |
+-- | Important Note: Ensure all characters in the franchise_owners list have access to the required zones.
+-- | Check Lifestream settings as this will use /li auto, so many sure you have this setup correctly.
+-- |
 -- | Requires:
 -- |  dfunc; can be found here: https://github.com/McVaxius/dhogsbreakfeast/blob/main/dfunc.lua
 -- |  xafunc; can be found here: https://github.com/xa-io/ffxiv-tools/blob/main/snd/xafunc.lua
 -- |   - Two setup processes, 1) SND > Add script, name dfunc and another xafunc paste the code.
 -- |   - 2) SND > Add script name the same as before, add github url and save, can update through SND
--- | 
--- |  Lifestream pathing to each FC door so on your next multi run it won't be stuck
--- |  Dropbox box auto accepting trades
--- | 
--- |  XA Inverse Bagman v7.3
--- |  Automated inventory management system for FFXIV submarine operations
--- |  Created by: https://github.com/xa-io
--- |  Last Updated: 2025-08-28 09:48:06
+-- |
+-- | *** CHECK DROPBOX!! ***
+-- | You'll want to have auto-accepting on the toons you're inversing so there's no interaction needed.
+-- |
+-- | XA Inverse Bagman v7.35
+-- | Created by: https://github.com/xa-io
+-- | Last Updated: 2025-10-09 13:45
+-- |
+-- | ## Release Notes ##
+-- | v7.35 - Revamped codebase using new xafunc functions for better readability and maintainability
 -- └-----------------------------------------------------------------------------------------------------------------------
 
 -- ---------------------------------------
@@ -53,9 +55,10 @@
 -- ---------------------------------------
 
 -- DO NOT TOUCH THESE LINES BELOW
-    require("dfunc")
-    require("xafunc")
-    yield("/rotation Cancel")
+require("dfunc")
+require("xafunc")
+DisableARMultiXA()
+rsrXA("off")
 -- DO NOT TOUCH THESE LINES ABOVE
 
 -- Config Parameters
@@ -74,6 +77,7 @@ local min_shark_bridge = 0
 local min_unkiu_bow = 0
 local min_coelacanth_bridge = 0
 local min_dive_credit = 0
+local min_fire_shard = 0
 
 -- Item IDs
 local gil_id = 1 -- Gil
@@ -86,6 +90,7 @@ local shark_bridge_id = 21793 -- Shark-class Bridge
 local unkiu_bow_id = 21796   -- Unkiu-class Bow
 local coelacanth_bridge_id = 23904 -- Coelacanth-class Bridge
 local dive_credit_id = 22317 -- Dive Credit
+local fire_shard_id =  2 -- Fire Shard
 
 -- Tony's coordinates (set this manually so the alt runs to a set location)
 local tony_x = 233.81164550781
@@ -123,6 +128,7 @@ local function check_items()
     local gil_needed = min_gil_keep - GetGil()
     local fuel_needed = min_fuel_keep - GetItemCount(fuel_id)
     local mats_needed = min_repair_mats_keep - GetItemCount(kits_id)
+    local fire_shard_needed = min_fire_shard - GetItemCount(fire_shard_id)
     local items_needed = false
     local has_items_needed = false
 
@@ -143,6 +149,11 @@ local function check_items()
     end
     if mats_needed > 0 then
         EchoXA("Kits: " .. mats_needed)
+        items_needed = true
+        has_items_needed = true
+    end
+    if fire_shard_needed > 0 then
+        EchoXA("Fire Shards: " .. fire_shard_needed)
         items_needed = true
         has_items_needed = true
     end
@@ -178,7 +189,7 @@ end
 -- Function to move to Tony's location, checking both world and zone
 local function handle_tony_movement()
     -- Check if we are on the correct world
-    yield("/li " .. TonyTurf)
+    LifestreamCmdXA(TonyTurf)
     WaitForLifestreamXA()
     SleepXA(1.01)
     WaitForLifestreamXA()
@@ -194,8 +205,8 @@ local function handle_tony_movement()
         approach_tony()
     else
         EchoXA("Not in Summerford Farms. Teleporting now.")
-        yield("/li Summerford Farms")
-        SleepXA(12)
+        LifestreamCmdXA("Summerford Farms")
+        SleepXA(6)
         CharacterSafeWaitXA()
         approach_tony()
     end
@@ -210,12 +221,12 @@ end
 -- --------------------------------
 
 -- Function to cycle through characters and run inventory checks
-local function cycle_characters()
+local function InverseBagmanXA()
     for _, owner in ipairs(franchise_owners) do
         -- Relog to the character in franchise_owners
         local character = owner[1]
         EchoXA("Logging in as " .. character)
-        yield("/ays relog " .. character)
+        ARRelogXA(character)
         SleepXA(5)
         CharacterSafeWaitXA()
         EnableTextAdvanceXA()
@@ -231,12 +242,16 @@ local function cycle_characters()
         end
 
         -- Return to the home location after checks
-        return_to_fcXA()
+        return_to_autoXA()
+        WaitForLifestreamXA()
+        CharacterSafeWaitXA()
+        FreeCompanyCmdXA()
     end
 end
 
--- Execute the cycle_characters function to run the sequence
-cycle_characters()
+InverseBagmanXA()
+
+EnableARMultiXA()
 
 -- ------------------------------
 -- -- End of XA Inverse Bagman --
