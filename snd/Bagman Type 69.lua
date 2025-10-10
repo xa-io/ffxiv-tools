@@ -38,7 +38,7 @@
 -- | 
 -- | XA Bagman Type 69 v7.35
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-09 13:45
+-- | Last Updated: 2025-10-10 00:00
 -- | 
 -- | ## Release Notes ##
 -- | v7.35 - Revamped codebase using new xafunc functions for better readability and maintainability
@@ -385,8 +385,6 @@ for i=1,#franchise_owners do
 
     if GetCharacterName(true) ~= franchise_owners[i][1] then
         ARRelogXA(franchise_owners[i][1])
-        SleepXA(2)
-        CharacterSafeWaitXA()
         EnableTextAdvanceXA()
         RemoveSproutXA()
     end
@@ -403,15 +401,12 @@ for i=1,#franchise_owners do
 
     road_trip = 1
         LifestreamCmdXA(tonys_turf)
-        LifestreamCmdXA(tonys_turf)
             EchoXA("Processing Bagman "..i.."/"..#franchise_owners)
 
     if tony_type == 420 then
         EchoXA(fat_tony.." is meeting us in the alleyways.. watch your back")
         while tony_zoneID ~= Svc.ClientState.TerritoryType do
             LifestreamCmdXA(tonys_spot)
-            SleepXA(4)
-            CharacterSafeWaitXA()
         end
     end
 
@@ -429,18 +424,12 @@ zungazunga()
         end
 
         if franchise_owners[i][2] == 1 then
-            return_to_homeworldXA()
             EchoXA("See ya "..fat_tony..", a pleasure.")
-            WaitForLifestreamXA()
-            SleepXA(5.03)
-            CharacterSafeWaitXA()
-            WaitForLifestreamXA()
+            return_to_homeworldXA()
 
                 if franchise_owners[i][3] == 69 then
                     SleepXA(5.04)
                     return_to_fcXA()
-                    WaitForLifestreamXA()
-                    CharacterSafeWaitXA()
                     FreeCompanyCmdXA()
                 end
         end
