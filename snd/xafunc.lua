@@ -21,7 +21,7 @@
 -- | Last Updated: 2025-10-09 23:40
 -- |
 -- | ## Release Notes ##
--- | v1.6 - Added StartArtisanListXA(list_id)
+-- | v1.6 - Added StartArtisanListXA(list_id), vnavXA()
 -- | v1.5 - Improved ARRelogXA() and LifestreamCmdXA() to include more WaitForLifestreamXA()/CharacterSafeWaitXA()
 -- |        so they're not needed after each command is used within a script.
 -- | v1.4 - Added vbmarXA(), Updated GetSNDCoordsXA()
@@ -63,6 +63,7 @@
 -- | bmraiXA(text)                  -- Usage: bmraiXA("on")
 -- | rsrXA(text)                    -- Usage: rsrXA("manual")
 -- | adXA(text)                     -- Usage: adXA("stop")
+-- | vnavXA(text)                   -- Usage: vnavXA("stop")
 -- | callbackXA(text)               -- Usage: callbackXA("SelectYesno true 0")
 -- | SelectYesnoXA()                -- Selects Yes if there is a popup
 -- | 
@@ -184,7 +185,7 @@ function adXA(text) -- Usage: adXA("stop")
     yield("/ad " .. tostring(text))
 end
 
-function vnavXA(text) -- Usage: adXA("stop")
+function vnavXA(text) -- Usage: vnavXA("stop")
     yield("/vnav " .. tostring(text))
 end
 
