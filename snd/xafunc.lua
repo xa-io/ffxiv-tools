@@ -195,7 +195,7 @@ end
 
 function SelectYesnoXA()
     SleepXA(1.5)
-    if IsAddonReady("SelectYesno") then yield("/callback SelectYesno true 0") end
+    if IsAddonReady("SelectYesno") then callbackXA("SelectYesno true 0") end
 end
 
 function DidWeLoadcorrectlyXA()
@@ -314,6 +314,7 @@ function EnableTextAdvanceXA()
     yield("/at y")
     EchoXA("Enabling Text Advance...")
 end
+
 function DisableTextAdvanceXA()
     yield("/at n")
     EchoXA("Disabling Text Advance...")
@@ -682,6 +683,7 @@ end
 -- Setup pathing to door, and have Lifestream settings to Enter House
 function return_to_fcXA()
 	yield("/li fc")
+	SleepXA(1)
 	WaitForLifestreamXA()
 	SleepXA(2.01)
     CharacterSafeWaitXA()
@@ -690,6 +692,7 @@ end
 
 function return_to_homeXA()
 	yield("/li home")
+	SleepXA(1)
 	WaitForLifestreamXA()
 	SleepXA(2.02)
     CharacterSafeWaitXA()
@@ -698,6 +701,7 @@ end
 
 function return_to_autoXA()
 	yield("/li auto")
+	SleepXA(1)
 	WaitForLifestreamXA()
 	SleepXA(2.02)
     CharacterSafeWaitXA()
@@ -706,6 +710,7 @@ end
 
 function return_to_homeworldXA()
 	yield("/li")
+	SleepXA(1)
 	WaitForLifestreamXA()
 	SleepXA(2.02)
     CharacterSafeWaitXA()
@@ -830,7 +835,7 @@ function EquipRecommendedGearXA()
     until IsAddonVisible("Character")
     repeat
         if IsAddonReady("Character") then
-            yield("/callback Character true 12")
+            callbackXA("Character true 12")
         end
         SleepXA(0.1)
     until IsAddonVisible("RecommendEquip")
@@ -840,7 +845,7 @@ function EquipRecommendedGearXA()
     until not IsAddonVisible("Character")
     repeat
         if IsAddonReady("RecommendEquip") then
-            yield("/callback RecommendEquip true 0")
+            callbackXA("RecommendEquip true 0")
         end
         SleepXA(0.1)
     until not IsAddonVisible("RecommendEquip")
@@ -866,11 +871,11 @@ function StartArtisanListXA(list_id)
 end
 
 function CloseCraftingWindowsXA()
-    yield("/callback Synthesis true -1") -- Cancel the current craft
+    callbackXA("Synthesis true -1") -- Cancel the current craft
     SleepXA(1) -- Shorter wait to retry frequently
-    yield("/callback SynthesisSimple true -1") -- Cancel the current quick craft
+    callbackXA("SynthesisSimple true -1") -- Cancel the current quick craft
     SleepXA(5) -- Shorter wait to retry frequently
-    yield("/callback RecipeNote True -1") -- Close the crafting menu
+    callbackXA("RecipeNote True -1") -- Close the crafting menu
     SleepXA(5) -- Brief wait to ensure the menu closes
 end
 
@@ -933,9 +938,9 @@ end
 
 function EnterHousingWardFromMenu()
     SleepXA(3)
-    yield("/callback SelectString true 0")
+    callbackXA("SelectString true 0")
     SleepXA(2)
-    yield("/callback HousingSelectBlock true 0")
+    callbackXA("HousingSelectBlock true 0")
 end
 
 function SetNewbieCamera()
@@ -993,9 +998,9 @@ function FreshLimsaToSummer()
     -- Complete MSQ Quest - Coming to Limsa Lominsa
     TargetXA("Baderon")
     InteractXA()
-    -- yield("/callback SelectIconString true 1") -- Drowning Wench
+    -- callbackXA("SelectIconString true 1") -- Drowning Wench
     -- SleepXA(2)
-    -- yield("/callback SelectYesno true 0") -- Proceed
+    -- callbackXA("SelectYesno true 0") -- Proceed
     CharacterSafeWaitXA()
 
     -- Accept MSQ Quest - Close to Home
@@ -1018,9 +1023,9 @@ function FreshLimsaToSummer()
     MoveToXA(6.0743732452393, 39.866470336914, 12.235060691833)
     TargetXA("Skaenrael")
     InteractXA()
-    yield("/callback SelectIconString true 1") -- Bulwark Hall
+    callbackXA("SelectIconString true 1") -- Bulwark Hall
     SleepXA(2)
-    yield("/callback SelectYesno true 0") -- Proceed
+    callbackXA("SelectYesno true 0") -- Proceed
     CharacterSafeWaitXA()
 
     -- Run to Aetheryte and attune
