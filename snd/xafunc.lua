@@ -16,11 +16,12 @@
 -- | Important Note: This library requires dfunc.lua to be loaded first in your scripts. Many functions build upon
 -- | dfunc's base functionality. Always use require("dfunc") and require("xafunc") in your automation scripts.
 -- |
--- | XA Func Library v1.5
+-- | XA Func Library v1.6
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-09 23:15
+-- | Last Updated: 2025-10-09 23:40
 -- |
 -- | ## Release Notes ##
+-- | v1.6 - Added StartArtisanListXA(list_id)
 -- | v1.5 - Improved ARRelogXA() and LifestreamCmdXA() to include more WaitForLifestreamXA()/CharacterSafeWaitXA()
 -- |        so they're not needed after each command is used within a script.
 -- | v1.4 - Added vbmarXA(), Updated GetSNDCoordsXA()
@@ -126,6 +127,7 @@
 -- | EquipRecommendedGearCmdXA()    -- Equip recommended gear via SimpleTweaks /equiprecommended command
 -- | EnableArtisanXA()              -- Enable plugin collections named Artisan
 -- | DisableArtisanXA()             -- Disable plugin collections named Artisan
+-- | StartArtisanListXA(list_id)    -- Start's processing an Artisan List - Usage: StartArtisanListXA(1234)
 -- | CloseCraftingWindowsXA()       -- Close all crafting windows
 -- | MonitorJobLevelArtisanXA(lvl)  -- Monitor job level and stop Artisan when reached - Usage: MonitorJobLevelArtisanXA(25)
 -- | 
@@ -180,6 +182,10 @@ end
 
 function adXA(text) -- Usage: adXA("stop")
     yield("/ad " .. tostring(text))
+end
+
+function vnavXA(text) -- Usage: adXA("stop")
+    yield("/vnav " .. tostring(text))
 end
 
 function callbackXA(text) -- Usage: callbackXA("SelectYesno true 0")
@@ -262,21 +268,9 @@ function ARRelogXA(name)
     return true
 end
 
---[[
-
-    EchoXA("Teleporting to " .. dest)
-    yield("/li " .. dest)
-    WaitForLifestreamXA()
-    SleepXA(1)
-
-]]
-
-
-
-
-
 function LogoutXA()
     yield("/logout")
+    SleepXA(1)
     SelectYesnoXA()
     SleepXA(1)
 end
@@ -864,6 +858,10 @@ end
 function DisableArtisanXA()
     yield("/xldisableprofile Artisan")
     EchoXA("Disabled Artisan")
+end
+
+function StartArtisanListXA(list_id)
+    yield("/artisan lists " .. tostring(list_id) .. " start")
 end
 
 function CloseCraftingWindowsXA()
