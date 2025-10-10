@@ -126,7 +126,7 @@
 -- | DisableArtisanXA()             -- Disable plugin collections named Artisan
 -- | CloseCraftingWindowsXA()       -- Close all crafting windows
 -- | MonitorJobLevelArtisanXA(lvl)  -- Monitor job level and stop Artisan when reached - Usage: MonitorJobLevelArtisanXA(25)
--- |
+-- | 
 -- | Braindead Functions
 -- |---------------------------------------------------------------------------
 -- | EnterHousingWardFromMenu()     -- Navigate housing ward selection menu
@@ -243,6 +243,8 @@ function ARRelogXA(name)
     end
 
     yield("/ays relog " .. who)
+    WaitForARToFinishXA()
+    SleepXA(2)
     return true
 end
 
