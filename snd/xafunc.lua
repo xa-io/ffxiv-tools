@@ -16,11 +16,13 @@
 -- | Important Note: This library requires dfunc.lua to be loaded first in your scripts. Many functions build upon
 -- | dfunc's base functionality. Always use require("dfunc") and require("xafunc") in your automation scripts.
 -- |
--- | XA Func Library v1.3
+-- | XA Func Library v1.5
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-09 13:45
+-- | Last Updated: 2025-10-09 23:15
 -- |
 -- | ## Release Notes ##
+-- | v1.5 - Improved ARRelogXA() and LifestreamCmdXA() to include more WaitForLifestreamXA()/CharacterSafeWaitXA()
+-- |        so they're not needed after each command is used within a script.
 -- | v1.4 - Added vbmarXA(), Updated GetSNDCoordsXA()
 -- | v1.3 - Added ARDiscardXA(), WaitForARToFinishXA(), ARRelogXA(), FreeCompanyCmdXA(), vbmaiXA(), bmraiXA(), adXA(),
 -- |        callbackXA(), SelectYesnoXA()
@@ -139,7 +141,6 @@
 -- |
 -- └---------------------------------------------------------------------------
 
-
 -- ------------------------
 -- Misc Things
 -- ------------------------
@@ -242,11 +243,37 @@ function ARRelogXA(name)
         return false
     end
 
+    EchoXA("Logging into " .. who)
     yield("/ays relog " .. who)
+    SleepXA(1)
     WaitForARToFinishXA()
-    SleepXA(2)
+    EchoXA("Sending CharacterSafeWaitXA 1/4")
+    CharacterSafeWaitXA()
+    SleepXA(1.01)
+    EchoXA("Sending CharacterSafeWaitXA 2/4")
+    CharacterSafeWaitXA()
+    SleepXA(1.02)
+    EchoXA("Sending CharacterSafeWaitXA 3/4")
+    CharacterSafeWaitXA()
+    SleepXA(1.03)
+    EchoXA("Sending CharacterSafeWaitXA 4/4")
+    CharacterSafeWaitXA()
+    SleepXA(1.04)
     return true
 end
+
+--[[
+
+    EchoXA("Teleporting to " .. dest)
+    yield("/li " .. dest)
+    WaitForLifestreamXA()
+    SleepXA(1)
+
+]]
+
+
+
+
 
 function LogoutXA()
     yield("/logout")
@@ -697,17 +724,25 @@ function LifestreamCmdXA(name)
         return false
     end
 
+    EchoXA("Sending CharacterSafeWaitXA 1/5")
+    CharacterSafeWaitXA()
+    SleepXA(1.01)
+    EchoXA("Teleporting to " .. dest)
     yield("/li " .. dest)
+    SleepXA(1)
     WaitForLifestreamXA()
+    EchoXA("Sending CharacterSafeWaitXA 2/5")
+    CharacterSafeWaitXA()
     SleepXA(1.02)
+    EchoXA("Sending CharacterSafeWaitXA 3/5")
     CharacterSafeWaitXA()
     SleepXA(1.03)
+    EchoXA("Sending CharacterSafeWaitXA 4/5")
     CharacterSafeWaitXA()
     SleepXA(1.04)
+    EchoXA("Sending CharacterSafeWaitXA 5/5")
     CharacterSafeWaitXA()
     SleepXA(1.05)
-    CharacterSafeWaitXA()
-    SleepXA(1.06)
     return true
 end
 
