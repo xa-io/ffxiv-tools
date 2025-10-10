@@ -34,7 +34,7 @@
 -- | 
 -- | XA Lazy Crafter v7.35
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-09 13:45
+-- | Last Updated: 2025-10-10 00:00
 -- | 
 -- | ## Release Notes ##
 -- | v7.35 - Revamped codebase using new xafunc functions for better readability and maintainability
@@ -455,8 +455,6 @@ local function LazyCrafterXA()
     else
         EchoXA("Not in Limsa Lominsa Lower Decks. Teleporting now.")
         LifestreamCmdXA("Limsa Lominsa Lower Decks")
-        SleepXA(12)
-        CharacterSafeWaitXA()
     end
 
     local function check_needed_items()
@@ -549,8 +547,6 @@ local function LazyCrafterXA()
     move_to(coords)
 
     LifestreamCmdXA("Aftcastle")
-    SleepXA(8)
-    CharacterSafeWaitXA()
 
     if not all_items_in_stock(smydhaemr_items) then
         coords = get_coordinates(smydhaemr_coords)
@@ -582,8 +578,7 @@ local function LazyCrafterXA()
     if missing_items then
         EchoXA("Missing items detected before crafting, teleporting back to Limsa Lominsa.")
         LifestreamCmdXA("Limsa Lominsa Lower Decks")
-        SleepXA(12)
-        CharacterSafeWaitXA()
+        
         if not all_items_in_stock(engerrand_items) then
             coords = get_coordinates(engerrand_coords)
             move_to(coords)
@@ -712,6 +707,7 @@ local function LazyCrafterXA()
             yield("/ays discard")
             move_to(coords)
             while AutoRetainerIsBusy() do
+
                 SleepXA(1)
             end
         end)
@@ -724,8 +720,6 @@ local function XALazyCrafter()
         local character = owner[1]
         EchoXA("Logging in as " .. character)
         ARRelogXA(character)
-        SleepXA(5)
-        CharacterSafeWaitXA()
         LazyCrafterXA()
     end
     LogoutXA()
