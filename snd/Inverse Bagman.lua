@@ -44,7 +44,7 @@
 -- |
 -- | XA Inverse Bagman v7.35
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-09 13:45
+-- | Last Updated: 2025-10- 00:00
 -- |
 -- | ## Release Notes ##
 -- | v7.35 - Revamped codebase using new xafunc functions for better readability and maintainability
@@ -190,13 +190,6 @@ end
 local function handle_tony_movement()
     -- Check if we are on the correct world
     LifestreamCmdXA(TonyTurf)
-    WaitForLifestreamXA()
-    SleepXA(1.01)
-    WaitForLifestreamXA()
-    SleepXA(1.02)
-    WaitForLifestreamXA()
-    SleepXA(1.03)
-    CharacterSafeWaitXA()
     
     -- Proceed with zone check
     EchoXA("Starting the process: Check if already in Summerford Farms...")
@@ -206,8 +199,6 @@ local function handle_tony_movement()
     else
         EchoXA("Not in Summerford Farms. Teleporting now.")
         LifestreamCmdXA("Summerford Farms")
-        SleepXA(6)
-        CharacterSafeWaitXA()
         approach_tony()
     end
 end
@@ -227,11 +218,8 @@ local function InverseBagmanXA()
         local character = owner[1]
         EchoXA("Logging in as " .. character)
         ARRelogXA(character)
-        SleepXA(5)
-        CharacterSafeWaitXA()
         EnableTextAdvanceXA()
         RemoveSproutXA()
-        IsPlayerAvailableXA()
         handle_tony_movement()
         local items_status = check_items()
 
@@ -243,8 +231,6 @@ local function InverseBagmanXA()
 
         -- Return to the home location after checks
         return_to_autoXA()
-        WaitForLifestreamXA()
-        CharacterSafeWaitXA()
         FreeCompanyCmdXA()
     end
 end
