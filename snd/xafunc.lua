@@ -431,7 +431,6 @@ function GetWorldNameXAA()
     EchoXA("World: " .. tostring(name) .. " [" .. tostring(id or "?") .. "]")
     return name, id
 end
-GetWorldNameXAA()
 
 function GetWorldNameXA()
     local id = (Player and Player.Entity and Player.Entity.CurrentWorld) or nil
@@ -871,7 +870,7 @@ function EquipRecommendedGearXA()
 end
 
 function EquipRecommendedGearCmdXA()
-    CharacterSafeWaitXA()
+    
     yield("/tweaks enable RecommendEquipCommand")
     SleepXA(1)
     yield("/equiprecommended")
