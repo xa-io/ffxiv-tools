@@ -16,11 +16,13 @@
 -- | Important Note: This library requires dfunc.lua to be loaded first in your scripts. Many functions build upon
 -- | dfunc's base functionality. Always use require("dfunc") and require("xafunc") in your automation scripts.
 -- |
--- | XA Func Library v1.6
+-- | XA Func Library v1.7
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-10 00:25
+-- | Last Updated: 2025-10-11 11:25
 -- |
 -- | ## Release Notes ##
+-- | v1.7 - Improved OpenArmouryChestXA() to use slashcommand instead of CTRL + I, Removed CharacterSafeWaitXA() from
+-- |        being used within the InteractXA() function as there are menu's that will appear in some cases.
 -- | v1.6 - Added StartArtisanListXA(list_id), vnavXA()
 -- | v1.5 - Improved ARRelogXA() and LifestreamCmdXA() to include more WaitForLifestreamXA()/CharacterSafeWaitXA()
 -- |        so they're not needed after each command is used within a script.
@@ -233,7 +235,7 @@ function WaitForLifestreamXA()
     EchoXA("Waiting on lifestream")
 	while IPC.Lifestream.IsBusy() do
 		--DEBUG
-		--yield("/echo Waiting on lifestream -> "..sekonds)
+		-- EchoXA("Waiting on lifestream -> "..sekonds)
 		xakonds = xakonds + 1
 		SleepXA(1)
 	end
@@ -409,6 +411,28 @@ function GetZoneNameXA()
     return name, id
 end
 
+function GetWorldNameXAA()
+    local id = (Svc and Svc.ClientState and Svc.ClientState.World) or nil
+    local name
+
+    if Excel and id then
+        local row = Excel.GetRow("World", id)
+        if row then
+            -- check with dot, call with colon
+            local place = (row.GetProperty and row:GetProperty("Name")) or nil
+            name = place and (place.Name or place.Singular)
+            if name and type(name) ~= "string" and name.ToString then
+                name = name:ToString()
+            end
+        end
+    end
+
+    if not name or name == "" then name = tostring(id or "?") end
+    EchoXA("World: " .. tostring(name) .. " [" .. tostring(id or "?") .. "]")
+    return name, id
+end
+GetWorldNameXAA()
+
 function GetWorldNameXA()
     local id = (Player and Player.Entity and Player.Entity.CurrentWorld) or nil
     local name = (homeworld_lookup and id and homeworld_lookup[id])
@@ -484,11 +508,7 @@ function BTBDisbandXA()
 end
 
 function OpenArmouryChestXA()
-    yield("/hold CONTROL")
-    SleepXA(0.07)
-    yield("/send I")
-    SleepXA(0.07)
-    yield("/release CONTROL")
+    yield("/armourychest")
     SleepXA(0.07)
 end
 
@@ -819,7 +839,6 @@ function InteractXA()
     SleepXA(0.5)
     yield("/interact")
     SleepXA(5)
-    CharacterSafeWaitXA()
 end
 
 function ResetCameraXA()
@@ -852,6 +871,9 @@ function EquipRecommendedGearXA()
 end
 
 function EquipRecommendedGearCmdXA()
+    CharacterSafeWaitXA()
+    yield("/tweaks enable RecommendEquipCommand")
+    SleepXA(1)
     yield("/equiprecommended")
     SleepXA(2)
 end
