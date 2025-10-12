@@ -18,7 +18,7 @@
 -- |
 -- | XA Func Library v1.8
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-11 11:25
+-- | Last Updated: 2025-10-12 14:00
 -- |
 -- | ## Release Notes ##
 -- | v1.8 - Improved OpenDropboxXA() as Limiana has added [/dropbox OpenTradeTab] to ensure we're on the item tab
