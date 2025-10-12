@@ -105,7 +105,7 @@
 -- | BTBInviteXA()                  -- Send out BardToolbox invite
 -- | BTBDisbandXA()                 -- Send out BardToolbox disband and /leave to double check
 -- | OpenArmouryChestXA()           -- Opens Armoury Chest
--- | OpenDropboxXA()                -- Opens Dropbox
+-- | OpenDropboxXA()                -- Opens Dropbox, then opens Item Trade Queue tab
 -- | 
 -- | Movement Commands
 -- |---------------------------------------------------------------------------
