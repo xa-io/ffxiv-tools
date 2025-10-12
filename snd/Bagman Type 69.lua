@@ -31,16 +31,14 @@
 -- |   - Two setup processes, 1) SND > Add script, name dfunc and another xafunc paste the code.
 -- |   - 2) SND > Add script name the same as before, add github url and save, can update through SND
 -- | 
--- | *** CHECK DROPBOX!! ***
--- | If you do not have Dropbox open, and on the Items tab, nothing will work!!
--- | 
 -- | It is to be assumed that you have read the original bagman notes and understand how to run things from this point on.
 -- | 
--- | XA Bagman Type 69 v7.35
+-- | XA Bagman Type 69 v7.35.1
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-10 00:00
+-- | Last Updated: 2025-10-12 14:00
 -- | 
 -- | ## Release Notes ##
+-- | v7.35.1 - No longer need to worry about dropbox being open, OpenDropboxXA() has been improved
 -- | v7.35 - Revamped codebase using new xafunc functions for better readability and maintainability
 -- | v7.3.1 - Fixed CharacterSafeWait/PlayerAvailable false positives with new functions
 -- | v7.3 - Initial release with integrated minimum fuel and repair materials keep functionality
