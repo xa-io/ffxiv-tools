@@ -16,11 +16,12 @@
 -- | Important Note: This library requires dfunc.lua to be loaded first in your scripts. Many functions build upon
 -- | dfunc's base functionality. Always use require("dfunc") and require("xafunc") in your automation scripts.
 -- |
--- | XA Func Library v1.7
+-- | XA Func Library v1.8
 -- | Created by: https://github.com/xa-io
 -- | Last Updated: 2025-10-11 11:25
 -- |
 -- | ## Release Notes ##
+-- | v1.8 - Improved OpenDropboxXA() as Limiana has added [/dropbox OpenTradeTab] to ensure we're on the item tab
 -- | v1.7 - Improved OpenArmouryChestXA() to use slashcommand instead of CTRL + I, Removed CharacterSafeWaitXA() from
 -- |        being used within the InteractXA() function as there are menu's that will appear in some cases.
 -- | v1.6 - Added StartArtisanListXA(list_id), vnavXA()
@@ -513,6 +514,8 @@ end
 
 function OpenDropboxXA()
     yield("/dropbox")
+    SleepXA(0.5)
+    yield("/dropbox OpenTradeTab")
     SleepXA(0.5)
 end
 
