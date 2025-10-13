@@ -403,11 +403,13 @@ def write_excel(char_summaries, excel_output_path):
             "#3",
             "Lvl #4",
             "#4",
-            "Overseer Name Formatting",
-            "SND Name Formatting",
             "Tanks",
             "Kits",
-            "Treasure Value"
+            "Treasure Value",
+            "Plain Name",
+            "List Formatting",
+            "SND Formatting",
+            "Bagman Formatting"
         ]
         for col_idx, head in enumerate(headers):
             worksheet.write(0, col_idx, head, header_format)
@@ -441,8 +443,10 @@ def write_excel(char_summaries, excel_output_path):
             kits = summary.get("kits", 0)
             treasure_value = summary.get("treasure_value", 0)
 
-            overseer_value = f"\"{char_name}@{world}\","
-            snd_value = f"{{\"{char_name}@{world}\"}},"
+            plain_nameworld = f"{char_name}@{world}"
+            list_nameworld = f"\"{char_name}@{world}\","
+            snd_nameworld = f"{{\"{char_name}@{world}\"}},' "
+            bagman_nameworld_tony = f"{{\"{char_name}@{world}\", 1, 69,\"Tony Name\"}},"
 
             retainers = summary["retainers"]
 
@@ -469,11 +473,13 @@ def write_excel(char_summaries, excel_output_path):
                 worksheet.write(row, 19, sub3parts)
                 worksheet.write_number(row, 20, sub4lvl)
                 worksheet.write(row, 21, sub4parts)
-                worksheet.write(row, 22, overseer_value)
-                worksheet.write(row, 23, snd_value)
                 worksheet.write_number(row, TANK_COL, tank, money_format)
                 worksheet.write_number(row, KITS_COL, kits, money_format)
                 worksheet.write_number(row, TREAS_COL, treasure_value, total_format if treasure_value else money_format)
+                worksheet.write(row, 25, plain_nameworld)
+                worksheet.write(row, 26, list_nameworld)
+                worksheet.write(row, 27, snd_nameworld)
+                worksheet.write(row, 28, bagman_nameworld_tony)
                 row += 1
             else:
                 for i, ret in enumerate(retainers):
@@ -516,13 +522,15 @@ def write_excel(char_summaries, excel_output_path):
                         worksheet.write(row, 19, sub3parts)
                         worksheet.write_number(row, 20, sub4lvl)
                         worksheet.write(row, 21, sub4parts)
-                        worksheet.write(row, 22, overseer_value)
-                        worksheet.write(row, 23, snd_value)
                         worksheet.write_number(row, TANK_COL, tank, money_format)
                         worksheet.write_number(row, KITS_COL, kits, money_format)
                         worksheet.write_number(row, TREAS_COL, treasure_value, total_format if treasure_value else money_format)
+                        worksheet.write(row, 25, plain_nameworld)
+                        worksheet.write(row, 26, list_nameworld)
+                        worksheet.write(row, 27, snd_nameworld)
+                        worksheet.write(row, 28, bagman_nameworld_tony)
                     else:
-                        for c in (11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, TANK_COL, KITS_COL, TREAS_COL):
+                        for c in (11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, TANK_COL, KITS_COL, TREAS_COL, 25, 26, 27, 28):
                             worksheet.write(row, c, "")
 
                     row += 1
@@ -549,11 +557,13 @@ def write_excel(char_summaries, excel_output_path):
         worksheet.set_column("T:T", 6)   # #3
         worksheet.set_column("U:U", 8)   # Lvl #4
         worksheet.set_column("V:V", 6)   # #4
-        worksheet.set_column("W:W", 30)  # Overseer Name Formatting
-        worksheet.set_column("X:X", 30)  # SND Name Formatting
         worksheet.set_column(TANK_COL, TANK_COL, 10)   # Tanks
         worksheet.set_column(KITS_COL, KITS_COL, 9)   # Kits
         worksheet.set_column(TREAS_COL, TREAS_COL, 18) # Treasure Value
+        worksheet.set_column(25, 25, 30)  # Plain Name
+        worksheet.set_column(26, 26, 38)  # List Formatting
+        worksheet.set_column(27, 27, 40)  # SND Formatting
+        worksheet.set_column(28, 28, 55)  # Bagman Formatting
 
         worksheet.autofilter(0, 0, 0, len(headers) - 1)
         worksheet.freeze_panes(1, 0)
