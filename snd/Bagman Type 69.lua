@@ -24,6 +24,10 @@
 -- | • Support for custom Tony coordinates and meeting locations
 -- | 
 -- | Important Note: All characters MUST have Lifestream configured with FC pathing AND Enter House as setup. 
+-- |
+-- | *** CHECK DROPBOX!! ***
+-- | You'll want to have auto-accepting on Tony!
+-- | This is required to setup manually, just open dropbox and checkmark auto trading!
 -- | 
 -- | Requires:
 -- |  dfunc; can be found here: https://github.com/McVaxius/dhogsbreakfeast/blob/main/dfunc.lua
@@ -33,12 +37,13 @@
 -- | 
 -- | It is to be assumed that you have read the original bagman notes and understand how to run things from this point on.
 -- | 
--- | XA Bagman Type 69 v7.35.1
+-- | XA Bagman Type 69 v7.35.2
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-12 14:00
+-- | Last Updated: 2025-10-14 10:30
 -- | 
 -- | ## Release Notes ##
--- | v7.35.1 - No longer need to worry about dropbox being open, OpenDropboxXA() has been improved
+-- | v7.35.2 - No actual script changes, just adding notes regarding Tony x/y/z coords.
+-- | v7.35.1 - No longer need to worry about dropbox being open on franchise owners, OpenDropboxXA() has been improved
 -- | v7.35 - Revamped codebase using new xafunc functions for better readability and maintainability
 -- | v7.3.1 - Fixed CharacterSafeWait/PlayerAvailable false positives with new functions
 -- | v7.3 - Initial release with integrated minimum fuel and repair materials keep functionality
@@ -71,12 +76,13 @@ bagmans_take = 50000             -- Keep this much Gil on alts, give the rest to
 min_fuel_keep = 999999           -- Keep this much Ceruleum Fuel on alts, give the rest to Tony
 min_repair_mats_keep = 999999    -- Keep this much Magitek Repair Mats on alts, give the rest to Tony
 
--- I'll have Tony run - yield("/vnav moveto 233.6580657959 112.37239837646 -262.73318481445") - to make sure he's in a good spot within reach.
-
--- Do not need to change these unless you want all franchise_owners to run to a set coord and wait for tony to be within range
+-- Do not need to change the below coords unless you want all franchise_owners to run to a set coord and wait for tony to be within range
+-- Use GetInverseBagmanCoordsXA() from xafunc if you want to set this
 tony_x = 42069420
 tony_y = 42069420
 tony_z = 42069420
+-- If you change the above coods, understand that Tony must be within 1.5 Yalms, so make sure Tony is within reach, or the alt will spam wait
+-- Otherwise if you leave 42069420, the alts will auto-path to your "Tony Name" in franchise_owners list below
 
 --[[
 Field 1. Subfarmer Name@World
