@@ -16,11 +16,12 @@
 -- | Important Note: This library requires dfunc.lua to be loaded first in your scripts. Many functions build upon
 -- | dfunc's base functionality. Always use require("dfunc") and require("xafunc") in your automation scripts.
 -- |
--- | XA Func Library v1.8
+-- | XA Func Library v1.9
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-12 14:00
+-- | Last Updated: 2025-10-14 10:30
 -- |
 -- | ## Release Notes ##
+-- | v1.9 - Added GetInverseBagmanCoordsXA()
 -- | v1.8 - Improved OpenDropboxXA() as Limiana has added [/dropbox OpenTradeTab] to ensure we're on the item tab
 -- | v1.7 - Improved OpenArmouryChestXA() to use slashcommand instead of CTRL + I, Removed CharacterSafeWaitXA() from
 -- |        being used within the InteractXA() function as there are menu's that will appear in some cases.
@@ -90,6 +91,7 @@
 -- |---------------------------------------------------------------------------
 -- | GetSNDCoords()                 -- Gets the coords in two formats (space and comma separated)
 -- | GetSNDCoordsXA()               -- Gets the coords with specificed usage listed above
+-- | GetInverseBagmanCoordsXA()     -- Gets the coords for Inverse Bagman for easy copy paste
 -- | RemoveSproutXA()               -- Remove New Adventurer Status
 -- | GetLevelXA(pjob)               -- Get current job level - Usage: GetLevelXA() or GetLevelXA(9000)
 -- | GetZoneIDXA()                  -- Get current Zone/Territory ID
@@ -144,7 +146,6 @@
 -- | FreshLimsaToMist()             -- Travel from Limsa to Mist housing district
 -- | FreshSummerToMist()            -- Travel from Summerford Farms to Mist housing district
 -- | FreshUldahToHorizon()          -- Complete Ul'dah intro sequence and travel to Horizon
--- |
 -- └---------------------------------------------------------------------------
 
 -- ------------------------
@@ -347,6 +348,23 @@ function GetSNDCoordsXA()
     EchoXA("/vnav moveto " .. x .. " " .. y .. " " .. z)
     SleepXA(0.1)
     EchoXA("MoveToXA(" .. x .. ", " .. y .. ", " .. z .. ")")
+    SleepXA(0.1)
+end
+
+function GetInverseBagmanCoordsXA()
+    local p = Entity and Entity.Player and Entity.Player.Position
+    if not p then
+        EchoXA("Coords unavailable.")
+        return
+    end
+    local x, y, z = tostring(p.X), tostring(p.Y), tostring(p.Z)
+
+    SleepXA(0.1)
+    EchoXA("local tony_x = " .. x)
+    SleepXA(0.1)
+    EchoXA("local tony_y = " .. y)
+    SleepXA(0.1)
+    EchoXA("local tony_z = " .. z)
     SleepXA(0.1)
 end
 
@@ -1021,7 +1039,7 @@ function FreshLimsaToSummer()
 
     -- Complete MSQ Quest - Coming to Limsa Lominsa
     TargetXA("Baderon")
-    InteractXA()
+    InteractXA() -- I've been using /pyes for this, will setup sometime...
     -- callbackXA("SelectIconString true 1") -- Drowning Wench
     -- SleepXA(2)
     -- callbackXA("SelectYesno true 0") -- Proceed
