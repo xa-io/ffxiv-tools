@@ -23,7 +23,7 @@
 -- | Core Features:
 -- | • Multi-character inventory scanning with automatic login rotation
 -- | • Submarine resource tracking (fuel, repair materials, parts, gil)
--- | • Automated movement to Tony's location in Summerford Farms
+-- | • Automated movement to Tony's location in set area
 -- | • Configurable minimum thresholds for all tracked resources
 -- | • Real-time inventory status reporting via in-game chat
 -- | • Safe character switching with proper wait states and error handling
@@ -33,20 +33,23 @@
 -- | Important Note: Ensure all characters in the franchise_owners list have access to the required zones.
 -- | Check Lifestream settings as this will use /li auto, so many sure you have this setup correctly.
 -- |
+-- | *** CHECK DROPBOX!! ***
+-- | You'll want to have auto-accepting on the toons you're inversing so there's no interaction needed.
+-- | This is required to setup manually, just open dropbox and checkmark auto trading!
+-- | 
 -- | Requires:
 -- |  dfunc; can be found here: https://github.com/McVaxius/dhogsbreakfeast/blob/main/dfunc.lua
 -- |  xafunc; can be found here: https://github.com/xa-io/ffxiv-tools/blob/main/snd/xafunc.lua
 -- |   - Two setup processes, 1) SND > Add script, name dfunc and another xafunc paste the code.
 -- |   - 2) SND > Add script name the same as before, add github url and save, can update through SND
 -- |
--- | *** CHECK DROPBOX!! ***
--- | You'll want to have auto-accepting on the toons you're inversing so there's no interaction needed.
--- |
--- | XA Inverse Bagman v7.35
+-- | XA Inverse Bagman v7.35.1
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-10 00:00
+-- | Last Updated: 2025-10-14 10:30
 -- |
 -- | ## Release Notes ##
+-- | v7.35.1 - Updated TonySpot handling to make easier to use for any other locations, if not wanting Summerford Farms
+-- |           Please read the notes around x/y/z coords if you change TonySpot
 -- | v7.35 - Revamped codebase using new xafunc functions for better readability and maintainability
 -- └-----------------------------------------------------------------------------------------------------------------------
 
@@ -61,11 +64,20 @@ DisableARMultiXA()
 rsrXA("off")
 -- DO NOT TOUCH THESE LINES ABOVE
 
--- Config Parameters
-local TonyTurf = "Sophia"
-local TonyZoneID = 134 -- Summerford Farms
+-- Where are we meeting Tony
+local TonyTurf = "Sephirot"
+local TonySpot = "Summerford Farms" -- Use the Aetheryte Name for this
+local TonyZoneID = 134 -- Use GetZoneIDXA() from xafunc to get this
 
--- Inventory Needs
+-- Tony's coordinates (set this manually so the alt runs to a set location)
+-- Use GetInverseBagmanCoordsXA() from xafunc to get this. Required if changing TonySpot
+local tony_x = 233.81164550781
+local tony_y = 112.45678710938
+local tony_z = -262.1672668457
+-- No auto pathing is setup within Inverse Bagman, so you cannot use 42069420 from Bagman type 69
+-- This was done specifically because you'll likely have different supplier toons
+
+-- Inventory Management
 local gil_buffer = 5000 -- Buffer to ignore missing gil if less than this amount
 local min_gil_keep = 50000 -- Minimum amount of gil to keep
 local min_fuel_keep = 0  -- The minimum amount of Ceruleum Fuel to keep
@@ -91,11 +103,6 @@ local unkiu_bow_id = 21796   -- Unkiu-class Bow
 local coelacanth_bridge_id = 23904 -- Coelacanth-class Bridge
 local dive_credit_id = 22317 -- Dive Credit
 local fire_shard_id =  2 -- Fire Shard
-
--- Tony's coordinates (set this manually so the alt runs to a set location)
-local tony_x = 233.81164550781
-local tony_y = 112.45678710938
-local tony_z = -262.1672668457
 
 -- Toon list (last toon should not have a comma at the end)
 local franchise_owners = {
@@ -192,13 +199,13 @@ local function handle_tony_movement()
     LifestreamCmdXA(TonyTurf)
     
     -- Proceed with zone check
-    EchoXA("Starting the process: Check if already in Summerford Farms...")
+    EchoXA("Starting the process: Check if already in " .. TonySpot .. ".")
     if GetZoneID() == TonyZoneID then
-        EchoXA("Already in Summerford Farms. Moving to Tony's location.")
+        EchoXA("Already in " .. TonySpot .. ". Moving to Tony's location.")
         approach_tony()
     else
-        EchoXA("Not in Summerford Farms. Teleporting now.")
-        LifestreamCmdXA("Summerford Farms")
+        EchoXA("Not in " .. TonySpot .. ". Teleporting now.")
+        LifestreamCmdXA(TonySpot)
         approach_tony()
     end
 end
@@ -216,7 +223,6 @@ local function InverseBagmanXA()
     for _, owner in ipairs(franchise_owners) do
         -- Relog to the character in franchise_owners
         local character = owner[1]
-        EchoXA("Logging in as " .. character)
         ARRelogXA(character)
         EnableTextAdvanceXA()
         RemoveSproutXA()
