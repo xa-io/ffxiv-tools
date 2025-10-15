@@ -32,11 +32,12 @@
 -- |   - Two setup processes, 1) SND > Add script, name dfunc and another xafunc paste the code.
 -- |   - 2) SND > Add script name the same as before, add github url and save, can update through SND
 -- | 
--- | XA Lazy Crafter v7.35
+-- | XA Lazy Crafter v7.35.1
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-10 00:00
+-- | Last Updated: 2025-10-14 22:30
 -- | 
 -- | ## Release Notes ##
+-- | v7.35.1 - Added CharacterSafeWaitXA() after speaking to each Randwulf and Brithael
 -- | v7.35 - Revamped codebase using new xafunc functions for better readability and maintainability
 -- └-----------------------------------------------------------------------------------------------------------------------
 -- ┌-----------------------------------------------------------------------------------------------------------------------
@@ -623,9 +624,11 @@ local function LazyCrafterXA()
     TargetXA("Randwulf")
     SleepXA(1)
     InteractXA()
+    CharacterSafeWaitXA()
     TargetXA("Randwulf")
     SleepXA(1)
     InteractXA()
+    CharacterSafeWaitXA()
 
     coords = get_coordinates(brithael_coords)
     move_to(coords)
@@ -636,6 +639,7 @@ local function LazyCrafterXA()
     TargetXA("Brithael")
     SleepXA(1)
     InteractXA()
+    CharacterSafeWaitXA()
 
     coords = get_coordinates(mender_coords)
     move_to(coords)
