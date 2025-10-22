@@ -13,7 +13,7 @@ import sqlite3
 # ===============================================
 user = getpass.getuser()
 
-def acc(nickname, pluginconfigs_path, include_altoholic=True):  # Note: Default will use INCLUDE_ALTOHOLIC_BY_DEFAULT at runtime
+def acc(nickname, pluginconfigs_path, include_altoholic=True, include_submarines=True):
     auto_path = os.path.join(pluginconfigs_path, "AutoRetainer", "DefaultConfig.json")
     alto_path = os.path.join(pluginconfigs_path, "Altoholic", "altoholic.db")
     
@@ -22,13 +22,15 @@ def acc(nickname, pluginconfigs_path, include_altoholic=True):  # Note: Default 
         "auto_path": auto_path,
         "alto_path": alto_path,
         "include_altoholic": bool(include_altoholic),
+        "include_submarines": bool(include_submarines),
     }
 
+# You do not need to replace "{user}" with your username, the script will get that information.
 account_locations = [
-     acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs"),
-   # acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs"),
-   # acc("Acc2",   f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs"),
-   # acc("Acc3",   f"C:\\Users\\{user}\\AltData\\Acc3\\pluginConfigs"),
+     acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=True),
+   # acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True),
+   # acc("Acc2",   f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs", include_submarines=False),
+   # acc("Acc3",   f"C:\\Users\\{user}\\AltData\\Acc3\\pluginConfigs", include_submarines=False),
 ]
 
 all_fc_data = {}
@@ -271,8 +273,11 @@ def get_sub_parts_string(sub_data: dict) -> str:
             parts.append(short_code)
     return "".join(parts)
 
-def build_char_summaries(all_characters, fc_data, alto_map):
+def build_char_summaries(all_characters, fc_data, alto_map, account_configs):
     char_summaries = []
+    # Create a mapping of account nickname to config
+    acc_config_map = {acc["nickname"]: acc for acc in account_configs}
+    
     for char in all_characters:
         cid = char.get("CID", 0)
         char_name = char.get("Name", "Unknown")
@@ -299,17 +304,22 @@ def build_char_summaries(all_characters, fc_data, alto_map):
 
             ret["Level"] = ret.get("Level", 0)
 
-        sub_info = char.get("AdditionalSubmarineData", {})
+        # Check if submarines should be included for this account
+        include_subs = acc_config_map.get(nickname, {}).get("include_submarines", True)
+        
         sub_data_map = {
             "Submersible-1": {"level": 0, "parts": ""},
             "Submersible-2": {"level": 0, "parts": ""},
             "Submersible-3": {"level": 0, "parts": ""},
             "Submersible-4": {"level": 0, "parts": ""},
         }
-        for sub_key, sub_dict in sub_info.items():
-            if sub_key in sub_data_map:
-                sub_data_map[sub_key]["level"] = sub_dict.get("Level", 0)
-                sub_data_map[sub_key]["parts"] = get_sub_parts_string(sub_dict)
+        
+        if include_subs:
+            sub_info = char.get("AdditionalSubmarineData", {})
+            for sub_key, sub_dict in sub_info.items():
+                if sub_key in sub_data_map:
+                    sub_data_map[sub_key]["level"] = sub_dict.get("Level", 0)
+                    sub_data_map[sub_key]["parts"] = get_sub_parts_string(sub_dict)
 
         fc_name = ""
         fc_points = 0
@@ -726,7 +736,7 @@ def main():
             else:
                 print(f"[INFO] Altoholic DB not found or disabled for {entry['nickname']}: {alto_path}")
 
-    char_summaries = build_char_summaries(all_characters, all_fc_data, alto_map_global)
+    char_summaries = build_char_summaries(all_characters, all_fc_data, alto_map_global, account_locations)
     result = write_excel(char_summaries, final_output_path)
     if result:
         print(f"[DONE] Wrote data to {result}")
