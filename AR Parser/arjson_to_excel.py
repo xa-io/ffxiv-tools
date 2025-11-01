@@ -455,7 +455,7 @@ def write_excel(char_summaries, excel_output_path):
 
             plain_nameworld = f"{char_name}@{world}"
             list_nameworld = f"\"{char_name}@{world}\","
-            snd_nameworld = f"{{\"{char_name}@{world}\"}},' "
+            snd_nameworld = f"{{\"{char_name}@{world}\"}},"
             bagman_nameworld_tony = f"{{\"{char_name}@{world}\", 1, 69,\"Tony Name\"}},"
 
             retainers = summary["retainers"]
