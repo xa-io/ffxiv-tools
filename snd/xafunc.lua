@@ -16,11 +16,12 @@
 -- | Important Note: This library requires dfunc.lua to be loaded first in your scripts. Many functions build upon
 -- | dfunc's base functionality. Always use require("dfunc") and require("xafunc") in your automation scripts.
 -- |
--- | XA Func Library v1.9
+-- | XA Func Library v2.0
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-14 10:30
+-- | Last Updated: 2025-11-01 21:10
 -- |
 -- | ## Release Notes ##
+-- | v2.0 - Added IsInFreeCompany(), LeaveFreeCompany()
 -- | v1.9 - Added GetInverseBagmanCoordsXA()
 -- | v1.8 - Improved OpenDropboxXA() as Limiana has added [/dropbox OpenTradeTab] to ensure we're on the item tab
 -- | v1.7 - Improved OpenArmouryChestXA() to use slashcommand instead of CTRL + I, Removed CharacterSafeWaitXA() from
@@ -100,6 +101,8 @@
 -- | GetPlayerNameXA()              -- Get Player Name
 -- | GetPlayerNameAndWorldXA()      -- Get Player Name@World format
 -- | FreeCompanyCmdXA()             -- Opens FC Window so AR can collect data
+-- | IsInFreeCompany()              -- Check if player is currently in a Free Company
+-- | LeaveFreeCompany()             -- Leave the current Free Company
 -- |
 -- | Party Commands
 -- |---------------------------------------------------------------------------
@@ -191,6 +194,10 @@ end
 
 function vnavXA(text) -- Usage: vnavXA("stop")
     yield("/vnav " .. tostring(text))
+end
+
+function gaXA(text) -- Usage: gaXA("Sprint")
+    yield("/gaction " .. tostring(text))
 end
 
 function callbackXA(text) -- Usage: callbackXA("SelectYesno true 0")
@@ -489,6 +496,53 @@ function FreeCompanyCmdXA()
     SleepXA(1)
 end
 
+function IsInFreeCompany()
+    -- thx kryssx
+    local fc_gc = Player.FreeCompany.GrandCompany
+    local fc_name = Player.FreeCompany.Name
+    local fc_rank = Player.FreeCompany.Rank
+    
+    if fc_gc == "None" or fc_gc == nil or fc_gc == "" then
+        return false
+    end
+    
+    if fc_name == nil or fc_name == "" then
+        return false
+    end
+
+    if fc_rank == 0 then
+        return false
+    end
+    
+    return true
+end
+
+function LeaveFreeCompany()
+    EchoXA("[Floater Assist] Opening Free Company menu to leave...")
+    
+    -- Open the FC menu
+    yield("/freecompanycmd")
+    SleepXA(2)
+    
+    -- Navigate to the Info tab
+    yield("/callback FreeCompany false 0 5u")
+    SleepXA(2)
+    
+    -- Click Leave FC button
+    EchoXA("[Floater Assist] Leaving Free Company...")
+    yield("/callback FreeCompanyStatus true 3")
+    SleepXA(2)
+    
+    -- Confirm the leave action with SelectYesno
+    if IsSelectYesnoVisible() then
+        yield("/callback SelectYesno true 0")
+        EchoXA("[Floater Assist] Successfully left Free Company")
+    end
+
+    yield("/leave")
+    SleepXA(2)
+end
+
 -- ------------------------
 -- Party Commands
 -- ------------------------
@@ -570,9 +624,11 @@ function FullStopMovementXA()
 end
 
 function WalkThroughDottedWallXA()
+    ResetCameraXA()
 	yield("/hold W")
 	SleepXA(2)
 	yield("/release W")
+	SleepXA(3)
 end
 
 function IsPlayerAvailableXA()
@@ -722,6 +778,7 @@ end
 
 -- Setup pathing to door, and have Lifestream settings to Enter House
 function return_to_fcXA()
+    CharacterSafeWaitXA()
 	yield("/li fc")
 	SleepXA(1)
 	WaitForLifestreamXA()
@@ -731,6 +788,7 @@ function return_to_fcXA()
 end
 
 function return_to_homeXA()
+    CharacterSafeWaitXA()
 	yield("/li home")
 	SleepXA(1)
 	WaitForLifestreamXA()
@@ -740,6 +798,7 @@ function return_to_homeXA()
 end
 
 function return_to_autoXA()
+    CharacterSafeWaitXA()
 	yield("/li auto")
 	SleepXA(1)
 	WaitForLifestreamXA()
@@ -749,6 +808,7 @@ function return_to_autoXA()
 end
 
 function return_to_homeworldXA()
+    CharacterSafeWaitXA()
 	yield("/li")
 	SleepXA(1)
 	WaitForLifestreamXA()
@@ -979,10 +1039,10 @@ end
 -- ------------------------
 
 function EnterHousingWardFromMenu()
-    SleepXA(3)
     callbackXA("SelectString true 0")
     SleepXA(2)
     callbackXA("HousingSelectBlock true 0")
+    SleepXA(3)
 end
 
 function SetNewbieCamera()
@@ -1081,18 +1141,22 @@ function FreshLimsaToSummer()
     CharacterSafeWaitXA()
 
     -- Run to Summerford
+    gaXA("Sprint")
     MoveToXA(223.34646606445, 113.09998321533, -258.0676574707)
     grab_aetheryte()
+    CharacterSafeWaitXA()
 end
 
 function FreshLimsaToMist()
     -- Run to southern door
+    gaXA("Sprint")
     MoveToXA(188.85900878906, 65.238052368164, 285.26428222656)
     MoveToXA(208.56221008301, 65.483612060547, 286.01947021484)
     WalkThroughDottedWallXA()
     CharacterSafeWaitXA()
 
     -- Run to mist
+    gaXA("Sprint")
     MoveToXA(597.07775878906, 61.533367156982, -108.43786621094)
     WalkThroughDottedWallXA()
     EnterHousingWardFromMenu()
@@ -1100,12 +1164,14 @@ end
 
 function FreshSummerToMist()
     -- Run to southern door
+    gaXA("Sprint")
     MoveToXA(188.85900878906, 65.238052368164, 285.26428222656)
     MoveToXA(208.56221008301, 65.483612060547, 286.01947021484)
     WalkThroughDottedWallXA()
     CharacterSafeWaitXA()
 
     -- Run to mist
+    gaXA("Sprint")
     MoveToXA(597.07775878906, 61.533367156982, -108.43786621094)
     WalkThroughDottedWallXA()
     EnterHousingWardFromMenu()
@@ -1146,11 +1212,13 @@ function FreshUldahToHorizon()
     WalkThroughDottedWallXA()
 
     -- Run horizon
+    gaXA("Sprint")
     MoveToXA(69.638557434082, 46.244579315186, -224.87077331543)
     grab_aetheryte()
     CharacterSafeWaitXA()
 
     -- Run to Goblet
+    gaXA("Sprint")
     MoveToXA(316.9354, 67.2082, 235.8752)
     WalkThroughDottedWallXA()
     EnterHousingWardFromMenu()
