@@ -518,7 +518,7 @@ function IsInFreeCompany()
 end
 
 function LeaveFreeCompany()
-    EchoXA("[Floater Assist] Opening Free Company menu to leave...")
+    EchoXA("Opening Free Company menu to leave...")
     
     -- Open the FC menu
     yield("/freecompanycmd")
@@ -529,18 +529,20 @@ function LeaveFreeCompany()
     SleepXA(2)
     
     -- Click Leave FC button
-    EchoXA("[Floater Assist] Leaving Free Company...")
+    EchoXA("Leaving Free Company...")
     yield("/callback FreeCompanyStatus true 3")
     SleepXA(2)
     
     -- Confirm the leave action with SelectYesno
     if IsSelectYesnoVisible() then
         yield("/callback SelectYesno true 0")
-        EchoXA("[Floater Assist] Successfully left Free Company")
+        EchoXA("Successfully left Free Company...")
     end
 
+    -- Leave the party as well
     yield("/leave")
-    SleepXA(2)
+    SleepXA(1)
+    SelectYesnoXA()
 end
 
 -- ------------------------
