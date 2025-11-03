@@ -69,8 +69,10 @@
 -- | rsrXA(text)                    -- Usage: rsrXA("manual")
 -- | adXA(text)                     -- Usage: adXA("stop")
 -- | vnavXA(text)                   -- Usage: vnavXA("stop")
+-- | gaXA(text)                     -- Usage: gaXA("Sprint")
 -- | callbackXA(text)               -- Usage: callbackXA("SelectYesno true 0")
 -- | SelectYesnoXA()                -- Selects Yes if there is a popup
+-- | DidWeLoadcorrectlyXA()         -- Verification function to confirm xafunc loaded successfully
 -- | 
 -- | Plugin Things
 -- |---------------------------------------------------------------------------
@@ -82,6 +84,7 @@
 -- | EnableARMultiXA()              -- Enable AutoRetainer Multi Mode
 -- | DisableARMultiXA()             -- Disable AutoRetainer Multi Mode
 -- | ARDiscardXA()                  -- Discard items and wait for AR to finish
+-- | LogoutXA()                     -- Logout with Yes confirmation
 -- | QSTStartXA()                   -- Start Questionable
 -- | QSTStopXA()                    -- Stop Questionable
 -- | QSTReloadXA()                  -- Reload Questionable
@@ -111,6 +114,7 @@
 -- | BTBDisbandXA()                 -- Send out BardToolbox disband and /leave to double check
 -- | OpenArmouryChestXA()           -- Opens Armoury Chest
 -- | OpenDropboxXA()                -- Opens Dropbox, then opens Item Trade Queue tab
+-- | ClearDropboxXA()               -- Clears the Dropbox queue
 -- | 
 -- | Movement Commands
 -- |---------------------------------------------------------------------------
@@ -121,12 +125,20 @@
 -- | MountUpXA()                    -- Automatic mounting with mount roulette when conditions allow
 -- | DismountXA()                   -- Repeat casting /mount until dismounted and Svc.Condition[1] is met
 -- | MovingCheaterXA()              -- Advanced movement using PlayerAndUIReadyXA() & MountUpXA() & DoNavFlySequenceXA()
+-- | IsPlayerAvailableXA()          -- Helper: Check if player is available (not casting, not zoning)
+-- | PlayerAndUIReadyXA()           -- Helper: Check if NamePlate ready and player available
+-- | WaitUntil(cond, timeout, step) -- Helper: Wait until condition is true or timeout - Usage: WaitUntil(function, 10, 0.2)
 -- | return_to_fcXA()               -- Lifestream teleport to FC house with auto-entry
 -- | return_to_homeXA()             -- Lifestream teleport to personal house with auto-entry
 -- | return_to_autoXA()             -- Lifestream teleport to select using auto list configuration
 -- | return_to_homeworldXA()        -- Lifestream teleport back to your homeworld
 -- | LifestreamCmdXA(name)          -- Replacement for yield("/li Limsa") - Usage: LifestreamCmdXA("Limsa")
+-- | GetDistanceToPoint(x,y,z)      -- Calculate distance to target coordinates - Usage: GetDistanceToPoint(-12.123, 45.454, -18.5456)
 -- | MoveToXA(x,y,z)                -- Fly/Run to coordinates with pathing - Usage: MoveToXA(-12.123, 45.454, -18.5456)
+-- | WalkToTargetXA(x,y,z,dist)     -- Walk (no mount) to coordinates, stop at distance - Usage: WalkToTargetXA(-12.123, 45.454, -18.5456, 3.0)
+-- | get_coordinates(coords)        -- Helper: Extract coordinates from table
+-- | log_coordinates(coords)        -- Helper: Log coordinates to echo chat
+-- | move_to(coords)                -- Move to single coord or array of coords - Usage: move_to({x, y, z}) or move_to({{x1,y1,z1}, {x2,y2,z2}})
 -- |
 -- | Player Commands
 -- |---------------------------------------------------------------------------
@@ -356,6 +368,12 @@ function GetSNDCoordsXA()
     SleepXA(0.1)
     EchoXA("MoveToXA(" .. x .. ", " .. y .. ", " .. z .. ")")
     SleepXA(0.1)
+    EchoXA("local tony_x = " .. x)
+    SleepXA(0.1)
+    EchoXA("local tony_y = " .. y)
+    SleepXA(0.1)
+    EchoXA("local tony_z = " .. z)
+    SleepXA(0.1)
 end
 
 function GetInverseBagmanCoordsXA()
@@ -534,10 +552,8 @@ function LeaveFreeCompany()
     SleepXA(2)
     
     -- Confirm the leave action with SelectYesno
-    if IsSelectYesnoVisible() then
-        yield("/callback SelectYesno true 0")
-        EchoXA("Successfully left Free Company...")
-    end
+    EchoXA("Successfully left Free Company...")
+    SelectYesnoXA()
 
     -- Leave the party as well
     yield("/leave")
@@ -591,6 +607,12 @@ function OpenDropboxXA()
     SleepXA(0.5)
     yield("/dropbox OpenTradeTab")
     SleepXA(0.5)
+end
+
+function ClearDropboxXA()
+    SleepXA(0.2)
+    yield("/dbq clear")
+    SleepXA(0.3)
 end
 
 -- ------------------------
@@ -866,6 +888,65 @@ end
 
 function get_coordinates(coords)
     return coords[position]
+end
+
+function WalkToTargetXA(target_x, target_y, target_z, stop_dist)
+    -- Walk to target without mounting, stop when within stop_dist
+    local function GetCurrentDistance()
+        local player_x = EntityPlayerPositionX()
+        local player_y = EntityPlayerPositionY()
+        local player_z = EntityPlayerPositionZ()
+        local dx = target_x - player_x
+        local dy = target_y - player_y
+        local dz = target_z - player_z
+        return math.sqrt(dx * dx + dy * dy + dz * dz)
+    end
+    
+    local current_dist = GetCurrentDistance()
+    
+    -- If already within stop distance, don't move
+    if current_dist <= stop_dist then
+        EchoXA(string.format("[Walk] Already within %.1f yalms, no movement needed", stop_dist))
+        return
+    end
+    
+    -- Start walking (no flying/mounting)
+    yield(string.format("/vnav moveto %.2f %.2f %.2f", target_x, target_y, target_z))
+    SleepXA(0.5)
+    
+    -- Monitor distance and stop when close enough
+    local max_iterations = 100
+    local iterations = 0
+    local stop_buffer = 1.5  -- Stop earlier to account for movement momentum
+    
+    while iterations < max_iterations do
+        current_dist = GetCurrentDistance()
+        
+        -- Stop when within desired distance (with buffer for momentum)
+        if current_dist <= (stop_dist + stop_buffer) then
+            yield("/vnav stop")
+            SleepXA(0.3)
+            local final_dist = GetCurrentDistance()
+            EchoXA(string.format("[Walk] Stopped at %.1f yalms from target", final_dist))
+            return
+        end
+        
+        -- Check if pathfinding stopped (arrived or failed)
+        if not PathfindInProgress() and not PathIsRunning() then
+            yield("/vnav stop")
+            SleepXA(0.3)
+            EchoXA(string.format("[Walk] Pathfinding completed at %.1f yalms", current_dist))
+            return
+        end
+        
+        SleepXA(0.3)
+        iterations = iterations + 1
+    end
+    
+    -- Timeout - stop movement
+    yield("/vnav stop")
+    SleepXA(0.3)
+    EchoXA("[Walk] Movement timeout - stopped")
 end
 
 -- Use GetSNDCoords() and then reference the long coords with the commas
