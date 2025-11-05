@@ -1,61 +1,64 @@
 -- ┌-----------------------------------------------------------------------------------------------------------------------
 -- | 
--- |   ██╗  ██╗ █████╗     ██╗███╗   ██╗██╗   ██╗███████╗██████╗ ███████╗███████╗          
--- |   ╚██╗██╔╝██╔══██╗    ██║████╗  ██║██║   ██║██╔════╝██╔══██╗██╔════╝██╔════╝          
--- |    ╚███╔╝ ███████║    ██║██╔██╗ ██║██║   ██║█████╗  ██████╔╝███████╗█████╗            
--- |    ██╔██╗ ██╔══██║    ██║██║╚██╗██║╚██╗ ██╔╝██╔══╝  ██╔══██╗╚════██║██╔══╝            
--- |   ██╔╝ ██╗██║  ██║    ██║██║ ╚████║ ╚████╔╝ ███████╗██║  ██║███████║███████╗          
--- |   ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝╚═╝  ╚═══╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝          
--- |                                                                                     
--- |   ██████╗  █████╗  ██████╗ ███╗   ███╗ █████╗ ███╗   ██╗
--- |   ██╔══██╗██╔══██╗██╔════╝ ████╗ ████║██╔══██╗████╗  ██║
--- |   ██████╔╝███████║██║  ███╗██╔████╔██║███████║██╔██╗ ██║
--- |   ██╔══██╗██╔══██║██║   ██║██║╚██╔╝██║██╔══██║██║╚██╗██║
--- |   ██████╔╝██║  ██║╚██████╔╝██║ ╚═╝ ██║██║  ██║██║ ╚████║
--- |   ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
+-- |   ██╗  ██╗ █████╗     ██╗███╗   ██╗██╗   ██╗███████╗██████╗ ███████╗███████╗    ██████╗  █████╗  ██████╗ ███╗   ███╗ █████╗ ███╗   ██╗
+-- |   ╚██╗██╔╝██╔══██╗    ██║████╗  ██║██║   ██║██╔════╝██╔══██╗██╔════╝██╔════╝    ██╔══██╗██╔══██╗██╔════╝ ████╗ ████║██╔══██╗████╗  ██║
+-- |    ╚███╔╝ ███████║    ██║██╔██╗ ██║██║   ██║█████╗  ██████╔╝███████╗█████╗      ██████╔╝███████║██║  ███╗██╔████╔██║███████║██╔██╗ ██║
+-- |    ██╔██╗ ██╔══██║    ██║██║╚██╗██║╚██╗ ██╔╝██╔══╝  ██╔══██╗╚════██║██╔══╝      ██╔══██╗██╔══██║██║   ██║██║╚██╔╝██║██╔══██║██║╚██╗██║
+-- |   ██╔╝ ██╗██║  ██║    ██║██║ ╚████║ ╚████╔╝ ███████╗██║  ██║███████║███████╗    ██████╔╝██║  ██║╚██████╔╝██║ ╚═╝ ██║██║  ██║██║ ╚████║
+-- |   ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝╚═╝  ╚═══╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
+-- |                                                                                                                                            
+-- |  Mass toon inventory threshold checker for automated submarine operations and resource distribution.
 -- | 
--- | Automated inventory management system for FFXIV submarine operations.
+-- |  This script cycles through multiple characters and waits until all inventory thresholds are met before moving to the
+-- |  next character. Perfect for automated trading and resource distribution where you need to ensure each character receives
+-- |  specific items before continuing to the next one in the sequence.
 -- | 
--- | This script cycles through multiple characters to check their inventory status for submarine-related
--- | materials and resources. It automatically logs into each character, teleports to Tony's location,
--- | and reports needed items for efficient resource management across your submarine fleet.
+-- |  Core Features:
+-- |  • Multi-character threshold monitoring with automatic login rotation
+-- |  • Comprehensive submarine resource tracking (fuel, repair materials, parts, gil, etc.)
+-- |  • Real-time inventory status reporting with ✓/✗ indicators
+-- |  • Configurable thresholds for all tracked resources
+-- |  • Automated waiting until all thresholds are satisfied
+-- |  • Safe character switching with proper wait states
+-- |  • Custom pathing integration for supplier interaction
+-- |  • Homeworld return after successful threshold completion using Lifesteam auto
 -- | 
--- | Core Features:
--- | • Multi-character inventory scanning with automatic login rotation
--- | • Submarine resource tracking (fuel, repair materials, parts, gil)
--- | • Automated movement to Tony's location in set area
--- | • Configurable minimum thresholds for all tracked resources
--- | • Real-time inventory status reporting via in-game chat
--- | • Safe character switching with proper wait states and error handling
--- | • Customizable item requirements for different submarine operations
--- | • Automatic return to FC house after inventory checks
--- |
--- | Important Note: Ensure all characters in the franchise_owners list have access to the required zones.
--- | Check Lifestream settings as this will use /li auto, so many sure you have this setup correctly.
--- |
--- | *** CHECK DROPBOX!! ***
--- | You'll want to have auto-accepting on the toons you're inversing so there's no interaction needed.
--- | This is required to setup manually, just open dropbox and checkmark auto trading!
+-- |  Important Note: This script requires dfunc.lua and xafunc.lua dependencies. These must be configured in SomethingNeedDoing
+-- |  before running. The script will move characters to a supplier location and wait for inventory thresholds to be met before
+-- |  proceeding to the next character. Works in tandem with XA Inverse Supplier for automated resource distribution.
 -- | 
--- | Requires:
--- |  dfunc; can be found here: https://github.com/McVaxius/dhogsbreakfeast/blob/main/dfunc.lua
--- |  xafunc; can be found here: https://github.com/xa-io/ffxiv-tools/blob/main/snd/xafunc.lua
--- |   - Two setup processes, 1) SND > Add script, name dfunc and another xafunc paste the code.
--- |   - 2) SND > Add script name the same as before, add github url and save, can update through SND
--- |
--- | XA Inverse Bagman v7.35.1
--- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-14 10:30
--- |
--- | ## Release Notes ##
--- | v7.35.1 - Updated TonySpot handling to make easier to use for any other locations, if not wanting Summerford Farms
--- |           Please read the notes around x/y/z coords if you change TonySpot
--- | v7.35 - Revamped codebase using new xafunc functions for better readability and maintainability
+-- |  Important Steps: Enable Dropbox Auto-Trading, Lifesteam Paths
+-- | 
+-- |  XA Inverse Bagman v2.0
+-- |  Mass toon inventory threshold checker for submarine operations
+-- |  Created by: https://github.com/xa-io
+-- |  Last Updated: 2025-11-5 13:20:00
+-- | 
+-- |  ## Release Notes ##
+-- | 
+-- |  v2.0
+-- |    - Enhanced multi-character submarine resource management
+-- |    - Comprehensive threshold checking for different resources
+-- |    - Automated supplier pathing with custom location configuration
+-- |    - Real-time status reporting with visual indicators
+-- |    - Safe character switching with proper wait states
+-- |    - Homeworld return functionality after threshold completion
+-- | 
+-- |  ## Dependencies ##
+-- | 
+-- |  Requires dfunc.lua: https://github.com/McVaxius/dhogsbreakfeast/blob/main/dfunc.lua
+-- |  Requires xafunc.lua: https://github.com/xa-io/ffxiv-tools/blob/main/snd/xafunc.lua
+-- | 
+-- |  Setup Process:
+-- |  1. SND > Add Script > Name: dfunc > Paste code from dfunc.lua URL
+-- |  2. SND > Add Script > Name: xafunc > Paste code from xafunc.lua URL
+-- |  3. Alternative: SND > Add Script > Name: dfunc/xafunc > Add GitHub URL > Save (enables auto-update)
+-- | 
+-- |  ## Companion Script ##
+-- | 
+-- |  Works with: XA Inverse Supplier v2.0
+-- |  Configuration: Synchronize franchise_owners list and item thresholds between both scripts
 -- └-----------------------------------------------------------------------------------------------------------------------
-
--- ---------------------------------------
--- -- Start of Configuration Parameters --
--- ---------------------------------------
 
 -- DO NOT TOUCH THESE LINES BELOW
 require("dfunc")
@@ -64,45 +67,26 @@ DisableARMultiXA()
 rsrXA("off")
 -- DO NOT TOUCH THESE LINES ABOVE
 
--- Where are we meeting Tony
-local TonyTurf = "Sephirot"
-local TonySpot = "Summerford Farms" -- Use the Aetheryte Name for this
-local TonyZoneID = 134 -- Use GetZoneIDXA() from xafunc to get this
+-- ---------------------------------------
+-- -- Start of Configuration Parameters --
+-- ---------------------------------------
 
 -- Tony's coordinates (set this manually so the alt runs to a set location)
 -- Use GetInverseBagmanCoordsXA() from xafunc to get this. Required if changing TonySpot
-local tony_x = 233.81164550781
-local tony_y = 112.45678710938
-local tony_z = -262.1672668457
+local tony_x = 238.8885345459
+local tony_y = 112.70601654053
+local tony_z = -254.736328125
 -- No auto pathing is setup within Inverse Bagman, so you cannot use 42069420 from Bagman type 69
 -- This was done specifically because you'll likely have different supplier toons
 
--- Inventory Management
-local gil_buffer = 5000 -- Buffer to ignore missing gil if less than this amount
-local min_gil_keep = 50000 -- Minimum amount of gil to keep
-local min_fuel_keep = 0  -- The minimum amount of Ceruleum Fuel to keep
-local min_repair_mats_keep = 0  -- The minimum amount of Magitek Repair Mats to keep
-local min_shark_hull = 0
-local min_shark_stern = 0
-local min_shark_bow = 0
-local min_shark_bridge = 0
-local min_unkiu_bow = 0
-local min_coelacanth_bridge = 0
-local min_dive_credit = 0
-local min_fire_shard = 0
+-- ----------------------------------------------
+-- Share the below lines with Inverse Supplier --
+-- ----------------------------------------------
 
--- Item IDs
-local gil_id = 1 -- Gil
-local fuel_id = 10155 -- Ceruleum Tank
-local kits_id = 10373 -- Magitek Repair Materials
-local shark_hull_id = 21794  -- Shark-class Pressure Hull
-local shark_stern_id = 21795 -- Shark-class Stern
-local shark_bow_id = 21792   -- Shark-class Bow
-local shark_bridge_id = 21793 -- Shark-class Bridge
-local unkiu_bow_id = 21796   -- Unkiu-class Bow
-local coelacanth_bridge_id = 23904 -- Coelacanth-class Bridge
-local dive_credit_id = 22317 -- Dive Credit
-local fire_shard_id =  2 -- Fire Shard
+-- Where is the supplier location
+local TonyTurf = "Golem"
+local TonySpot = "Summerford Farms" -- Use the Aetheryte Name for this
+local TonyZoneID = 134 -- Use GetZoneIDXA() from xafunc to get this
 
 -- Toon list (last toon should not have a comma at the end)
 local franchise_owners = {
@@ -110,6 +94,38 @@ local franchise_owners = {
     {"Toon Two@World"},
     {"Toon Three@World"}
 }
+
+-- Inventory Management Thresholds
+local gil_threshold = 0
+local miniature_aetheryte_count = 0
+local fuel_threshold = 0
+local repair_mats_threshold = 0
+local shark_hull_threshold = 0
+local shark_stern_threshold = 0
+local shark_bow_threshold = 0
+local shark_bridge_threshold = 0
+local unkiu_bow_threshold = 0
+local coelacanth_bridge_threshold = 0
+local dive_credit_threshold = 0
+local fire_shard_threshold = 0
+
+-- ----------------------------------------------
+-- Share the above lines with Inverse Supplier --
+-- ----------------------------------------------
+
+-- Item IDs
+local gil_id = 1
+local miniature_aetheryte_id = 6600
+local fuel_id = 10155
+local kits_id = 10373
+local shark_hull_id = 21794
+local shark_stern_id = 21795
+local shark_bow_id = 21792
+local shark_bridge_id = 21793
+local unkiu_bow_id = 21796
+local coelacanth_bridge_id = 23904
+local dive_credit_id = 22317
+local fire_shard_id = 2
 
 -- -------------------------------------
 -- -- End of Configuration Parameters --
@@ -119,94 +135,31 @@ local franchise_owners = {
 -- -- Start of Functions --
 -- ------------------------
 
-local function ipairs(t)
-    local i = 0
-    return function()
-        i = i + 1
-        local v = t[i]
-        if v then
-            return i, v
-        end
-    end
-end
-
--- Function to calculate needed and excess items, then output them to chat
-local function check_items()
-    local gil_needed = min_gil_keep - GetGil()
-    local fuel_needed = min_fuel_keep - GetItemCount(fuel_id)
-    local mats_needed = min_repair_mats_keep - GetItemCount(kits_id)
-    local fire_shard_needed = min_fire_shard - GetItemCount(fire_shard_id)
-    local items_needed = false
-    local has_items_needed = false
-
-    -- Output separator before items
-    EchoXA("-------------")
-    EchoXA("Items Needed:")
-
-    -- Check for needed general items
-    if gil_needed > gil_buffer then
-        EchoXA("Gil: " .. gil_needed)
-        items_needed = true
-        has_items_needed = true
-    end
-    if fuel_needed > 0 then
-        EchoXA("Fuel: " .. fuel_needed)
-        items_needed = true
-        has_items_needed = true
-    end
-    if mats_needed > 0 then
-        EchoXA("Kits: " .. mats_needed)
-        items_needed = true
-        has_items_needed = true
-    end
-    if fire_shard_needed > 0 then
-        EchoXA("Fire Shards: " .. fire_shard_needed)
-        items_needed = true
-        has_items_needed = true
-    end
-
-    -- Check for needed parts (set minimum amounts)
-    local parts = {
-        { id = shark_hull_id, name = "Shark-class Pressure Hull", min = min_shark_hull },
-        { id = shark_stern_id, name = "Shark-class Stern", min = min_shark_stern },
-        { id = shark_bow_id, name = "Shark-class Bow", min = min_shark_bow },
-        { id = shark_bridge_id, name = "Shark-class Bridge", min = min_shark_bridge },
-        { id = unkiu_bow_id, name = "Unkiu-class Bow", min = min_unkiu_bow },
-        { id = coelacanth_bridge_id, name = "Coelacanth-class Bridge", min = min_coelacanth_bridge },
-        { id = dive_credit_id, name = "Dive Credit", min = min_dive_credit }
-    }
-
-    for _, part in ipairs(parts) do
-        local count = GetItemCount(part.id)
-        if count < part.min then
-            EchoXA(part.name .. ": " .. (part.min - count))
-            items_needed = true
-            has_items_needed = true
-        end
-    end
-    return has_items_needed
-end
-
--- Function to move to Tony's location
-local function approach_tony()
+-- Function to move to Tony's location, checking both world and zone
+local function ApproachTonyXA()
     PathfindAndMoveTo(tony_x, tony_y, tony_z, false)
     FullStopMovementXA()
 end
 
--- Function to move to Tony's location, checking both world and zone
-local function handle_tony_movement()
+local function TonyMovementXA()
     -- Check if we are on the correct world
-    LifestreamCmdXA(TonyTurf)
+    local current_world, _ = GetWorldNameXA()
+    if current_world ~= TonyTurf then
+        EchoXA("Not on " .. TonyTurf .. ". Traveling to world now.")
+        LifestreamCmdXA(TonyTurf)
+    else
+        EchoXA("Already on " .. TonyTurf .. ".")
+    end
     
     -- Proceed with zone check
     EchoXA("Starting the process: Check if already in " .. TonySpot .. ".")
     if GetZoneID() == TonyZoneID then
-        EchoXA("Already in " .. TonySpot .. ". Moving to Tony's location.")
-        approach_tony()
+        EchoXA("Already in " .. TonySpot .. ". Moving to supplier location.")
+        ApproachTonyXA()
     else
         EchoXA("Not in " .. TonySpot .. ". Teleporting now.")
         LifestreamCmdXA(TonySpot)
-        approach_tony()
+        ApproachTonyXA()
     end
 end
 
@@ -214,37 +167,135 @@ end
 -- -- End of Functions --
 -- ----------------------
 
--- --------------------------------
--- -- Start of XA Inverse Bagman --
--- --------------------------------
+-- --------------------------
+-- -- Start of XA Relogger --
+-- --------------------------
 
--- Function to cycle through characters and run inventory checks
-local function InverseBagmanXA()
-    for _, owner in ipairs(franchise_owners) do
-        -- Relog to the character in franchise_owners
-        local character = owner[1]
-        ARRelogXA(character)
-        EnableTextAdvanceXA()
-        RemoveSproutXA()
-        handle_tony_movement()
-        local items_status = check_items()
-
-        -- Repeat check until all items are gathered
-        while items_status do
-            SleepXA(3)
-            items_status = check_items()
+function ProcessToonListXA()
+    for i = 1, #franchise_owners do
+        local who = franchise_owners[i][1]
+        if who and who ~= "" then
+            ProcessToonXA(i, #franchise_owners, who)
         end
-
-        -- Return to the home location after checks
-        return_to_autoXA()
-        FreeCompanyCmdXA()
     end
 end
 
-InverseBagmanXA()
+function CheckIfItemsNeeded()
+    -- Check all item counts and determine if any items are needed
+    local current_gil = GetGil() or 0
+    local current_aetherytes = GetItemCount(miniature_aetheryte_id) or 0
+    local current_fuel = GetItemCount(fuel_id) or 0
+    local current_repair_mats = GetItemCount(kits_id) or 0
+    local current_shark_hull = GetItemCount(shark_hull_id) or 0
+    local current_shark_stern = GetItemCount(shark_stern_id) or 0
+    local current_shark_bow = GetItemCount(shark_bow_id) or 0
+    local current_shark_bridge = GetItemCount(shark_bridge_id) or 0
+    local current_unkiu_bow = GetItemCount(unkiu_bow_id) or 0
+    local current_coelacanth_bridge = GetItemCount(coelacanth_bridge_id) or 0
+    local current_dive_credit = GetItemCount(dive_credit_id) or 0
+    local current_fire_shard = GetItemCount(fire_shard_id) or 0
+    
+    -- Check if any thresholds are not met
+    local items_needed = false
+    
+    if current_gil < gil_threshold or 
+       current_aetherytes < miniature_aetheryte_count or
+       current_fuel < fuel_threshold or
+       current_repair_mats < repair_mats_threshold or
+       current_shark_hull < shark_hull_threshold or
+       current_shark_stern < shark_stern_threshold or
+       current_shark_bow < shark_bow_threshold or
+       current_shark_bridge < shark_bridge_threshold or
+       current_unkiu_bow < unkiu_bow_threshold or
+       current_coelacanth_bridge < coelacanth_bridge_threshold or
+       current_dive_credit < dive_credit_threshold or
+       current_fire_shard < fire_shard_threshold then
+        items_needed = true
+    end
+    
+    return items_needed, current_gil, current_aetherytes, current_fuel, current_repair_mats,
+           current_shark_hull, current_shark_stern, current_shark_bow, current_shark_bridge,
+           current_unkiu_bow, current_coelacanth_bridge, current_dive_credit, current_fire_shard
+end
 
-EnableARMultiXA()
+function ProcessToonXA(i, total, who)
+    EchoXA(string.format("[Relog %d/%d] -> %s", i, total, who))
 
--- ------------------------------
--- -- End of XA Inverse Bagman --
--- ------------------------------
+    if GetCharacterName(true) ~= who then
+        ARRelogXA(who)
+    else
+        EchoXA("Already logged in as " .. who)
+    end
+    CharacterSafeWaitXA() -- Do not remove this checker
+    
+    -- Initial inventory check
+    local items_needed, current_gil, current_aetherytes, current_fuel, current_repair_mats,
+          current_shark_hull, current_shark_stern, current_shark_bow, current_shark_bridge,
+          current_unkiu_bow, current_coelacanth_bridge, current_dive_credit, current_fire_shard = CheckIfItemsNeeded()
+    
+    -- If all thresholds are met, skip to next toon
+    if not items_needed then
+        EchoXA("[✓] All thresholds already met! No items needed.")
+        EchoXA("[✓] Moving to next character...")
+        SleepXA(1)
+        return
+    end
+    
+    -- Items are needed - execute supplier pathing and wait for items
+    EchoXA("[!] Items needed detected. Executing supplier sequence...")
+    
+    -- Move to Tony's location for supplier interaction
+    TonyMovementXA()
+    
+    -- Keep checking until all thresholds are reached
+    while items_needed do
+        
+        EchoXA("-------------")
+        EchoXA("Checking Thresholds:")
+        
+        -- Consolidated threshold checking using table-driven approach
+        local item_checks = {
+            {name = "Gil", current = current_gil, threshold = gil_threshold},
+            {name = "Miniature Aetheryte", current = current_aetherytes, threshold = miniature_aetheryte_count},
+            {name = "Ceruleum Tank", current = current_fuel, threshold = fuel_threshold},
+            {name = "Magitek Repair Materials", current = current_repair_mats, threshold = repair_mats_threshold},
+            {name = "Shark-class Pressure Hull", current = current_shark_hull, threshold = shark_hull_threshold},
+            {name = "Shark-class Stern", current = current_shark_stern, threshold = shark_stern_threshold},
+            {name = "Shark-class Bow", current = current_shark_bow, threshold = shark_bow_threshold},
+            {name = "Shark-class Bridge", current = current_shark_bridge, threshold = shark_bridge_threshold},
+            {name = "Unkiu-class Bow", current = current_unkiu_bow, threshold = unkiu_bow_threshold},
+            {name = "Coelacanth-class Bridge", current = current_coelacanth_bridge, threshold = coelacanth_bridge_threshold},
+            {name = "Dive Credit", current = current_dive_credit, threshold = dive_credit_threshold},
+            {name = "Fire Shard", current = current_fire_shard, threshold = fire_shard_threshold}
+        }
+        
+        for _, item in ipairs(item_checks) do
+            local status = item.current >= item.threshold and "[✓]" or "[✗]"
+            EchoXA(string.format("%s %s: %d / %d", status, item.name, item.current, item.threshold))
+        end
+        
+        EchoXA("Waiting 5s...")
+        SleepXA(5)
+        
+        -- Refresh all counts and check if items are still needed
+        items_needed, current_gil, current_aetherytes, current_fuel, current_repair_mats,
+        current_shark_hull, current_shark_stern, current_shark_bow, current_shark_bridge,
+        current_unkiu_bow, current_coelacanth_bridge, current_dive_credit, current_fire_shard = CheckIfItemsNeeded()
+    end
+    
+    EchoXA("[✓] All thresholds met! Returning home.")
+    return_to_autoXA()
+
+    EchoXA("[✓] Moving to next character.")
+    SleepXA(1)
+end
+
+ProcessToonListXA()
+EchoXA("Inverse Bagman has finished successfully!")
+
+LogoutXA()
+-- EnableARMultiXA()
+
+-- ------------------------
+-- -- End of XA Relogger --
+-- ------------------------
