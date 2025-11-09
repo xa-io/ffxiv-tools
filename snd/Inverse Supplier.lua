@@ -84,7 +84,7 @@ tradedebug_mode = true
 listdebug_mode = false
 
 local scan_interval = 2                 -- Scan interval in seconds (how often to check for nearby players)
-local max_scan_distance = 8             -- Maximum distance to scan for players (in yalms)
+local max_scan_distance = 6             -- Maximum distance to scan for players (in yalms)
 local move_distance_threshold = 3       -- Distance threshold to trigger movement (in yalms)
 local stop_distance = 3                 -- Stop movement when within this distance (in yalms)
 local trade_delay = 2                   -- Delay before initiating trade sequence (in seconds)
