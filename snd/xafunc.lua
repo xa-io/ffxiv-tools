@@ -23,7 +23,7 @@
 -- | ## Release Notes ##
 -- | v2.1 - Added DebugXA(), TradeDebugXA(), ListDebugXA(), CheckPluginInstalledXA(), CheckPluginEnabledXA(),
 -- |        CheckAnyPluginInstalledXA(), CheckAnyPluginEnabledXA(), ListAllPluginsXA(), ApplyFCPermissionsXA()
--- | v2.0 - Added IsInFreeCompanyXA(), LeaveFreeCompanyXA()
+-- | v2.0 - Added IsInFreeCompanyXA(), LeaveFreeCompanyXA(), OpenInventoryXA()
 -- | v1.9 - Added GetInverseBagmanCoordsXA()
 -- | v1.8 - Improved OpenDropboxXA() as Limiana has added [/dropbox OpenTradeTab] to ensure we're on the item tab
 -- | v1.7 - Improved OpenArmouryChestXA() to use slashcommand instead of CTRL + I, Removed CharacterSafeWaitXA() from
@@ -131,6 +131,7 @@
 -- | PartyDisbandXA()               -- Disband current party
 -- | PartyAcceptXA()                -- Accept party invitation
 -- | PartyLeaveXA()                 -- Leave current party
+-- | OpenInventoryXA()              -- Opens Inventory
 -- | OpenArmouryChestXA()           -- Opens Armoury Chest
 -- | OpenDropboxXA()                -- Opens Dropbox, then opens Item Trade Queue tab
 -- | ClearDropboxXA()               -- Clears the Dropbox queue
@@ -908,6 +909,11 @@ function BTBDisbandXA()
         SelectYesnoXA()
         SleepXA(1)
     end
+end
+
+function OpenInventoryXA()
+    yield("/inventory")
+    SleepXA(0.07)
 end
 
 function OpenArmouryChestXA()
