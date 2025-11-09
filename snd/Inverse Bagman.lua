@@ -57,7 +57,7 @@
 -- |  ## Companion Script ##
 -- | 
 -- |  Works with: XA Inverse Supplier v2.0
--- |  Configuration: Synchronize franchise_owners list and item thresholds between both scripts
+-- |  Configuration: Synchronize toon_list and item thresholds between both scripts
 -- └-----------------------------------------------------------------------------------------------------------------------
 
 -- DO NOT TOUCH THESE LINES BELOW
@@ -65,11 +65,16 @@ require("dfunc")
 require("xafunc")
 DisableARMultiXA()
 rsrXA("off")
+if not CheckPluginEnabledXA({"Dropbox", "Lifestream", "vnavmesh", "AutoRetainer", "PandorasBox", "TextAdvance"}) then return end
 -- DO NOT TOUCH THESE LINES ABOVE
 
 -- ---------------------------------------
 -- -- Start of Configuration Parameters --
 -- ---------------------------------------
+
+debug_mode = false
+tradedebug_mode = true
+listdebug_mode = false
 
 -- Tony's coordinates (set this manually so the alt runs to a set location)
 -- Use GetInverseBagmanCoordsXA() from xafunc to get this. Required if changing TonySpot
@@ -89,7 +94,7 @@ local TonySpot = "Summerford Farms" -- Use the Aetheryte Name for this
 local TonyZoneID = 134 -- Use GetZoneIDXA() from xafunc to get this
 
 -- Toon list (last toon should not have a comma at the end)
-local franchise_owners = {
+local toon_list = {
     {"Toon One@World"},
     {"Toon Two@World"},
     {"Toon Three@World"}
@@ -135,6 +140,11 @@ local fire_shard_id = 2
 -- -- Start of Functions --
 -- ------------------------
 
+-- Check all required plugins and stop if any are missing or disabled
+if not CheckPluginsBagmanXA() then
+    return -- Stop script execution if plugins are not ready
+end
+
 -- Function to move to Tony's location, checking both world and zone
 local function ApproachTonyXA()
     PathfindAndMoveTo(tony_x, tony_y, tony_z, false)
@@ -145,19 +155,19 @@ local function TonyMovementXA()
     -- Check if we are on the correct world
     local current_world, _ = GetWorldNameXA()
     if current_world ~= TonyTurf then
-        EchoXA("Not on " .. TonyTurf .. ". Traveling to world now.")
+        DebugXA("Not on " .. TonyTurf .. ". Traveling to world now.")
         LifestreamCmdXA(TonyTurf)
     else
-        EchoXA("Already on " .. TonyTurf .. ".")
+        DebugXA("Already on " .. TonyTurf .. ".")
     end
     
     -- Proceed with zone check
-    EchoXA("Starting the process: Check if already in " .. TonySpot .. ".")
+    DebugXA("Starting the process: Check if already in " .. TonySpot .. ".")
     if GetZoneID() == TonyZoneID then
-        EchoXA("Already in " .. TonySpot .. ". Moving to supplier location.")
+        DebugXA("Already in " .. TonySpot .. ". Moving to supplier location.")
         ApproachTonyXA()
     else
-        EchoXA("Not in " .. TonySpot .. ". Teleporting now.")
+        DebugXA("Not in " .. TonySpot .. ". Teleporting now.")
         LifestreamCmdXA(TonySpot)
         ApproachTonyXA()
     end
@@ -172,10 +182,10 @@ end
 -- --------------------------
 
 function ProcessToonListXA()
-    for i = 1, #franchise_owners do
-        local who = franchise_owners[i][1]
+    for i = 1, #toon_list do
+        local who = toon_list[i][1]
         if who and who ~= "" then
-            ProcessToonXA(i, #franchise_owners, who)
+            ProcessToonXA(i, #toon_list, who)
         end
     end
 end
@@ -219,12 +229,12 @@ function CheckIfItemsNeeded()
 end
 
 function ProcessToonXA(i, total, who)
-    EchoXA(string.format("[Relog %d/%d] -> %s", i, total, who))
+    DebugXA(string.format("[Relog %d/%d] -> %s", i, total, who))
 
     if GetCharacterName(true) ~= who then
         ARRelogXA(who)
     else
-        EchoXA("Already logged in as " .. who)
+        DebugXA("Already logged in as " .. who)
     end
     CharacterSafeWaitXA() -- Do not remove this checker
     
@@ -235,14 +245,14 @@ function ProcessToonXA(i, total, who)
     
     -- If all thresholds are met, skip to next toon
     if not items_needed then
-        EchoXA("[✓] All thresholds already met! No items needed.")
-        EchoXA("[✓] Moving to next character...")
+        TradeDebugXA("[✓] All thresholds already met! No items needed.")
+        DebugXA("[✓] Moving to next character...")
         SleepXA(1)
         return
     end
     
     -- Items are needed - execute supplier pathing and wait for items
-    EchoXA("[!] Items needed detected. Executing supplier sequence...")
+    TradeDebugXA("[!] Items needed detected. Executing supplier sequence...")
     
     -- Move to Tony's location for supplier interaction
     TonyMovementXA()
@@ -283,7 +293,7 @@ function ProcessToonXA(i, total, who)
         current_unkiu_bow, current_coelacanth_bridge, current_dive_credit, current_fire_shard = CheckIfItemsNeeded()
     end
     
-    EchoXA("[✓] All thresholds met! Returning home.")
+    TradeDebugXA("[✓] All thresholds met! Returning home.")
     return_to_autoXA()
 
     EchoXA("[✓] Moving to next character.")
@@ -291,7 +301,7 @@ function ProcessToonXA(i, total, who)
 end
 
 ProcessToonListXA()
-EchoXA("Inverse Bagman has finished successfully!")
+DebugXA("Inverse Bagman has finished successfully!")
 
 LogoutXA()
 -- EnableARMultiXA()
