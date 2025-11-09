@@ -140,11 +140,6 @@ local fire_shard_id = 2
 -- -- Start of Functions --
 -- ------------------------
 
--- Check all required plugins and stop if any are missing or disabled
-if not CheckPluginsBagmanXA() then
-    return -- Stop script execution if plugins are not ready
-end
-
 -- Function to move to Tony's location, checking both world and zone
 local function ApproachTonyXA()
     PathfindAndMoveTo(tony_x, tony_y, tony_z, false)
