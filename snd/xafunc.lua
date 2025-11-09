@@ -16,12 +16,14 @@
 -- | Important Note: This library requires dfunc.lua to be loaded first in your scripts. Many functions build upon
 -- | dfunc's base functionality. Always use require("dfunc") and require("xafunc") in your automation scripts.
 -- |
--- | XA Func Library v2.0
+-- | XA Func Library v2.1
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-11-01 21:10
+-- | Last Updated: 2025-11-09 11:20:00
 -- |
 -- | ## Release Notes ##
--- | v2.0 - Added IsInFreeCompany(), LeaveFreeCompany()
+-- | v2.1 - Added DebugXA(), TradeDebugXA(), ListDebugXA(), CheckPluginInstalledXA(), CheckPluginEnabledXA(),
+-- |        CheckAnyPluginInstalledXA(), CheckAnyPluginEnabledXA(), ListAllPluginsXA(), ApplyFCPermissionsXA()
+-- | v2.0 - Added IsInFreeCompanyXA(), LeaveFreeCompanyXA()
 -- | v1.9 - Added GetInverseBagmanCoordsXA()
 -- | v1.8 - Improved OpenDropboxXA() as Limiana has added [/dropbox OpenTradeTab] to ensure we're on the item tab
 -- | v1.7 - Improved OpenArmouryChestXA() to use slashcommand instead of CTRL + I, Removed CharacterSafeWaitXA() from
@@ -60,6 +62,9 @@
 -- | Misc Things
 -- |---------------------------------------------------------------------------
 -- | EchoXA(text)                   -- Usage: EchoXA("Hello World In Echo Chat")
+-- | DebugXA(message)               -- Usage: DebugXA("Debug message") - Requires debug_mode = true
+-- | TradeDebugXA(message)          -- Usage: TradeDebugXA("Trade message") - Requires tradedebug_mode = true
+-- | ListDebugXA(message)           -- Usage: ListDebugXA("List message") - Requires listdebug_mode = true
 -- | SleepXA(time)                  -- Usage: SleepXA(5) -- Will use /wait 5
 -- | TargetXA(targetname)           -- Usage: TargetXA("Player'or NPC-name")
 -- | FocusTargetXA()                -- Usage: FocusTargetXA()
@@ -76,8 +81,14 @@
 -- | 
 -- | Plugin Things
 -- |---------------------------------------------------------------------------
--- | AutoRetainerIsBusy()           -- Check if AutoRetainer is currently processing
--- | WaitForARToFinishXA()          -- Wait for AutoRetainerIsBusy()
+-- | IsEnabledXA(name)              -- Check if a plugin is installed AND enabled - Usage: if IsEnabledXA("RotationSolver") then ... end
+-- | AutoRetainerIsBusyXA()         -- Check if AutoRetainer is currently processing
+-- | WaitForARToFinishXA()          -- Wait for AutoRetainerIsBusyXA()
+-- | CheckPluginInstalledXA()       -- ALL plugin(s) must be installed - Usage: if not CheckPluginInstalledXA({"P1", "P2", "P3"}) then return end
+-- | CheckPluginEnabledXA()         -- ALL plugin(s) must be enabled - Usage: if not CheckPluginEnabledXA({"P1", "P2", "P3"}) then return end
+-- | CheckAnyPluginInstalledXA()    -- At least ONE plugin must be installed - Usage: if not CheckAnyPluginInstalledXA({"P1", "P2"}) then return end
+-- | CheckAnyPluginEnabledXA()      -- At least ONE plugin must be enabled - Usage: if not CheckAnyPluginEnabledXA({"P1", "P2"}) then return end
+-- | ListAllPluginsXA()             -- List all installed plugins with [✓]/[✗] status
 -- | EnableSimpleTweaksXA()         -- Enable recommended SimpleTweaks settings (FixTarget, DisableTitleScreen, etc.)
 -- | WaitForLifestreamXA()          -- Wait for Lifestream to process
 -- | ARRelogXA(name)                -- Runs /ays relog, Usage: ARRelogXA("Toon Name@World")
@@ -104,17 +115,27 @@
 -- | GetPlayerNameXA()              -- Get Player Name
 -- | GetPlayerNameAndWorldXA()      -- Get Player Name@World format
 -- | FreeCompanyCmdXA()             -- Opens FC Window so AR can collect data
--- | IsInFreeCompany()              -- Check if player is currently in a Free Company
--- | LeaveFreeCompany()             -- Leave the current Free Company
+-- | IsInFreeCompanyXA()            -- Check if player is currently in a Free Company
+-- | IsInFreeCompanyResultsXA()     -- Check FC status with detailed debug output
+-- | ApplyFCPermissionsXA()         -- Apply Free Company member rank permissions (requires rank 6+)
+-- | LeaveFreeCompanyXA()           -- Leave the current Free Company
 -- |
 -- | Party Commands
 -- |---------------------------------------------------------------------------
 -- | EnableBTBandInviteXA()         -- Enable BardToolbox, send mass party invite, then disable
 -- | BTBInviteXA()                  -- Send out BardToolbox invite
 -- | BTBDisbandXA()                 -- Send out BardToolbox disband and /leave to double check
+-- | IsInPartyXA()                  -- Check if player is currently in a party
+-- | PartyInviteXA(name)            -- Invite player to party by targeting them - Usage: PartyInviteXA("First Last")
+-- | PartyInviteMenuXA(first,full)  -- Invite player via social menu - Usage: PartyInviteMenuXA("First", "First Last")
+-- | PartyDisbandXA()               -- Disband current party
+-- | PartyAcceptXA()                -- Accept party invitation
+-- | PartyLeaveXA()                 -- Leave current party
 -- | OpenArmouryChestXA()           -- Opens Armoury Chest
 -- | OpenDropboxXA()                -- Opens Dropbox, then opens Item Trade Queue tab
 -- | ClearDropboxXA()               -- Clears the Dropbox queue
+-- | EnableSprintingInTownXA()      -- Enable auto-sprint in sanctuaries via Pandora
+-- | DisableSprintingInTownXA()     -- Disable auto-sprint in sanctuaries via Pandora
 -- | 
 -- | Movement Commands
 -- |---------------------------------------------------------------------------
@@ -125,13 +146,18 @@
 -- | MountUpXA()                    -- Automatic mounting with mount roulette when conditions allow
 -- | DismountXA()                   -- Repeat casting /mount until dismounted and Svc.Condition[1] is met
 -- | MovingCheaterXA()              -- Advanced movement using PlayerAndUIReadyXA() & MountUpXA() & DoNavFlySequenceXA()
+-- | IsBusyXA()                     -- Check if player is busy with various activities
+-- | IsPlayerCastingXA()            -- Check if player is currently casting
 -- | IsPlayerAvailableXA()          -- Helper: Check if player is available (not casting, not zoning)
 -- | PlayerAndUIReadyXA()           -- Helper: Check if NamePlate ready and player available
+-- | GetPartyMemberNameXA(index)    -- Get party member name by index (0-7) - Usage: GetPartyMemberNameXA(0)
 -- | WaitUntil(cond, timeout, step) -- Helper: Wait until condition is true or timeout - Usage: WaitUntil(function, 10, 0.2)
 -- | return_to_fcXA()               -- Lifestream teleport to FC house with auto-entry
 -- | return_to_homeXA()             -- Lifestream teleport to personal house with auto-entry
 -- | return_to_autoXA()             -- Lifestream teleport to select using auto list configuration
 -- | return_to_homeworldXA()        -- Lifestream teleport back to your homeworld
+-- | RunToHomeGCXA()                -- Lifestream teleport to home Grand Company
+-- | EnableDeliverooXA()            -- Enable Deliveroo plugin for GC turn-ins
 -- | LifestreamCmdXA(name)          -- Replacement for yield("/li Limsa") - Usage: LifestreamCmdXA("Limsa")
 -- | GetDistanceToPoint(x,y,z)      -- Calculate distance to target coordinates - Usage: GetDistanceToPoint(-12.123, 45.454, -18.5456)
 -- | MoveToXA(x,y,z)                -- Fly/Run to coordinates with pathing - Usage: MoveToXA(-12.123, 45.454, -18.5456)
@@ -171,12 +197,30 @@ function EchoXA(text) -- Usage: EchoXA("Hello World In Echo Chat")
     yield("/echo " .. tostring(text))
 end
 
+function DebugXA(message) -- Usage: DebugXA("Debug message")
+    if debug_mode then
+        EchoXA(string.format("[Debug] %s", tostring(message)))
+    end
+end
+
+function TradeDebugXA(message) -- Usage: TradeDebugXA("Trade message")
+    if tradedebug_mode then
+        EchoXA(string.format("[Trade] %s", tostring(message)))
+    end
+end
+
+function ListDebugXA(message) -- Usage: ListDebug("List message")
+    if listdebug_mode then
+        EchoXA(string.format("[List] %s", tostring(message)))
+    end
+end
+
 function SleepXA(time) -- Usage: SleepXA(5) -- Will use /wait 5
     yield("/wait " .. tostring(time))
 end
 
 function TargetXA(targetname) -- Usage: TargetXA("Player'or NPC-name")
-    yield('/target "' .. tostring(targetname) .. '"')
+    yield("/target \"" .. tostring(targetname) .. "\"")
 end
 
 function FocusTargetXA() -- Usage: FocusTargetXA()
@@ -185,27 +229,39 @@ function FocusTargetXA() -- Usage: FocusTargetXA()
 end
 
 function vbmaiXA(text) -- Usage: vbmaiXA("on")
-    yield("/vbmai " .. tostring(text))
+    if IsEnabledXA("BossMod") then
+        yield("/vbmai " .. tostring(text))
+    end
 end
 
 function vbmarXA(text)  -- Usage: vbmarXA("disable")
-    yield("/vbm ar " .. tostring(text))
+    if IsEnabledXA("BossMod") then
+        yield("/vbm ar " .. tostring(text))
+    end
 end
 
 function bmraiXA(text) -- Usage: bmraiXA("on")
-    yield("/bmrai " .. tostring(text))
+    if IsEnabledXA("BossModReborn") then
+        yield("/bmrai " .. tostring(text))
+    end
 end
 
 function rsrXA(text) -- Usage: rsrXA("manual")
-    yield("/rsr " .. tostring(text))
+    if IsEnabledXA("RotationSolver") then
+        yield("/rsr " .. tostring(text))
+    end
 end
 
 function adXA(text) -- Usage: adXA("stop")
-    yield("/ad " .. tostring(text))
+    if IsEnabledXA("AutoDuty") then
+        yield("/ad " .. tostring(text))
+    end
 end
 
 function vnavXA(text) -- Usage: vnavXA("stop")
-    yield("/vnav " .. tostring(text))
+    if IsEnabledXA("vnavmesh") then
+        yield("/vnav " .. tostring(text))
+    end
 end
 
 function gaXA(text) -- Usage: gaXA("Sprint")
@@ -229,25 +285,237 @@ end
 -- Plugin Things
 -- ------------------------
 
-function AutoRetainerIsBusy()
+function IsEnabledXA(name)
+    -- Check if a plugin is installed AND enabled
+    -- Usage: if IsEnabledXA("RotationSolver") then ... end
+    for plugin in luanet.each(Svc.PluginInterface.InstalledPlugins) do
+        if plugin.InternalName == name then
+            return plugin.IsLoaded
+        end
+    end
+    return false
+end
+
+function AutoRetainerIsBusyXA()
     return IPC.AutoRetainer.IsBusy()
 end
 
 function WaitForARToFinishXA()
     repeat
         SleepXA(1)
-    until not IPC.AutoRetainer.IsBusy()
+    until not AutoRetainerIsBusyXA()
+end
+
+function CheckPluginInstalledXA(nameOrList)
+    -- Check if plugin(s) are installed - halts script if not installed
+    -- Does NOT check if enabled - only installation status
+    -- Usage: if not CheckPluginInstalledXA("Lifestream") then return end
+    -- Usage: if not CheckPluginInstalledXA({"Lifestream", "AutoRetainer", "Dropbox"}) then return end
+    
+    -- Convert single string to table for uniform processing
+    local pluginNames = type(nameOrList) == "table" and nameOrList or {nameOrList}
+    
+    -- Check each plugin
+    for _, name in ipairs(pluginNames) do
+        local isInstalled = false
+        
+        for plugin in luanet.each(Svc.PluginInterface.InstalledPlugins) do
+            if plugin.InternalName == name then
+                isInstalled = true
+                break
+            end
+        end
+        
+        -- Halt script if plugin is not installed
+        if not isInstalled then
+            EchoXA("[✗] Plugin '" .. name .. "' is NOT INSTALLED")
+            EchoXA("[✗] Script stopped - please install required plugin!")
+            EchoXA("[ERROR] Missing plugin: " .. name)
+            EchoXA("Plugin '" .. name .. "' not installed - script halted")
+            return false
+        end
+    end
+    
+    -- All plugins are installed - silently continue (no spam)
+    -- Uncomment below if you want confirmation messages:
+    -- if #pluginNames == 1 then
+    --     EchoXA("[✓] Plugin '" .. pluginNames[1] .. "' is installed")
+    -- else
+    --     EchoXA("[✓] All " .. #pluginNames .. " plugins are installed")
+    -- end
+    return true
+end
+
+function CheckPluginEnabledXA(nameOrList)
+    -- Check if plugin(s) are installed AND enabled - halts script if not
+    -- Usage: if not CheckPluginEnabledXA("Lifestream") then return end
+    -- Usage: if not CheckPluginEnabledXA({"Lifestream", "AutoRetainer", "Dropbox"}) then return end
+    
+    -- Convert single string to table for uniform processing
+    local pluginNames = type(nameOrList) == "table" and nameOrList or {nameOrList}
+    
+    -- Check each plugin
+    for _, name in ipairs(pluginNames) do
+        local isInstalled = false
+        local isEnabled = false
+        
+        for plugin in luanet.each(Svc.PluginInterface.InstalledPlugins) do
+            if plugin.InternalName == name then
+                isInstalled = true
+                -- Check if plugin is enabled (IsLoaded property indicates enabled status)
+                if plugin.IsLoaded then
+                    isEnabled = true
+                end
+                break
+            end
+        end
+        
+        -- Halt script if plugin is not installed or not enabled
+        if not isInstalled then
+            EchoXA("[✗] Plugin '" .. name .. "' is NOT INSTALLED")
+            EchoXA("[✗] Script stopped - please install required plugin!")
+            EchoXA("[ERROR] Missing plugin: " .. name)
+            EchoXA("Plugin '" .. name .. "' not installed - script halted")
+            return false
+        end
+        
+        if not isEnabled then
+            EchoXA("[✗] Plugin '" .. name .. "' is DISABLED")
+            EchoXA("[✗] Script stopped - please enable required plugin!")
+            EchoXA("[ERROR] Disabled plugin: " .. name)
+            EchoXA("Plugin '" .. name .. "' not enabled - script halted")
+            return false
+        end
+    end
+    
+    -- All plugins are ready - silently continue (no spam)
+    -- Uncomment below if you want confirmation messages:
+    -- if #pluginNames == 1 then
+    --     EchoXA("[✓] Plugin '" .. pluginNames[1] .. "' is ready")
+    -- else
+    --     EchoXA("[✓] All " .. #pluginNames .. " plugins are ready")
+    -- end
+    return true
+end
+
+function CheckAnyPluginInstalledXA(pluginNames)
+    -- Check if at least one plugin from list is installed
+    -- Usage: if not CheckAnyPluginInstalledXA({"BossMod", "BossModReborn", "RotationSolver"}) then return end
+    local foundAny = false
+    local foundPlugins = {}
+    
+    for plugin in luanet.each(Svc.PluginInterface.InstalledPlugins) do
+        for _, name in ipairs(pluginNames) do
+            if plugin.InternalName == name then
+                foundAny = true
+                table.insert(foundPlugins, name)
+            end
+        end
+    end
+    
+    if not foundAny then
+        EchoXA("[✗] At least one of these plugins must be installed:")
+        for _, name in ipairs(pluginNames) do
+            EchoXA("    - " .. name)
+        end
+        EchoXA("[ERROR] No required plugins found - script halted")
+        return false
+    end
+    
+    -- Show which plugin(s) were found
+    if #foundPlugins > 0 then
+        EchoXA("[✓] Found plugin(s): " .. table.concat(foundPlugins, ", "))
+    end
+    
+    return true
+end
+
+function CheckAnyPluginEnabledXA(pluginNames)
+    -- Check if at least one plugin from list is installed AND enabled
+    -- Usage: if not CheckAnyPluginEnabledXA({"BossMod", "BossModReborn", "RotationSolver"}) then return end
+    local foundAny = false
+    local foundPlugins = {}
+    
+    for plugin in luanet.each(Svc.PluginInterface.InstalledPlugins) do
+        for _, name in ipairs(pluginNames) do
+            if plugin.InternalName == name and plugin.IsLoaded then
+                foundAny = true
+                table.insert(foundPlugins, name)
+            end
+        end
+    end
+    
+    if not foundAny then
+        EchoXA("[✗] At least one of these plugins must be installed AND enabled:")
+        for _, name in ipairs(pluginNames) do
+            EchoXA("    - " .. name)
+        end
+        EchoXA("[ERROR] No required plugins are enabled - script halted")
+        return false
+    end
+    
+    -- Show which plugin(s) were found
+    if #foundPlugins > 0 then
+        EchoXA("[✓] Found enabled plugin(s): " .. table.concat(foundPlugins, ", "))
+    end
+    
+    return true
+end
+
+function ListAllPluginsXA()
+    -- List all installed plugins with enabled/disabled status
+    -- Usage: ListAllPluginsXA()
+    local pluginList = {}
+    local enabledCount = 0
+    local disabledCount = 0
+    
+    -- Collect all plugins
+    for plugin in luanet.each(Svc.PluginInterface.InstalledPlugins) do
+        local status = plugin.IsLoaded
+        table.insert(pluginList, {
+            name = plugin.InternalName,
+            enabled = status
+        })
+        if status then
+            enabledCount = enabledCount + 1
+        else
+            disabledCount = disabledCount + 1
+        end
+    end
+    
+    -- Sort alphabetically by name
+    table.sort(pluginList, function(a, b) return a.name < b.name end)
+    
+    -- Display header
+    EchoXA("==================================")
+    EchoXA("ALL INSTALLED PLUGINS")
+    EchoXA("==================================")
+    
+    -- Display each plugin
+    for _, plugin in ipairs(pluginList) do
+        if plugin.enabled then
+            EchoXA("[✓] " .. plugin.name)
+        else
+            EchoXA("[✗] " .. plugin.name)
+        end
+    end
+    
+    -- Display summary
+    EchoXA("==================================")
+    EchoXA("Total: " .. #pluginList .. " plugins")
+    EchoXA("Enabled: " .. enabledCount .. " | Disabled: " .. disabledCount)
+    EchoXA("==================================")
 end
 
 function EnableSimpleTweaksXA()
-    if HasPlugin("SimpleTweaksPlugin") then
+    if IsEnabledXA("SimpleTweaksPlugin") then
         yield("/tweaks enable FixTarget")
         yield("/tweaks enable DisableTitleScreenMovie")
         yield("/tweaks enable EquipJobCommand")
         yield("/tweaks enable RecommendEquipCommand")
         EchoXA("SimpleTweaks has been adjusted.")
     else
-        EchoXA("SimpleTweaksPlugin is not installed.")
+        EchoXA("SimpleTweaksPlugin is not installed or enabled.")
     end
 end
 
@@ -277,16 +545,12 @@ function ARRelogXA(name)
     yield("/ays relog " .. who)
     SleepXA(1)
     WaitForARToFinishXA()
-    EchoXA("Sending CharacterSafeWaitXA 1/4")
     CharacterSafeWaitXA()
     SleepXA(1.01)
-    EchoXA("Sending CharacterSafeWaitXA 2/4")
     CharacterSafeWaitXA()
     SleepXA(1.02)
-    EchoXA("Sending CharacterSafeWaitXA 3/4")
     CharacterSafeWaitXA()
     SleepXA(1.03)
-    EchoXA("Sending CharacterSafeWaitXA 4/4")
     CharacterSafeWaitXA()
     SleepXA(1.04)
     return true
@@ -300,47 +564,64 @@ function LogoutXA()
 end
 
 function EnableARMultiXA()
-    yield("/ays multi e")
+    if IsEnabledXA("AutoRetainer") then
+        yield("/ays multi e")
+    end
 end
 
 function DisableARMultiXA()
-    yield("/ays multi d")
+    if IsEnabledXA("AutoRetainer") then
+        yield("/ays multi d")
+    end
 end
 
 function ARDiscardXA()
-    yield("/ays discard")
-    while AutoRetainerIsBusy() do
-        SleepXA(1)
+    if IsEnabledXA("AutoRetainer") then
+        yield("/ays discard")
+        while AutoRetainerIsBusyXA() do
+            SleepXA(1)
+        end
+        return true
     end
-    return true
+    return false
 end
 
 function QSTStartXA()
-    SleepXA(1)
-    yield("/qst start")
-    SleepXA(2)
+    if IsEnabledXA("Questionable") then
+        SleepXA(1)
+        yield("/qst start")
+        SleepXA(2)
+    end
 end
 
 function QSTStopXA()
-    SleepXA(1)
-    yield("/qst stop")
-    SleepXA(2)
+    if IsEnabledXA("Questionable") then
+        SleepXA(1)
+        yield("/qst stop")
+        SleepXA(2)
+    end
 end
 
 function QSTReloadXA()
-    SleepXA(1)
-    yield("/qst reload")
-    SleepXA(2)
+    if IsEnabledXA("Questionable") then
+        SleepXA(1)
+        yield("/qst reload")
+        SleepXA(2)
+    end
 end
 
 function EnableTextAdvanceXA()
-    yield("/at y")
-    EchoXA("Enabling Text Advance...")
+    if IsEnabledXA("TextAdvance") then
+        yield("/at y")
+        EchoXA("Enabling Text Advance...")
+    end
 end
 
 function DisableTextAdvanceXA()
-    yield("/at n")
-    EchoXA("Disabling Text Advance...")
+    if IsEnabledXA("TextAdvance") then
+        yield("/at n")
+        EchoXA("Disabling Text Advance...")
+    end
 end
 
 -- ------------------------
@@ -455,27 +736,6 @@ function GetZoneNameXA()
     return name, id
 end
 
-function GetWorldNameXAA()
-    local id = (Svc and Svc.ClientState and Svc.ClientState.World) or nil
-    local name
-
-    if Excel and id then
-        local row = Excel.GetRow("World", id)
-        if row then
-            -- check with dot, call with colon
-            local place = (row.GetProperty and row:GetProperty("Name")) or nil
-            name = place and (place.Name or place.Singular)
-            if name and type(name) ~= "string" and name.ToString then
-                name = name:ToString()
-            end
-        end
-    end
-
-    if not name or name == "" then name = tostring(id or "?") end
-    EchoXA("World: " .. tostring(name) .. " [" .. tostring(id or "?") .. "]")
-    return name, id
-end
-
 function GetWorldNameXA()
     local id = (Player and Player.Entity and Player.Entity.CurrentWorld) or nil
     local name = (homeworld_lookup and id and homeworld_lookup[id])
@@ -514,7 +774,7 @@ function FreeCompanyCmdXA()
     SleepXA(1)
 end
 
-function IsInFreeCompany()
+function IsInFreeCompanyXA()
     -- thx kryssx
     local fc_gc = Player.FreeCompany.GrandCompany
     local fc_name = Player.FreeCompany.Name
@@ -535,7 +795,56 @@ function IsInFreeCompany()
     return true
 end
 
-function LeaveFreeCompany()
+function IsInFreeCompanyResultsXA()
+    -- thx kryssx
+    local fc_gc = Player.FreeCompany.GrandCompany
+    local fc_name = Player.FreeCompany.Name
+    local fc_rank = Player.FreeCompany.Rank
+
+    EchoXA("---- Free Company Check ----")
+    EchoXA("Grand Company: " .. tostring(fc_gc or "nil"))
+    EchoXA("FC Name: " .. tostring(fc_name or "nil"))
+    EchoXA("FC Rank: " .. tostring(fc_rank or "nil"))
+
+    if fc_gc == "None" or fc_gc == nil or fc_gc == "" then
+        EchoXA("[✗] Not in a Grand Company (None or nil)")
+        return false
+    end
+    
+    if fc_name == nil or fc_name == "" then
+        EchoXA("[✗] No Free Company name detected")
+        return false
+    end
+
+    if fc_rank == 0 then
+        EchoXA("[✗] Free Company rank is 0")
+        return false
+    end
+
+    EchoXA("[✓] Player is in a Free Company!")
+    EchoXA("------------------------------")
+    return true
+end
+
+function ApplyFCPermissionsXA()
+    zungazunga()
+    FreeCompanyCmdXA()
+    SleepXA(0.1)
+    callbackXA("FreeCompany true 0 2")
+    SleepXA(0.3)
+    callbackXA("FreeCompanyRank true 2 2 Undefined Undefined Undefined")
+    callbackXA("FreeCompanyRank true 4 3 1513 557 Undefined")
+    callbackXA("FreeCompanyRank true 3 2 Undefined Undefined Undefined")
+    SleepXA(0.1)
+    callbackXA("ContextMenu true 0 0 0 Undefined Undefined")
+    SleepXA(0.1)
+    callbackXA("FreeCompanyMemberRankEdit true 0 Undefined 1 1 1 1 1 1 1 1 1 1 1 1 3 1 1 1 1 1 3 1 1 1 1 1 1 1 1 -1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 -1 1 1 1")
+    SleepXA(0.5)
+    EchoXA("FC permissions applied successfully")
+    zungazunga()
+end
+
+function LeaveFreeCompanyXA()
     EchoXA("Opening Free Company menu to leave...")
     
     -- Open the FC menu
@@ -578,23 +887,27 @@ function EnableBTBandInviteXA()
 end
 
 function BTBInviteXA()
-    yield("/btb disband")
-    SleepXA(2)
-    yield("/btb invite")
-    SleepXA(1)
+    if IsEnabledXA("BardToolbox") then
+        yield("/btb disband")
+        SleepXA(2)
+        yield("/btb invite")
+        SleepXA(1)
+    end
 end
 
 function BTBDisbandXA()
-    yield("/btb disband")
-    SleepXA(2)
-    yield("/pcmd breakup")
-    SleepXA(1)
-    SelectYesnoXA()
-    SleepXA(1)
-    yield("/leave")
-    SleepXA(1)
-    SelectYesnoXA()
-    SleepXA(1)
+    if IsEnabledXA("BardToolbox") then
+        yield("/btb disband")
+        SleepXA(2)
+        yield("/pcmd breakup")
+        SleepXA(1)
+        SelectYesnoXA()
+        SleepXA(1)
+        yield("/leave")
+        SleepXA(1)
+        SelectYesnoXA()
+        SleepXA(1)
+    end
 end
 
 function OpenArmouryChestXA()
@@ -603,16 +916,209 @@ function OpenArmouryChestXA()
 end
 
 function OpenDropboxXA()
-    yield("/dropbox")
-    SleepXA(0.5)
-    yield("/dropbox OpenTradeTab")
-    SleepXA(0.5)
+    if IsEnabledXA("Dropbox") then
+        yield("/dropbox")
+        SleepXA(0.5)
+        yield("/dropbox OpenTradeTab")
+        SleepXA(0.5)
+    end
 end
 
+-- function AcceptDropboxTradesXA()
+-- end
+
+-- function RefuseDropboxTradesXA()
+-- end
+
 function ClearDropboxXA()
-    SleepXA(0.2)
-    yield("/dbq clear")
-    SleepXA(0.3)
+    if IsEnabledXA("KitchenSink") then
+        SleepXA(0.2)
+        yield("/dbq clear")
+        SleepXA(0.3)
+    end
+end
+
+function EnableSprintingInTownXA()
+    PandoraSetFeatureState("Auto-Sprint in Sanctuaries",true)
+end
+
+function DisableSprintingInTownXA()
+    PandoraSetFeatureState("Auto-Sprint in Sanctuaries",false)
+end
+
+function IsInPartyXA()
+    return GetPartyMemberNameXA(0) ~= nil and GetPartyMemberNameXA(0) ~= "" and not GetCharacterCondition(45)
+end
+
+-- Usage: PartyInvite("First Last")
+-- Will target and invite player to a party, and retrying if the invite timeout happens
+-- Can only be used if target is in range
+function PartyInviteXA(party_invite_name)
+    local invite_timeout = 305   -- 300 Seconds is the invite timeout, adding 5 seconds for good measure
+    local start_time = os.time() -- Stores the invite time
+
+    while not IsInPartyXA() do
+        repeat
+            SleepXA(0.1)
+        until IsPlayerAvailableXA() and not IsPlayerCastingXA() and not GetCharacterCondition(26)
+
+        TargetXA(party_invite_name)
+        yield("/invite")
+
+        -- Wait for the target player to accept the invite or the timeout to expire
+        while not IsInPartyXA() do
+            SleepXA(0.1)
+
+            -- Check if the invite has expired
+            if os.time() - start_time >= invite_timeout then
+                Echo("Invite expired. Reinviting " .. party_invite_name)
+                start_time = os.time() -- Reset the start time for the new invite
+                break                  -- Break the loop to resend the invite
+            end
+        end
+    end
+    -- stuff could go here
+end
+
+-- Usage: PartyInviteMenu("First", "First Last")
+-- Will invite player to a party through the social menu, and retrying if the invite timeout happens
+-- Can be used from anywhere
+-- Semi broken at the moment
+function PartyInviteMenuXA(party_invite_menu_first, party_invite_menu_full)
+    local invite_timeout = 305   -- 300 Seconds is the invite timeout, adding 5 seconds for good measure
+    local start_time = os.time() -- Stores the invite time
+
+    while not IsInPartyXA() do
+        repeat
+            SleepXA(0.1)
+        until IsPlayerAvailableXA() and not IsPlayerCastingXA() and not GetCharacterCondition(26)
+
+        repeat
+            yield('/search first "' .. party_invite_menu_first .. '" en jp de fr')
+            SleepXA(0.5)
+        until IsAddonVisible("SocialList")
+
+        -- Probably needs the node scanner here to match the name, otherwise it will invite whoever was previously searched, will probably mess up for multiple matches too
+
+        repeat
+            if IsAddonReady("SocialList") then
+                yield('/callback SocialList true 1 0 "' .. party_invite_menu_full .. '"')
+            end
+            SleepXA(0.5)
+        until IsAddonVisible("ContextMenu")
+
+        repeat
+            if IsAddonReady("ContextMenu") then
+                yield("/callback ContextMenu true 0 3 0")
+            end
+            SleepXA(0.1)
+        until not IsAddonVisible("ContextMenu")
+
+        repeat
+            if IsAddonReady("Social") then
+                yield("/callback Social true -1")
+            end
+            SleepXA(0.1)
+        until not IsAddonVisible("Social")
+
+        -- Wait for the target player to accept the invite or the timeout to expire
+        while not IsInPartyXA() do
+            SleepXA(0.1)
+
+            -- Check if the invite has expired
+            if os.time() - start_time >= invite_timeout then
+                Echo("Invite expired. Reinviting " .. party_invite_menu_full)
+                start_time = os.time() -- Reset the start time for the new invite
+                break                  -- Break the loop to resend the invite
+            end
+        end
+    end
+    -- stuff could go here
+end
+
+-- Usage: PartyDisband()
+-- Will check if player is in party and disband party
+function PartyDisbandXA()
+    if IsInPartyXA() then
+        repeat
+            SleepXA(0.1)
+        until IsPlayerAvailableXA() and not IsPlayerCastingXA() and not GetCharacterCondition(26)
+
+        yield("/partycmd disband")
+
+        for i=1, 50 do
+            SleepXA(0.1)
+            if IsAddonVisible("SelectYesno") then
+                break
+            end
+        end
+        repeat
+            if IsAddonReady("SelectYesno") then
+                yield("/callback SelectYesno true 0")
+            end
+            SleepXA(0.1)
+        until not IsAddonVisible("SelectYesno")
+    end
+end
+
+-- Usage: PartyAccept()
+-- Will accept party invite if not in party
+-- NEEDS a name arg
+function PartyAcceptXA()
+    if not IsInPartyXA() then
+        -- Wait until the player is available, not casting, and not in combat
+        repeat
+            SleepXA(0.1)
+        until IsPlayerAvailableXA() and not IsPlayerCastingXA() and not GetCharacterCondition(26)
+
+        -- Wait until the "SelectYesno" addon is ready
+        repeat
+            SleepXA(0.1)
+        until IsAddonReady("SelectYesno")
+
+        SleepXA(0.1)
+
+        -- Accept the party invite
+        yield("/callback SelectYesno true 0")
+
+        -- Wait until the player is in a party
+        repeat
+            SleepXA(0.1)
+        until IsInPartyXA()
+
+        EchoXA("Party invitation accepted.")
+    else
+        EchoXA("Player is already in a party.")
+    end
+end
+
+-- Usage: PartyLeaveXA()
+-- Will leave party if in a party
+function PartyLeaveXA()
+    if IsInPartyXA() then
+        repeat
+            SleepXA(0.1)
+        until IsPlayerAvailableXA() and not IsPlayerCastingXA() and not GetCharacterCondition(26)
+
+        yield("/partycmd leave")
+
+        repeat
+            SleepXA(0.1)
+        until IsAddonVisible("SelectYesno")
+
+        SleepXA(0.1)
+
+        repeat
+            if IsAddonReady("SelectYesno") then
+                yield("/callback SelectYesno true 0")
+            end
+            SleepXA(0.1)
+        until not IsAddonVisible("SelectYesno")
+
+        EchoXA("Party has been left.")
+    else
+        EchoXA("Player is not in a party.")
+    end
 end
 
 -- ------------------------
@@ -655,6 +1161,26 @@ function WalkThroughDottedWallXA()
 	SleepXA(3)
 end
 
+--- Check if player is busy with various activities
+function IsBusyXA()
+    return Player.IsBusy or GetCharacterCondition(6) or GetCharacterCondition(26) or GetCharacterCondition(27) or
+        GetCharacterCondition(43) or GetCharacterCondition(45) or GetCharacterCondition(51) or GetCharacterCondition(32) or
+        not (GetCharacterCondition(1) or GetCharacterCondition(4))
+end
+
+--- Check if player is currently casting
+function IsPlayerCastingXA()
+    return Player.IsCasting
+end
+
+--- Get party member name by index (0-7)
+function GetPartyMemberNameXA(index)
+    if Party == nil then return nil end
+    local member = Party[index]
+    if member == nil then return nil end
+    return member.Name
+end
+
 function IsPlayerAvailableXA()
     if not Player or not Player.Available then return false end
     if Entity and Entity.Player and Entity.Player.IsCasting then return false end
@@ -691,8 +1217,7 @@ function CharacterSafeWaitXA() -- Use this call for safewaits
         local ready, vis = np and np.Ready or false, np and np.Exists or false
         local avail = IsPlayerAvailableXA()
 
-        EchoXA(string.format("[NP %s/%s] [PLR %s] %s",
-            tostring(ready), tostring(vis), tostring(avail), zoning and "(zoning)" or ""))
+        EchoXA(string.format("[NP %s/%s] [PLR %s] %s", tostring(ready), tostring(vis), tostring(avail), zoning and "(zoning)" or ""))
 
         if ready and vis and avail then
             EchoXA("All ready — stopping loop")
@@ -841,30 +1366,38 @@ function return_to_homeworldXA()
 	SleepXA(1.02)
 end
 
+function RunToHomeGCXA()
+    CharacterSafeWaitXA()
+	yield("/li hc")
+	SleepXA(1)
+	WaitForLifestreamXA()
+	SleepXA(2.02)
+    CharacterSafeWaitXA()
+	SleepXA(1.02)
+end
+
+function EnableDeliverooXA()
+    yield("/deliveroo enable")
+end
+
 function LifestreamCmdXA(name)
     local dest = (type(name) == "string") and name:match("^%s*(.-)%s*$") or ""
     if dest == "" then
         EchoXA("No Location Set.")
         return false
     end
-
-    EchoXA("Sending CharacterSafeWaitXA 1/5")
     CharacterSafeWaitXA()
     SleepXA(1.01)
     EchoXA("Teleporting to " .. dest)
     yield("/li " .. dest)
     SleepXA(1)
     WaitForLifestreamXA()
-    EchoXA("Sending CharacterSafeWaitXA 2/5")
     CharacterSafeWaitXA()
     SleepXA(1.02)
-    EchoXA("Sending CharacterSafeWaitXA 3/5")
     CharacterSafeWaitXA()
     SleepXA(1.03)
-    EchoXA("Sending CharacterSafeWaitXA 4/5")
     CharacterSafeWaitXA()
     SleepXA(1.04)
-    EchoXA("Sending CharacterSafeWaitXA 5/5")
     CharacterSafeWaitXA()
     SleepXA(1.05)
     return true
@@ -1034,7 +1567,6 @@ function EquipRecommendedGearXA()
 end
 
 function EquipRecommendedGearCmdXA()
-    
     yield("/tweaks enable RecommendEquipCommand")
     SleepXA(1)
     yield("/equiprecommended")
@@ -1044,11 +1576,13 @@ end
 function EnableArtisanXA()
     yield("/xlenableprofile Artisan")
     EchoXA("Enabled Artisan")
+    SleepXA(3)
 end
 
 function DisableArtisanXA()
     yield("/xldisableprofile Artisan")
     EchoXA("Disabled Artisan")
+    SleepXA(3)
 end
 
 function StartArtisanListXA(list_id)
