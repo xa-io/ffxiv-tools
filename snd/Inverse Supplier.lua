@@ -23,19 +23,24 @@
 -- |  • Configurable scan intervals and trade delays
 -- |  • Debug logging for troubleshooting
 -- | 
--- |  Important Note: This script requires dfunc.lua and xafunc.lua dependencies. Configuration parameters (franchise_owners,
+-- |  Important Note: This script requires dfunc.lua and xafunc.lua dependencies. Configuration parameters (toon_list,
 -- |  item thresholds, and item IDs) must be synchronized with XA Inverse Bagman for proper operation. The supplier
 -- |  distributes items while Bagman waits for thresholds to be met on each character.
 -- | 
 -- |  Important Steps: Be logged into the Supplier toon before starting the script.
 -- |  * will be adding fallback suppliers soon
 -- | 
--- |  XA Inverse Supplier v2.0
+-- |  XA Inverse Supplier v2.1
 -- |  Automated resource distribution via dropbox trading
 -- |  Created by: https://github.com/xa-io
--- |  Last Updated: 2025-11-5 13:20:00
+-- |  Last Updated: 2025-11-07 17:00:00
 -- | 
 -- |  ## Release Notes ##
+-- | 
+-- |  v2.1 
+-- |    - Added required plugin checks (KitchenSink, Dropbox, Lifestream, vnavmesh, AutoRetainer, Pandora, TextAdvance)
+-- |    - Script now validates all required plugins are installed and enabled before execution
+-- |    - Detailed plugin status display via CheckPluginStatus() from xafunc
 -- | 
 -- |  v2.0 
 -- |    - Enhanced automated supplier with dropbox trading
@@ -59,7 +64,7 @@
 -- |  ## Companion Script ##
 -- | 
 -- |  Works with: XA Inverse Bagman v2.0
--- |  Configuration: Synchronize franchise_owners list and item thresholds between both scripts
+-- |  Configuration: Synchronize toon_list and item thresholds between both scripts
 -- └-----------------------------------------------------------------------------------------------------------------------
 
 -- DO NOT TOUCH THESE LINES BELOW
@@ -67,17 +72,21 @@ require("dfunc")
 require("xafunc")
 DisableARMultiXA()
 rsrXA("off")
+if not CheckPluginEnabledXA({"KitchenSink", "Dropbox", "Lifestream", "vnavmesh", "AutoRetainer", "PandorasBox", "TextAdvance"}) then return end
 -- DO NOT TOUCH THESE LINES ABOVE
 
 -- ---------------------------------------
 -- -- Start of Configuration Parameters --
 -- ---------------------------------------
 
+debug_mode = false
+tradedebug_mode = true
+listdebug_mode = false
+
 local scan_interval = 2                 -- Scan interval in seconds (how often to check for nearby players)
 local max_scan_distance = 8             -- Maximum distance to scan for players (in yalms)
 local move_distance_threshold = 3       -- Distance threshold to trigger movement (in yalms)
 local stop_distance = 3                 -- Stop movement when within this distance (in yalms)
-local debug_mode = false                -- Enable debug messages
 local trade_delay = 2                   -- Delay before initiating trade sequence (in seconds)
 
 -- Supplier's coordinates (set this manually so the supplier stays at a set location)
@@ -98,7 +107,7 @@ local TonySpot = "Summerford Farms" -- Use the Aetheryte Name for this
 local TonyZoneID = 134 -- Use GetZoneIDXA() from xafunc to get this
 
 -- Toon list (last toon should not have a comma at the end)
-local franchise_owners = {
+local toon_list = {
     {"Toon One@World"},
     {"Toon Two@World"},
     {"Toon Three@World"}
@@ -153,19 +162,19 @@ local function TonyMovementXA()
     -- Check if we are on the correct world
     local current_world, _ = GetWorldNameXA()
     if current_world ~= TonyTurf then
-        EchoXA("Not on " .. TonyTurf .. ". Traveling to world now.")
+        DebugXA("Not on " .. TonyTurf .. ". Traveling to world now.")
         LifestreamCmdXA(TonyTurf)
     else
-        EchoXA("Already on " .. TonyTurf .. ".")
+        DebugXA("Already on " .. TonyTurf .. ".")
     end
     
     -- Proceed with zone check
-    EchoXA("Starting the process: Check if already in " .. TonySpot .. ".")
+    DebugXA("Starting the process: Check if already in " .. TonySpot .. ".")
     if GetZoneID() == TonyZoneID then
-        EchoXA("Already in " .. TonySpot .. ". Moving to supplier location.")
+        DebugXA("Already in " .. TonySpot .. ". Moving to supplier location.")
         ApproachTonyXA()
     else
-        EchoXA("Not in " .. TonySpot .. ". Teleporting now.")
+        DebugXA("Not in " .. TonySpot .. ". Teleporting now.")
         LifestreamCmdXA(TonySpot)
         ApproachTonyXA()
     end
@@ -174,14 +183,10 @@ end
 -- Completed trades tracking
 local completedTrades = {}           -- Table to track characters we've already traded with
 
-function DebugLog(message)
-    if debug_mode then
-        EchoXA(string.format("[Scanner] %s", tostring(message)))
-    end
-end
+-- Debug functions are now in xafunc.lua (DebugLogXA, TradeDebugXA, ListDebug)
 
 function IsPlayerInList(player_name)
-    for _, owner_data in ipairs(franchise_owners) do
+    for _, owner_data in ipairs(toon_list) do
         if player_name == owner_data[1] then
             return true
         end
@@ -195,12 +200,12 @@ end
 
 function MarkTradeCompleted(player_name)
     completedTrades[player_name] = true
-    EchoXA(string.format("[Trade Complete] %s marked as completed", player_name))
+    TradeDebugXA(string.format("[Trade Complete] %s marked as completed", player_name))
 end
 
 function GetRemainingTradesList()
     local remaining = {}
-    for _, owner_data in ipairs(franchise_owners) do
+    for _, owner_data in ipairs(toon_list) do
         local owner_name = owner_data[1]
         if not completedTrades[owner_name] then
             table.insert(remaining, owner_name)
@@ -210,7 +215,7 @@ function GetRemainingTradesList()
 end
 
 function DisplayTradeStatus()
-    local totalCount = #franchise_owners
+    local totalCount = #toon_list
     local completedCount = 0
     
     for _ in pairs(completedTrades) do
@@ -219,27 +224,27 @@ function DisplayTradeStatus()
     
     local remainingCount = totalCount - completedCount
     
-    EchoXA("========================================")
-    EchoXA(string.format("[Trade Status] %d/%d completed | %d remaining", completedCount, totalCount, remainingCount))
+    ListDebugXA("========================================")
+    TradeDebugXA(string.format("[Trade Status] %d/%d completed | %d remaining", completedCount, totalCount, remainingCount))
     
     if completedCount > 0 then
-        EchoXA("[Completed Trades]:")
+        ListDebugXA("[Completed Trades]:")
         for owner_name, _ in pairs(completedTrades) do
-            EchoXA(string.format("  ✓ %s", owner_name))
+            ListDebugXA(string.format("  ✓ %s", owner_name))
         end
     end
     
     if remainingCount > 0 then
-        EchoXA("[Remaining Characters]:")
+        ListDebugXA("[Remaining Characters]:")
         local remaining = GetRemainingTradesList()
         for i, owner_name in ipairs(remaining) do
-            EchoXA(string.format("  %d. %s", i, owner_name))
+            ListDebugXA(string.format("  %d. %s", i, owner_name))
         end
     else
-        EchoXA("★★★ ALL TRADES COMPLETED! ★★★")
+        TradeDebugXA("★★★ ALL TRADES COMPLETED! ★★★")
     end
     
-    EchoXA("========================================")
+    ListDebugXA("========================================")
 end
 
 function WhileSuppliesAreLow(items_to_send, target_name)
@@ -261,12 +266,12 @@ function WhileSuppliesAreLow(items_to_send, target_name)
         -- Show remaining characters to trade with
         local remaining = GetRemainingTradesList()
         if #remaining > 0 then
-            EchoXA("[Characters Remaining]")
+            ListDebugXA("[Characters Remaining]")
             for i, owner_name in ipairs(remaining) do
                 local indicator = (owner_name == target_name) and ">>> " or "    "
-                EchoXA(string.format("%s%d. %s", indicator, i, owner_name))
+                ListDebugXA(string.format("%s%d. %s", indicator, i, owner_name))
             end
-            EchoXA("-------------")
+            ListDebugXA("-------------")
         end
         
         -- Check each item we need to supply
@@ -289,9 +294,9 @@ function WhileSuppliesAreLow(items_to_send, target_name)
             EchoXA("========================================")
             SleepXA(20)
         else
-            EchoXA("-------------")
-            EchoXA("[✓ Supplies Ready] All items available!")
-            EchoXA("========================================")
+            ListDebugXA("-------------")
+            ListDebugXA("[✓ Supplies Ready] All items available!")
+            ListDebugXA("========================================")
         end
     end
 end
@@ -301,7 +306,7 @@ function CalculateItemsNeeded(target_name)
     -- This function assumes we can query the target's inventory (via trade window or other means)
     -- For now, we'll send max amounts and let the receiver manage
     
-    EchoXA(string.format("[Calculating Items] Determining supplies needed for %s...", target_name))
+    DebugXA(string.format("[Calculating Items] Determining supplies needed for %s...", target_name))
     
     local items_to_send = {}
     
@@ -338,16 +343,16 @@ function SendItemsViaDropbox(target_name, items_to_send)
     
     while not trade_successful and trade_attempt < max_trade_attempts do
         trade_attempt = trade_attempt + 1
-        EchoXA("========================================")
-        EchoXA(string.format("[Trade Attempt %d/%d] for %s", trade_attempt, max_trade_attempts, target_name))
-        EchoXA("========================================")
+        DebugXA("========================================")
+        DebugXA(string.format("[Trade Attempt %d/%d] for %s", trade_attempt, max_trade_attempts, target_name))
+        DebugXA("========================================")
         
         -- Get BEFORE counts for all items we're about to trade
         local before_counts = {}
-        EchoXA("[Pre-Trade Inventory Check]")
+        DebugXA("[Pre-Trade Inventory Check]")
         for _, item in ipairs(items_to_send) do
             before_counts[item.id] = GetItemCount(item.id) or 0
-            EchoXA(string.format("  %s: %d available (need to give %d)", item.name, before_counts[item.id], item.amount))
+            DebugXA(string.format("  %s: %d available (need to give %d)", item.name, before_counts[item.id], item.amount))
             
             -- Check if we have enough items BEFORE attempting trade
             if before_counts[item.id] < item.amount then
@@ -363,21 +368,21 @@ function SendItemsViaDropbox(target_name, items_to_send)
         end
         
         -- Send calculated items via dropbox system (Bagman Type 69 methodology)
-        EchoXA("[Trade Preparation] Opening dropbox...")
+        DebugXA("[Trade Preparation] Opening dropbox...")
         OpenDropboxXA()
         ClearDropboxXA()
         SleepXA(0.5)
         
         -- Queue all items for trade
         for _, item in ipairs(items_to_send) do
-            EchoXA(string.format("[Queueing] %s x%d (ID: %d)", item.name, item.amount, item.id))
+            DebugXA(string.format("[Queueing] %s x%d (ID: %d)", item.name, item.amount, item.id))
             DropboxSetItemQuantity(item.id, false, item.amount)
         end
         
         -- Execute trade sequence from Bagman Type 69
         SleepXA(0.99)
         FocusTargetXA()
-        EchoXA("[Starting Trade] Initiating DropboxStart...")
+        DebugXA("[Starting Trade] Initiating DropboxStart...")
         DropboxStart()
         OpenArmouryChestXA()
         
@@ -386,34 +391,34 @@ function SendItemsViaDropbox(target_name, items_to_send)
         while floo == true do
             floo = DropboxIsBusy()
             SleepXA(1)
-            EchoXA("Trading happening!")
+            DebugXA("Trading happening!")
         end
         
-        EchoXA("[Trade Finished] DropboxStart sequence complete")
+        DebugXA("[Trade Finished] DropboxStart sequence complete")
         ClearDropboxXA()
         SleepXA(2) -- Give time for inventory to update
         
         -- Get AFTER counts and validate trade completion
-        EchoXA("========================================")
-        EchoXA("[Post-Trade Inventory Validation]")
+        DebugXA("========================================")
+        DebugXA("[Post-Trade Inventory Validation]")
         trade_successful = true -- Assume success until proven otherwise
         
         for _, item in ipairs(items_to_send) do
             local after_count = GetItemCount(item.id) or 0
             local items_traded = before_counts[item.id] - after_count
             
-            EchoXA(string.format("  %s:", item.name))
-            EchoXA(string.format("    Before: %d | After: %d | Traded: %d | Expected: %d", 
+            DebugXA(string.format("  %s:", item.name))
+            DebugXA(string.format("    Before: %d | After: %d | Traded: %d | Expected: %d", 
                 before_counts[item.id], after_count, items_traded, item.amount))
             
             -- Check if we traded the expected amount
             if items_traded < item.amount then
-                EchoXA(string.format("    [✗ TRADE INCOMPLETE] Only traded %d out of %d needed!", items_traded, item.amount))
+                DebugXA(string.format("    [✗ TRADE INCOMPLETE] Only traded %d out of %d needed!", items_traded, item.amount))
                 trade_successful = false
             elseif items_traded == item.amount then
                 EchoXA("    [✓ SUCCESS] Trade completed successfully!")
             else
-                EchoXA(string.format("    [? WARNING] Traded more than expected: %d vs %d", items_traded, item.amount))
+                DebugXA(string.format("    [? WARNING] Traded more than expected: %d vs %d", items_traded, item.amount))
             end
         end
         
@@ -441,12 +446,12 @@ function SendItemsViaDropbox(target_name, items_to_send)
 end
 
 function ScanNearbyPlayers()
-    DebugLog("Scanning for nearby franchise owners...")
+    DebugXA("Scanning for nearby toons...")
     
     local found_count = 0
     
-    -- Check each franchise owner in the list
-    for _, owner_data in ipairs(franchise_owners) do
+    -- Check each toon in the list
+    for _, owner_data in ipairs(toon_list) do
         local owner_name = owner_data[1]
         
         -- Strip world name if present (everything after @)
@@ -476,13 +481,13 @@ function ScanNearbyPlayers()
                 if distance <= max_scan_distance then
                     -- Check if already traded with this character
                     if IsTradeCompleted(owner_name) then
-                        DebugLog(string.format("Skipping %s - trade already completed", owner_name))
+                        DebugXA(string.format("Skipping %s - trade already completed", owner_name))
                     else
-                        DebugLog(string.format("Found player: %s (Distance: %.1f yalms)", owner_name, distance))
-                        EchoXA(string.format("★ [Franchise Owner] %s ★", owner_name))
-                        EchoXA(string.format("[Distance] %.1f yalms", distance))
+                        DebugXA(string.format("Found player: %s (Distance: %.1f yalms)", owner_name, distance))
+                        DebugXA(string.format("★ [Toon] %s ★", owner_name))
+                        DebugXA(string.format("[Distance] %.1f yalms", distance))
                     
-                        -- Target the franchise owner
+                        -- Target the toon
                         TargetXA(search_name)
                         SleepXA(1)
                         
@@ -494,9 +499,9 @@ function ScanNearbyPlayers()
                         
                         -- If distance is over threshold, move closer
                         if distance > move_distance_threshold then
-                            EchoXA(string.format("[Moving] Distance %.1f yalms > %d, moving closer...", distance, move_distance_threshold))
+                            DebugXA(string.format("[Moving] Distance %.1f yalms > %d, moving closer...", distance, move_distance_threshold))
                             WalkToTargetXA(obj_x, obj_y, obj_z, stop_distance)
-                            EchoXA("[Completed]")
+                            DebugXA("[Completed]")
                         end
                         
                         -- ========================================
@@ -536,7 +541,7 @@ function ScanNearbyPlayers()
     end
     
     if found_count == 0 then
-        DebugLog("No franchise owners found nearby.")
+        DebugXA("No toons found nearby.")
     end
     
     return false, nil
@@ -553,27 +558,27 @@ end
 EchoXA("========================================")
 EchoXA("  XA Nearby Player Scanner - STARTED")
 EchoXA("========================================")
-EchoXA(string.format("[Monitoring] %d franchise owners", #franchise_owners))
-EchoXA(string.format("[Scan Range] %d yalms", max_scan_distance))
-EchoXA(string.format("[Scan Interval] %.1f seconds", scan_interval))
-EchoXA("========================================")
+DebugXA(string.format("[Monitoring] %d toons", #toon_list))
+DebugXA(string.format("[Scan Range] %d yalms", max_scan_distance))
+DebugXA(string.format("[Scan Interval] %.1f seconds", scan_interval))
+DebugXA("========================================")
 
--- Display franchise owner list
-EchoXA("[Franchise Owners List]")
-for i, owner_data in ipairs(franchise_owners) do
-    EchoXA(string.format("  %d. %s", i, owner_data[1]))
+-- Display toon list
+ListDebugXA("[Toon List]")
+for i, owner_data in ipairs(toon_list) do
+    ListDebugXA(string.format("  %d. %s", i, owner_data[1]))
 end
-EchoXA("========================================")
+ListDebugXA("========================================")
 
 -- Display initial trade status
 DisplayTradeStatus()
 
 -- Move to Tony's location (ensure we're in the right world, zone, and spot)
-EchoXA("========================================")
-EchoXA("Ensuring supplier is at correct location...")
+DebugXA("========================================")
+DebugXA("Ensuring supplier is at correct location...")
 TonyMovementXA()
-EchoXA("[Location Ready] Supplier positioned and ready to scan")
-EchoXA("========================================")
+DebugXA("[Location Ready] Supplier positioned and ready to scan")
+DebugXA("========================================")
 
 -- Main scanning loop
 while true do
@@ -586,7 +591,7 @@ while true do
         completedCount = completedCount + 1
     end
     
-    if completedCount >= #franchise_owners then
+    if completedCount >= #toon_list then
         EchoXA("========================================")
         EchoXA("★★★ ALL TRADES COMPLETED - SCRIPT ENDING ★★★")
         EchoXA("========================================")
