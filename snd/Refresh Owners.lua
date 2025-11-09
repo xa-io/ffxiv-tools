@@ -33,6 +33,7 @@ require("dfunc")
 require("xafunc")
 DisableARMultiXA()
 rsrXA("off")
+if not CheckPluginEnabledXA({"Lifestream", "vnavmesh", "AutoRetainer", "TextAdvance"}) then return end
 -- DO NOT TOUCH THESE LINES ABOVE
 
 -- ---------------------------------------
@@ -54,28 +55,34 @@ local toon_list = {
 -- -- Start of XA Relogger --
 -- --------------------------
 
-for i = 1, #toon_list do
-    local who = toon_list[i][1]
-    local current = GetCharacterName(true)
+function ProcessToonListXA()
+    for i = 1, #toon_list do
+        local who = toon_list[i][1]
+        if who and who ~= "" then
+            ProcessToonXA(i, #toon_list, who)
+        end
+    end
+end
 
-    EchoXA(string.format("[Relog %d/%d] -> %s", i, #toon_list, tostring(who)))
+function ProcessToonXA(i, total, who)
+    EchoXA(string.format("[Relog %d/%d] -> %s", i, total, who))
 
-    -- Relog if we're not already on the target character
-    if current ~= who then
+    if GetCharacterName(true) ~= who then
         ARRelogXA(who)
     else
         EchoXA("Already logged in as " .. who)
-        CharacterSafeWaitXA() -- Do not remove this checker
     end
+    CharacterSafeWaitXA() -- Do not remove this checker
 
     -- Run sequence for each toon
     EnableTextAdvanceXA()
     RemoveSproutXA()
     return_to_homeXA()
-    return_to_fcXA()
     FreeCompanyCmdXA()
+    return_to_fcXA()
 end
 
+ProcessToonListXA()
 EnableARMultiXA()
 
 -- ------------------------
