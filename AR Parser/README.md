@@ -182,4 +182,4 @@ YYYY-MM-DD-HH-MM - ffxiv_gil_summary.xlsx
 
 https://github.com/xa-io
 
-Last Updated: 2025-01-30 13:45:00
+Last Updated: 2025-11-11 13:45:00
