@@ -16,11 +16,13 @@ user = getpass.getuser()
 def acc(nickname, pluginconfigs_path, include_altoholic=True, include_submarines=True):
     auto_path = os.path.join(pluginconfigs_path, "AutoRetainer", "DefaultConfig.json")
     alto_path = os.path.join(pluginconfigs_path, "Altoholic", "altoholic.db")
+    lfstrm_path = os.path.join(pluginconfigs_path, "Lifestream", "DefaultConfig.json")
     
     return {
         "nickname": nickname,
         "auto_path": auto_path,
         "alto_path": alto_path,
+        "lfstrm_path": lfstrm_path,
         "include_altoholic": bool(include_altoholic),
         "include_submarines": bool(include_submarines),
     }
@@ -159,6 +161,73 @@ def _safe_json_load(s):
     except Exception:
         return None
 
+# Residential District mapping
+RESIDENTIAL_DISTRICTS = {
+    8: "Mist",
+    9: "Goblet",
+    2: "Lavender Beds",
+    70: "Empyreum",
+    111: "Shirogane"
+}
+
+# District abbreviations for Excel
+DISTRICT_ABBREV = {
+    "Mist": "M",
+    "Goblet": "G",
+    "Lavender Beds": "LB",
+    "Empyreum": "E",
+    "Shirogane": "S"
+}
+
+def load_lifestream_data(lifestream_path):
+    """
+    Load housing plot data from Lifestream config.
+    Returns a dict mapping CID -> {'private': {'ward': int, 'plot': int, 'district': str}, 'fc': {'ward': int, 'plot': int, 'district': str}}
+    Characters can have both a private house and FC house.
+    """
+    if not os.path.isfile(lifestream_path):
+        return {}
+    
+    try:
+        with open(lifestream_path, 'r', encoding='utf-8-sig') as f:
+            data = json.load(f)
+        
+        house_data = data.get('HousePathDatas', [])
+        housing_map = {}
+        
+        for entry in house_data:
+            cid = entry.get('CID')
+            if cid:
+                # Initialize character housing data if not exists
+                if cid not in housing_map:
+                    housing_map[cid] = {'private': None, 'fc': None}
+                
+                # Wards and plots are 0-indexed in Lifestream, add 1 for display
+                ward = entry.get('Ward')
+                plot = entry.get('Plot')
+                if ward is not None:
+                    ward = ward + 1
+                if plot is not None:
+                    plot = plot + 1
+                
+                # Get residential district
+                district_id = entry.get('ResidentialDistrict')
+                district_name = RESIDENTIAL_DISTRICTS.get(district_id, "")
+                district_abbrev = DISTRICT_ABBREV.get(district_name, "")
+                
+                is_private = entry.get('IsPrivate', False)
+                
+                # Store in appropriate category with district info
+                if is_private:
+                    housing_map[cid]['private'] = {'ward': ward, 'plot': plot, 'district': district_abbrev}
+                else:
+                    housing_map[cid]['fc'] = {'ward': ward, 'plot': plot, 'district': district_abbrev}
+        
+        return housing_map
+    except Exception as e:
+        print(f"[WARNING] Failed to load Lifestream data from '{lifestream_path}': {e}")
+        return {}
+
 def scan_altoholic_db(db_path):
     """
     Scan a single Altoholic DB and return a mapping:
@@ -273,7 +342,7 @@ def get_sub_parts_string(sub_data: dict) -> str:
             parts.append(short_code)
     return "".join(parts)
 
-def build_char_summaries(all_characters, fc_data, alto_map, account_configs):
+def build_char_summaries(all_characters, fc_data, alto_map, account_configs, housing_map):
     char_summaries = []
     # Create a mapping of account nickname to config
     acc_config_map = {acc["nickname"]: acc for acc in account_configs}
@@ -308,10 +377,10 @@ def build_char_summaries(all_characters, fc_data, alto_map, account_configs):
         include_subs = acc_config_map.get(nickname, {}).get("include_submarines", True)
         
         sub_data_map = {
-            "Submersible-1": {"level": 0, "parts": ""},
-            "Submersible-2": {"level": 0, "parts": ""},
-            "Submersible-3": {"level": 0, "parts": ""},
-            "Submersible-4": {"level": 0, "parts": ""},
+            "Submersible-1": {"level": 0, "parts": "", "return_time": 0},
+            "Submersible-2": {"level": 0, "parts": "", "return_time": 0},
+            "Submersible-3": {"level": 0, "parts": "", "return_time": 0},
+            "Submersible-4": {"level": 0, "parts": "", "return_time": 0},
         }
         
         if include_subs:
@@ -320,6 +389,20 @@ def build_char_summaries(all_characters, fc_data, alto_map, account_configs):
                 if sub_key in sub_data_map:
                     sub_data_map[sub_key]["level"] = sub_dict.get("Level", 0)
                     sub_data_map[sub_key]["parts"] = get_sub_parts_string(sub_dict)
+            
+            # Extract return times from OfflineSubmarineData
+            offline_sub_data = char.get("OfflineSubmarineData", [])
+            current_time = datetime.datetime.now().timestamp()
+            for sub_dict in offline_sub_data:
+                sub_name = sub_dict.get("Name", "")
+                if sub_name in sub_data_map:
+                    return_timestamp = sub_dict.get("ReturnTime", 0)
+                    if return_timestamp > 0:
+                        # Convert to hours remaining (can be negative if already returned)
+                        hours_remaining = (return_timestamp - current_time) / 3600
+                        sub_data_map[sub_name]["return_time"] = round(hours_remaining, 2)
+                    else:
+                        sub_data_map[sub_name]["return_time"] = 0
 
         fc_name = ""
         fc_points = 0
@@ -338,6 +421,25 @@ def build_char_summaries(all_characters, fc_data, alto_map, account_configs):
 
         # Region is always derived from World
         region = region_from_world(world)
+        
+        # Housing data from Lifestream (separate private and FC)
+        private_ward = None
+        private_plot = None
+        private_zone = None
+        fc_ward = None
+        fc_plot = None
+        fc_zone = None
+        if isinstance(cid, int) and cid in housing_map:
+            private_house = housing_map[cid].get('private')
+            fc_house = housing_map[cid].get('fc')
+            if private_house:
+                private_ward = private_house.get('ward')
+                private_plot = private_house.get('plot')
+                private_zone = private_house.get('district')
+            if fc_house:
+                fc_ward = fc_house.get('ward')
+                fc_plot = fc_house.get('plot')
+                fc_zone = fc_house.get('district')
 
         char_summaries.append({
             "cid": cid,
@@ -352,16 +454,26 @@ def build_char_summaries(all_characters, fc_data, alto_map, account_configs):
             "fc_points": fc_points,
             "sub1lvl": sub_data_map["Submersible-1"]["level"],
             "sub1parts": sub_data_map["Submersible-1"]["parts"],
+            "sub1return": sub_data_map["Submersible-1"]["return_time"],
             "sub2lvl": sub_data_map["Submersible-2"]["level"],
             "sub2parts": sub_data_map["Submersible-2"]["parts"],
+            "sub2return": sub_data_map["Submersible-2"]["return_time"],
             "sub3lvl": sub_data_map["Submersible-3"]["level"],
             "sub3parts": sub_data_map["Submersible-3"]["parts"],
+            "sub3return": sub_data_map["Submersible-3"]["return_time"],
             "sub4lvl": sub_data_map["Submersible-4"]["level"],
             "sub4parts": sub_data_map["Submersible-4"]["parts"],
+            "sub4return": sub_data_map["Submersible-4"]["return_time"],
             "tank": tank,
             "kits": kits,
             "treasure_value": treasure_value,
             "region": region,
+            "private_ward": private_ward,
+            "private_plot": private_plot,
+            "private_zone": private_zone,
+            "fc_ward": fc_ward,
+            "fc_plot": fc_plot,
+            "fc_zone": fc_zone,
         })
     return char_summaries
 
@@ -396,6 +508,12 @@ def write_excel(char_summaries, excel_output_path):
             "Character Name",
             "World",
             "Region",
+            "Private Ward",
+            "Private Plot",
+            "Private Zone",
+            "FC Ward",
+            "FC Plot",
+            "FC Zone",
             "Character Gil",
             "Retainer Name",
             "MBItems",
@@ -407,12 +525,16 @@ def write_excel(char_summaries, excel_output_path):
             "FC Points",
             "Lvl #1",
             "#1",
+            "#1 Return",
             "Lvl #2",
             "#2",
+            "#2 Return",
             "Lvl #3",
             "#3",
+            "#3 Return",
             "Lvl #4",
             "#4",
+            "#4 Return",
             "Tanks",
             "Kits",
             "Treasure Value",
@@ -435,6 +557,12 @@ def write_excel(char_summaries, excel_output_path):
             char_name = summary["char_name"]
             world = summary["world"]
             region = summary.get("region", "")
+            private_ward = summary.get("private_ward")
+            private_plot = summary.get("private_plot")
+            private_zone = summary.get("private_zone")
+            fc_ward = summary.get("fc_ward")
+            fc_plot = summary.get("fc_plot")
+            fc_zone = summary.get("fc_zone")
             char_gil = summary["char_gil"]
             total_gil = summary["total_gil"]
             fc_name = summary["fc_name"]
@@ -442,12 +570,16 @@ def write_excel(char_summaries, excel_output_path):
 
             sub1lvl = summary["sub1lvl"]
             sub1parts = summary["sub1parts"]
+            sub1return = summary["sub1return"]
             sub2lvl = summary["sub2lvl"]
             sub2parts = summary["sub2parts"]
+            sub2return = summary["sub2return"]
             sub3lvl = summary["sub3lvl"]
             sub3parts = summary["sub3parts"]
+            sub3return = summary["sub3return"]
             sub4lvl = summary["sub4lvl"]
             sub4parts = summary["sub4parts"]
+            sub4return = summary["sub4return"]
 
             tank = summary.get("tank", 0)
             kits = summary.get("kits", 0)
@@ -466,30 +598,40 @@ def write_excel(char_summaries, excel_output_path):
                 worksheet.write(row, 2, char_name)
                 worksheet.write(row, 3, world)
                 worksheet.write(row, 4, region)
-                worksheet.write_number(row, 5, char_gil, money_format)
-                worksheet.write(row, 6, "")
-                worksheet.write_number(row, 7, 0, money_format)
-                worksheet.write_number(row, 8, 0, money_format)
-                worksheet.write_number(row, 9, 0, money_format)
-                worksheet.write_number(row, 10, 0, money_format)
-                worksheet.write_number(row, 11, total_gil, total_format)
-                worksheet.write(row, 12, fc_name)
-                worksheet.write_number(row, 13, fc_points, money_format)
-                worksheet.write_number(row, 14, sub1lvl)
-                worksheet.write(row, 15, sub1parts)
-                worksheet.write_number(row, 16, sub2lvl)
-                worksheet.write(row, 17, sub2parts)
-                worksheet.write_number(row, 18, sub3lvl)
-                worksheet.write(row, 19, sub3parts)
-                worksheet.write_number(row, 20, sub4lvl)
-                worksheet.write(row, 21, sub4parts)
+                worksheet.write(row, 5, private_ward if private_ward is not None else "")
+                worksheet.write(row, 6, private_plot if private_plot is not None else "")
+                worksheet.write(row, 7, private_zone if private_zone else "")
+                worksheet.write(row, 8, fc_ward if fc_ward is not None else "")
+                worksheet.write(row, 9, fc_plot if fc_plot is not None else "")
+                worksheet.write(row, 10, fc_zone if fc_zone else "")
+                worksheet.write_number(row, 11, char_gil, money_format)
+                worksheet.write(row, 12, "")
+                worksheet.write_number(row, 13, 0, money_format)
+                worksheet.write_number(row, 14, 0, money_format)
+                worksheet.write_number(row, 15, 0, money_format)
+                worksheet.write_number(row, 16, 0, money_format)
+                worksheet.write_number(row, 17, total_gil, total_format)
+                worksheet.write(row, 18, fc_name)
+                worksheet.write_number(row, 19, fc_points, money_format)
+                worksheet.write_number(row, 20, sub1lvl)
+                worksheet.write(row, 21, sub1parts)
+                worksheet.write_number(row, 22, sub1return, money_format)
+                worksheet.write_number(row, 23, sub2lvl)
+                worksheet.write(row, 24, sub2parts)
+                worksheet.write_number(row, 25, sub2return, money_format)
+                worksheet.write_number(row, 26, sub3lvl)
+                worksheet.write(row, 27, sub3parts)
+                worksheet.write_number(row, 28, sub3return, money_format)
+                worksheet.write_number(row, 29, sub4lvl)
+                worksheet.write(row, 30, sub4parts)
+                worksheet.write_number(row, 31, sub4return, money_format)
                 worksheet.write_number(row, TANK_COL, tank, money_format)
                 worksheet.write_number(row, KITS_COL, kits, money_format)
                 worksheet.write_number(row, TREAS_COL, treasure_value, total_format if treasure_value else money_format)
-                worksheet.write(row, 25, plain_nameworld)
-                worksheet.write(row, 26, list_nameworld)
-                worksheet.write(row, 27, snd_nameworld)
-                worksheet.write(row, 28, bagman_nameworld_tony)
+                worksheet.write(row, 35, plain_nameworld)
+                worksheet.write(row, 36, list_nameworld)
+                worksheet.write(row, 37, snd_nameworld)
+                worksheet.write(row, 38, bagman_nameworld_tony)
                 row += 1
             else:
                 for i, ret in enumerate(retainers):
@@ -505,7 +647,13 @@ def write_excel(char_summaries, excel_output_path):
                         worksheet.write(row, 2, char_name, char_format)
                         worksheet.write(row, 3, world)
                         worksheet.write(row, 4, region)
-                        worksheet.write_number(row, 5, char_gil, money_format)
+                        worksheet.write(row, 5, private_ward if private_ward is not None else "")
+                        worksheet.write(row, 6, private_plot if private_plot is not None else "")
+                        worksheet.write(row, 7, private_zone if private_zone else "")
+                        worksheet.write(row, 8, fc_ward if fc_ward is not None else "")
+                        worksheet.write(row, 9, fc_plot if fc_plot is not None else "")
+                        worksheet.write(row, 10, fc_zone if fc_zone else "")
+                        worksheet.write_number(row, 11, char_gil, money_format)
                     else:
                         worksheet.write(row, 0, "")
                         worksheet.write(row, 1, "")
@@ -513,67 +661,87 @@ def write_excel(char_summaries, excel_output_path):
                         worksheet.write(row, 3, "")
                         worksheet.write(row, 4, "")
                         worksheet.write(row, 5, "")
+                        worksheet.write(row, 6, "")
+                        worksheet.write(row, 7, "")
+                        worksheet.write(row, 8, "")
+                        worksheet.write(row, 9, "")
+                        worksheet.write(row, 10, "")
+                        worksheet.write(row, 11, "")
 
-                    worksheet.write(row, 6, ret_name)
-                    worksheet.write_number(row, 7, mb_items, money_format)
-                    worksheet.write_number(row, 8, has_venture, money_format)
-                    worksheet.write_number(row, 9, ret_level, money_format)
-                    worksheet.write_number(row, 10, ret_gil, money_format)
+                    worksheet.write(row, 12, ret_name)
+                    worksheet.write_number(row, 13, mb_items, money_format)
+                    worksheet.write_number(row, 14, has_venture, money_format)
+                    worksheet.write_number(row, 15, ret_level, money_format)
+                    worksheet.write_number(row, 16, ret_gil, money_format)
 
                     if i == 0:
-                        worksheet.write_number(row, 11, total_gil, total_format)
-                        worksheet.write(row, 12, fc_name)
-                        worksheet.write_number(row, 13, fc_points, money_format)
-                        worksheet.write_number(row, 14, sub1lvl)
-                        worksheet.write(row, 15, sub1parts)
-                        worksheet.write_number(row, 16, sub2lvl)
-                        worksheet.write(row, 17, sub2parts)
-                        worksheet.write_number(row, 18, sub3lvl)
-                        worksheet.write(row, 19, sub3parts)
-                        worksheet.write_number(row, 20, sub4lvl)
-                        worksheet.write(row, 21, sub4parts)
+                        worksheet.write_number(row, 17, total_gil, total_format)
+                        worksheet.write(row, 18, fc_name)
+                        worksheet.write_number(row, 19, fc_points, money_format)
+                        worksheet.write_number(row, 20, sub1lvl)
+                        worksheet.write(row, 21, sub1parts)
+                        worksheet.write_number(row, 22, sub1return, money_format)
+                        worksheet.write_number(row, 23, sub2lvl)
+                        worksheet.write(row, 24, sub2parts)
+                        worksheet.write_number(row, 25, sub2return, money_format)
+                        worksheet.write_number(row, 26, sub3lvl)
+                        worksheet.write(row, 27, sub3parts)
+                        worksheet.write_number(row, 28, sub3return, money_format)
+                        worksheet.write_number(row, 29, sub4lvl)
+                        worksheet.write(row, 30, sub4parts)
+                        worksheet.write_number(row, 31, sub4return, money_format)
                         worksheet.write_number(row, TANK_COL, tank, money_format)
                         worksheet.write_number(row, KITS_COL, kits, money_format)
                         worksheet.write_number(row, TREAS_COL, treasure_value, total_format if treasure_value else money_format)
-                        worksheet.write(row, 25, plain_nameworld)
-                        worksheet.write(row, 26, list_nameworld)
-                        worksheet.write(row, 27, snd_nameworld)
-                        worksheet.write(row, 28, bagman_nameworld_tony)
+                        worksheet.write(row, 35, plain_nameworld)
+                        worksheet.write(row, 36, list_nameworld)
+                        worksheet.write(row, 37, snd_nameworld)
+                        worksheet.write(row, 38, bagman_nameworld_tony)
                     else:
-                        for c in (11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, TANK_COL, KITS_COL, TREAS_COL, 25, 26, 27, 28):
+                        for c in (17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, TANK_COL, KITS_COL, TREAS_COL, 35, 36, 37, 38):
                             worksheet.write(row, c, "")
 
                     row += 1
 
-        worksheet.set_column("A:A", 22)  # CID
-        worksheet.set_column("B:B", 20)  # Account Nickname
+        worksheet.set_column("A:A", 19)  # CID
+        worksheet.set_column("B:B", 12)  # Account Nickname
         worksheet.set_column("C:C", 25)  # Character Name
         worksheet.set_column("D:D", 15)  # World
-        worksheet.set_column("E:E", 8)   # Region
-        worksheet.set_column("F:F", 15)  # Character Gil
-        worksheet.set_column("G:G", 25)  # Retainer Name
-        worksheet.set_column("H:H", 10)  # MBItems
-        worksheet.set_column("I:I", 10)  # HasVenture
-        worksheet.set_column("J:J", 10)  # Retainer Level
-        worksheet.set_column("K:K", 15)  # Retainer Gil
-        worksheet.set_column("L:L", 15)  # Total Gil
-        worksheet.set_column("M:M", 25)  # FC Name
-        worksheet.set_column("N:N", 15)  # FC Points
-        worksheet.set_column("O:O", 8)   # Lvl #1
-        worksheet.set_column("P:P", 6)   # #1
-        worksheet.set_column("Q:Q", 8)   # Lvl #2
-        worksheet.set_column("R:R", 6)   # #2
-        worksheet.set_column("S:S", 8)   # Lvl #3
-        worksheet.set_column("T:T", 6)   # #3
-        worksheet.set_column("U:U", 8)   # Lvl #4
-        worksheet.set_column("V:V", 6)   # #4
-        worksheet.set_column(TANK_COL, TANK_COL, 10)   # Tanks
+        worksheet.set_column("E:E", 5)   # Region
+        worksheet.set_column("F:F", 3)  # Private Ward
+        worksheet.set_column("G:G", 3)  # Private Plot
+        worksheet.set_column("H:H", 3)  # Private Zone
+        worksheet.set_column("I:I", 3)  # FC Ward
+        worksheet.set_column("J:J", 3)  # FC Plot
+        worksheet.set_column("K:K", 3)  # FC Zone
+        worksheet.set_column("L:L", 15)  # Character Gil
+        worksheet.set_column("M:M", 25)  # Retainer Name
+        worksheet.set_column("N:N", 6)  # MBItems
+        worksheet.set_column("O:O", 4)  # HasVenture
+        worksheet.set_column("P:P", 7)  # Retainer Level
+        worksheet.set_column("Q:Q", 15)  # Retainer Gil
+        worksheet.set_column("R:R", 15)  # Total Gil
+        worksheet.set_column("S:S", 25)  # FC Name
+        worksheet.set_column("T:T", 13)  # FC Points
+        worksheet.set_column("U:U", 7)   # Lvl #1
+        worksheet.set_column("V:V", 9)   # #1
+        worksheet.set_column("W:W", 3)   # #1 Return
+        worksheet.set_column("X:X", 7)   # Lvl #2
+        worksheet.set_column("Y:Y", 9)   # #2
+        worksheet.set_column("Z:Z", 3)   # #2 Return
+        worksheet.set_column("AA:AA", 7)   # Lvl #3
+        worksheet.set_column("AB:AB", 9)   # #3
+        worksheet.set_column("AC:AC", 3)   # #3 Return
+        worksheet.set_column("AD:AD", 7)   # Lvl #4
+        worksheet.set_column("AE:AE", 9)   # #4
+        worksheet.set_column("AF:AF", 3)   # #4 Return
+        worksheet.set_column(TANK_COL, TANK_COL, 9)   # Tanks
         worksheet.set_column(KITS_COL, KITS_COL, 9)   # Kits
-        worksheet.set_column(TREAS_COL, TREAS_COL, 18) # Treasure Value
-        worksheet.set_column(25, 25, 30)  # Plain Name
-        worksheet.set_column(26, 26, 38)  # List Formatting
-        worksheet.set_column(27, 27, 40)  # SND Formatting
-        worksheet.set_column(28, 28, 55)  # Bagman Formatting
+        worksheet.set_column(TREAS_COL, TREAS_COL, 15) # Treasure Value
+        worksheet.set_column(35, 35, 30)  # Plain Name
+        worksheet.set_column(36, 36, 38)  # List Formatting
+        worksheet.set_column(37, 37, 40)  # SND Formatting
+        worksheet.set_column(38, 38, 55)  # Bagman Formatting
 
         worksheet.autofilter(0, 0, 0, len(headers) - 1)
         worksheet.freeze_panes(1, 0)
@@ -648,19 +816,71 @@ def write_excel(char_summaries, excel_output_path):
             ["Report Generated", datetime.datetime.now()],
         ])
 
+        #
+        # Define Gil rates for submarine builds
+        # Based on Routes.xlsx - Gil/Sub/Day rates for each route
+        #
+        build_gil_rates = {
+            # OJ Route (24h) - 118,661 gil/day
+            "WSUC": 118661,
+            "SSUC": 118661,
+            "W+S+U+C+": 118661,  # WSUC++
+            "S+S+S+C+": 118661,  # SSSC++
+            
+            # MOJ Route (36h) - 93,165 gil/day
+            "YUUW": 93165,
+            "Y+U+U+W+": 93165,  # YU+U+W+
+            
+            # ROJ Route (36h) - 106,191 gil/day
+            "WCSU": 106191,
+            "WUSS": 106191,
+            "W+U+S+S+": 106191,  # WUSS++
+            
+            # JOZ Route (36h) - 113,321 gil/day
+            "YSYC": 113321,
+            "Y+S+Y+C+": 113321,  # YS+YC+
+            
+            # MROJ Route (36h) - 120,728 gil/day
+            "S+S+S+C+": 120728,  # SSSC++
+            "S+S+U+C+": 120728,  # SSUC++
+            
+            # JORZ Route (36h) - 140,404 gil/day (highest gil/day)
+            "S+S+U+C": 140404,
+            "S+S+U+C+": 140404,  # SSUC++ variant for JORZ
+            
+            # JORZ 48h Route - 105,303 gil/day
+            "WCYC": 105303,
+            "WUWC": 105303,
+            "W+U+W+C+": 105303,  # WUWC++
+            
+            # MOJZ Route (36h) - 127,857 gil/day
+            # MOJZ uses SSUC++ at rank 110
+            
+            # MROJZ Route (48h) - 116,206 gil/day
+            "YSCU": 116206,
+            "SCUS": 116206,
+            "S+C+U+S+": 116206,  # SCUS++
+        }
+        
+        # Add submarine builds to summary with earnings info
         if sorted_parts:
             summary_rows.insert(-1, ["Submarine Builds", ""])
             for i, (build, count) in enumerate(sorted_parts, 1):
-                summary_rows.insert(-1, [f"Build #{i}", f"{build} ({count} uses)"])
-
-        #
-        # Calculate Gil Farmed from submarine builds
-        #
+                if build in build_gil_rates:
+                    gil_per_day = build_gil_rates[build]
+                    label = f"Build #{i} Earns: {gil_per_day:,} per sub"
+                else:
+                    label = f"Build #{i}"
+                summary_rows.insert(-1, [label, f"{build} ({count} uses)"])
+        
+        # Calculate total gil farmed daily from all submarines
         gil_farmed_daily = 0
         for build, usage_count in sorted_parts:
-            # Known builds that produce gil daily
-            if build in ("WSUC", "SSUC"):
-                gil_farmed_daily += 118661 * usage_count
+            # Check if this build has a known gil farming rate
+            if build in build_gil_rates:
+                gil_per_day = build_gil_rates[build]
+                gil_farmed_daily += gil_per_day * usage_count
+                print(f"[INFO] Build {build} ({usage_count} subs) farms {gil_per_day:,} gil/day each = {gil_per_day * usage_count:,} gil/day total")
 
         if gil_farmed_daily > 0:
             summary_rows.insert(-1, ["Gil Farmed Annually", gil_farmed_daily * 365])
@@ -721,8 +941,21 @@ def main():
 
     if not all_characters:
         print("[FAIL] No character data loaded from any path.]")
+        # input("Press Enter to exit...")
         sys.exit(1)
 
+    # Load Lifestream housing data from all accounts
+    housing_map_global = {}
+    for entry in account_locations:
+        lfstrm_path = entry.get("lfstrm_path", "")
+        if lfstrm_path and os.path.isfile(lfstrm_path):
+            print(f"[INFO] Loading Lifestream housing data for {entry['nickname']}: {lfstrm_path}")
+            partial_housing = load_lifestream_data(lfstrm_path)
+            housing_map_global.update(partial_housing)
+            print(f"[INFO] Loaded {len(partial_housing)} housing entries from {entry['nickname']}")
+        else:
+            print(f"[INFO] Lifestream config not found for {entry['nickname']}: {lfstrm_path}")
+    
     alto_map_global = {}
     if not args.no_altoholic:
         for entry in account_locations:
@@ -736,13 +969,15 @@ def main():
             else:
                 print(f"[INFO] Altoholic DB not found or disabled for {entry['nickname']}: {alto_path}")
 
-    char_summaries = build_char_summaries(all_characters, all_fc_data, alto_map_global, account_locations)
+    char_summaries = build_char_summaries(all_characters, all_fc_data, alto_map_global, account_locations, housing_map_global)
     result = write_excel(char_summaries, final_output_path)
     if result:
         print(f"[DONE] Wrote data to {result}")
+        # input("Press Enter to exit...")
         sys.exit(0)
     else:
         print("[FAIL] Could not process data.")
+        # input("Press Enter to exit...")
         sys.exit(1)
 
 if __name__ == "__main__":
