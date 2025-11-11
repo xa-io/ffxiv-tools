@@ -6,10 +6,22 @@ Excel report generator for FFXIV AutoRetainer data with integrated Altoholic inv
 
 - **Character Gil Tracking**: Aggregates gil across all characters and retainers
 - **Altoholic Integration**: Scans Tanks, Kits, and Treasure items from Altoholic inventory
-- **Submarine Management**: Tracks submarine builds and levels across all accounts
-- **FC Data**: Displays FC names and FC points
+- **Lifestream Housing Integration**: Tracks both private and FC housing locations
+  - Displays Ward, Plot, and District for each character
+  - Separate columns for private house and FC house
+  - District abbreviations: M (Mist), G (Goblet), LB (Lavender Beds), E (Empyreum), S (Shirogane)
+- **Submarine Management**: Tracks submarine builds, levels, and return times across all accounts
+  - Displays submarine part configurations (WSUC, SSUC, YUUW, etc.)
+  - Shows hours remaining until submarine returns from voyages
+  - Supports 10+ different submarine build configurations
+- **Submarine Gil Farming Analysis**: Calculates daily/monthly/annual gil earnings based on submarine builds
+  - OJ Route (24h): 118,661 gil/day
+  - JORZ Route (36h): 140,404 gil/day (highest)
+  - MROJ Route (36h): 120,728 gil/day
+  - MOJ, ROJ, JOZ, MOJZ, MROJZ routes with specific rates
+- **FC Data**: Displays FC names, FC points, and total FC statistics
 - **Region Detection**: Automatically determines region (NA/EU/OCE/JP) based on world
-- **Excel Export**: Generates formatted Excel reports with summary statistics
+- **Excel Export**: Generates formatted Excel reports with comprehensive summary statistics
 - **Per-Account Control**: Individual control over Altoholic and submarine inclusion
 
 ## Configuration
@@ -67,29 +79,86 @@ The script generates an Excel file with the following sheets:
 
 ### Main Sheet: FFXIV Gil Summary
 - Character details (name, world, region, CID)
+- Housing information (separate private and FC housing)
+  - Private Ward, Private Plot, Private Zone
+  - FC Ward, FC Plot, FC Zone
 - Gil totals (character + retainers)
 - Retainer information (name, level, ventures, market board items)
 - FC information (name, points)
-- Submarine builds and levels (if enabled for account)
+- Submarine builds, levels, and return times (if enabled for account)
+  - Level for each submarine (#1-#4)
+  - Build configuration (e.g., WSUC, SSUC, YUUW)
+  - Hours until return from voyage (can be negative if already returned)
 - Altoholic inventory (Tanks, Kits, Treasure value)
-- Formatting options for various tools
+- Formatting options for various tools (Plain Name, List, SND, Bagman)
 
 ### Summary Sheet
 - Total characters and retainers
 - Total gil across all accounts
 - Average gil per character
+- **Richest character** (name and gil amount)
 - Total Tanks, Kits, and Treasure value
-- FC statistics
-- Submarine build statistics
+- **Total Gil Value** (total gil + treasure value combined)
+- **FC statistics**
+  - Total FC's (unique FC count)
+  - Total FC's Farming Subs
+  - Total FC Points
+- **Submarine statistics**
+  - Lowest/Highest submarine level
+  - Unique submersible parts count
+  - Detailed submarine build list with usage counts
+  - **Gil farming rates per build** (shows which builds earn what amount per day)
 - **Gil farming calculations** (only includes accounts with `include_submarines=True`)
-  - Gil Farmed Each Day
+  - Gil Farmed Each Day (based on all submarine builds and their routes)
   - Gil Farmed Every 30 Days  
   - Gil Farmed Annually
+- Report generation timestamp
+
+## Submarine Build Codes
+
+The script uses shorthand codes for submarine parts in the reports:
+
+- **S** = Shark-class
+- **U** = Unkiu-class
+- **W** = Whale-class
+- **C** = Coelacanth-class
+- **Y** = Syldra-class
+- **S+** = Modified Shark-class
+- **U+** = Modified Unkiu-class
+- **W+** = Modified Whale-class
+- **C+** = Modified Coelacanth-class
+- **Y+** = Modified Syldra-class
+
+Each build code represents the 4 parts (Bow, Bridge, Pressure Hull, Stern) in order. For example:
+- **WSUC** = Whale Bow + Shark Bridge + Unkiu Hull + Coelacanth Stern
+- **S+S+U+C+** = Modified Shark Bow + Modified Shark Bridge + Modified Unkiu Hull + Modified Coelacanth Stern
+
+### Supported Submarine Routes & Gil Rates
+
+The script recognizes the following submarine builds and their gil farming rates (sorted by gil/day):
+
+| Route | Duration | Gil/Day | Build Variants |
+|-------|:--------:|--------:|----------------|
+| **JORZ** | 36h | **140,404** | S+S+U+C+ / S+S+U+C |
+| **MROJ** | 36h | **120,728** | S+S+S+C+ / S+S+U+C+ |
+| **OJ** | 24h | **118,661** | WSUC / SSUC / W+S+U+C+ / S+S+U+C+ |
+| **MROJZ** | 48h | **116,206** | YSCU / SCUS / S+C+U+S+ |
+| **JOZ** | 36h | **113,321** | YSYC / Y+S+Y+C+ |
+| **ROJ** | 36h | **106,191** | WCSU / WUSS / W+U+S+S+ |
+| **JORZ 48h** | 48h | **105,303** | WCYC / WUWC / W+U+W+C+ |
+| **MOJ** | 36h | **93,165** | YUUW / Y+U+U+W+ |
+
+**Notes:**
+- JORZ (36h) provides the highest gil/day rate at 140,404
+- OJ route has the shortest duration (24h) making it easier to manage
+- Multiple build variants can run the same route with identical gil rates
+- The **Gil Farmed Daily/Monthly/Annually** calculations are based on these rates multiplied by the number of submarines using each build
 
 ## File Locations
 
 - **AutoRetainer**: `pluginConfigs/AutoRetainer/DefaultConfig.json`
 - **Altoholic**: `pluginConfigs/Altoholic/altoholic.db`
+- **Lifestream**: `pluginConfigs/Lifestream/DefaultConfig.json`
 
 ## Requirements
 
@@ -113,4 +182,4 @@ YYYY-MM-DD-HH-MM - ffxiv_gil_summary.xlsx
 
 https://github.com/xa-io
 
-Last Updated: 2025-10-21 20:10:20
+Last Updated: 2025-01-30 13:45:00
