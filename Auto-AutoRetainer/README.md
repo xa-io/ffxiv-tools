@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.00 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.01 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -9,9 +9,11 @@ A comprehensive automation script that monitors submarine return times across mu
 **Script Operation Flow:**
 - **Script Starts** and initializes monitoring system
 - **Pulls AutoRetainer DefaultConfig** files for ETA and displays timers
-- **Opens game** when there's 0.15 hours (9 minutes) from sub returning
-- **Closes game** once all rotated and submarines won't return for 0.5 hours (30 minutes)
-- **Crash recovery**: If game crashes when subs are ready, game automatically relaunches
+- **Opens game** when there's 0.15 hours (9 minutes) from sub returning (or immediately for rotatingretainers accounts)
+- **Closes game** once all rotated and submarines won't return for 0.5 hours (30 minutes) for submarine-only accounts
+- **Keeps clients running** for accounts with `rotatingretainers=True` so AutoRetainer can process retainers continuously
+- **Forces client restart** after 71 hours of uptime (`MAX_RUNTIME`) to avoid FFXIV 72-hour stability issues
+- **Crash recovery**: If game crashes when subs or retainers are ready, game automatically relaunches
 - **Timers refresh** every 30 seconds
 - **Client checkers refresh** every 60 seconds
 
@@ -69,8 +71,8 @@ Edit the `account_locations` list in `Auto-AutoRetainer.py` (around line 56-65):
 
 ```python
 account_locations = [
-     acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=False),
-     acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True),
+     acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=False, rotatingretainers=False),
+     acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True, rotatingretainers=True),
     # Add more accounts as needed
 ]
 ```
@@ -78,6 +80,7 @@ account_locations = [
 - **nickname**: Short identifier for the account (used in display and window detection)
 - **pluginconfigs_path**: Path to the account's plugin configuration folder
 - **include_submarines**: Set to `True` to monitor submarines, `False` to disable
+- **rotatingretainers**: Set to `True` to keep the game always running for this account so AutoRetainer can continuously rotate retainers (subject to `MAX_RUNTIME` safety restarts)
 
 ### Step 2: Configure Game Launchers
 
@@ -436,6 +439,7 @@ WINDOW_REFRESH_INTERVAL = 60   # Check game window status every 60 seconds
 ```python
 ENABLE_AUTO_CLOSE = True        # Enable automatic game closing
 AUTO_CLOSE_THRESHOLD = 0.5      # Close game if next sub > 0.5 hours (30 minutes)
+MAX_RUNTIME = 71                # Maximum allowed client uptime in hours before a forced restart
 ```
 
 ### Auto-Launch Settings
