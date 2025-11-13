@@ -54,7 +54,7 @@ A comprehensive automation script that monitors submarine return times across mu
 
 ### Step 1: Configure Account Locations
 
-Edit the `account_locations` list in `Auto-AutoRetainer_main.py` (around line 56-65):
+Edit the `account_locations` list in `Auto-AutoRetainer.py` (around line 56-65):
 
 ```python
 account_locations = [
@@ -70,7 +70,7 @@ account_locations = [
 
 ### Step 2: Configure Game Launchers
 
-Edit the `GAME_LAUNCHERS` dictionary in `Auto-AutoRetainer_main.py` (around line 68-77):
+Edit the `GAME_LAUNCHERS` dictionary in `Auto-AutoRetainer.py` (around line 68-77):
 
 ```python
 GAME_LAUNCHERS = {
@@ -453,7 +453,7 @@ DEBUG = False                   # Show detailed debug output
 ### Running the Script
 
 ```bash
-python Auto-AutoRetainer_main.py
+python Auto-AutoRetainer.py
 ```
 
 ### Display Output
@@ -597,7 +597,7 @@ You can create different window layout files for different monitor configuration
 
 #### Configuration Variable
 
-In `Auto-AutoRetainer_main.py`, set the layout to use:
+In `Auto-AutoRetainer.py`, set the layout to use:
 
 ```python
 WINDOW_LAYOUT = "main"       # Uses window_layout_main.json
@@ -691,7 +691,7 @@ For positioning windows on a **secondary monitor positioned to the LEFT** of you
 #### Switching Between Layouts
 
 1. Create your layout files: `window_layout_main.json`, `window_layout_secondary.json`
-2. Edit `Auto-AutoRetainer_main.py`
+2. Edit `Auto-AutoRetainer.py`
 3. Change `WINDOW_LAYOUT = "main"` to `WINDOW_LAYOUT = "secondary"`
 4. Restart the script
 
