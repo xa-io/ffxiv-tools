@@ -4,6 +4,12 @@
 
 A comprehensive automation script that monitors submarine return times across multiple FFXIV accounts and automatically manages game instances for optimal submarine collection. Integrates with AutoRetainer plugin data to track submarine voyages and calculates daily gil earnings.
 
+## Core Automation Features
+
+- **Intelligent Game Launching**: Automatically opens game instances when submarines are nearly ready (9 minutes by default, configurable)
+- **Smart Idle Management**: Closes games when submarines won't be ready for an extended period (30 minutes by default, configurable)
+- **Crash Recovery**: Automatically detects and relaunches crashed game instances
+
 ## Features
 
 ### Real-Time Monitoring
@@ -38,7 +44,7 @@ A comprehensive automation script that monitors submarine return times across mu
 - pywin32 package: `pip install pywin32`
 
 **Required Plugin Configuration:**
-- **AutoRetainer Multi-Mode**: Must be enabled and set to auto-enable, enable wait at main menu in common settings
+- **AutoRetainer Multi-Mode**: Must be enabled and set to auto-enable, enable Wait on login screen in common settings
 - **No 2FA**: Two-factor authentication must be disabled on accounts
 - **Autologging Enabled**: XIVLauncher must have autologin configured for each account
 
