@@ -79,7 +79,7 @@ AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if soonest sub return time <= this
 OPEN_DELAY_THRESHOLD = 60       # Minimum seconds between game launches (prevents opening multiple games too quickly)
 
 # Window arrangement settings
-ENABLE_WINDOW_LAYOUT = True     # Enable automatic window arrangement after launching games
+ENABLE_WINDOW_LAYOUT = False    # Enable automatic window arrangement after launching games
 WINDOW_LAYOUT = "main"          # Which layout to use: "left" or "main"
 WINDOW_MOVER_DIR = Path(__file__).parent  # Local folder where window layout JSON files are stored
 
