@@ -4,6 +4,17 @@
 
 A comprehensive automation script that monitors submarine return times across multiple FFXIV accounts and automatically manages game instances for optimal submarine collection. Integrates with AutoRetainer plugin data to track submarine voyages and calculates daily gil earnings.
 
+## How It Works
+
+**Script Operation Flow:**
+- **Script Starts** and initializes monitoring system
+- **Pulls AutoRetainer DefaultConfig** files for ETA and displays timers
+- **Opens game** when there's 0.15 hours (9 minutes) from sub returning
+- **Closes game** once all rotated and submarines won't return for 0.5 hours (30 minutes)
+- **Crash recovery**: If game crashes when subs are ready, game automatically relaunches
+- **Timers refresh** every 30 seconds
+- **Client checkers refresh** every 60 seconds
+
 ## Core Automation Features
 
 - **Intelligent Game Launching**: Automatically opens game instances when submarines are nearly ready (9 minutes by default, configurable)
