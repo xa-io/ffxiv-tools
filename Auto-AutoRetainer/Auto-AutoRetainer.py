@@ -27,13 +27,15 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.00
+# Auto-AutoRetainer v1.01
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-11-12 17:19:40
+# Last Updated: 2025-11-13 16:27:00
 #
 # ## Release Notes ##
 #
+# v1.01 - Added rotatingretainers per-account flag to keep clients running for AutoRetainer retainers
+#         Added MAX_RUNTIME (71h) per-client uptime limit with forced restart to avoid 72h FFXIV uptime issue
 # v1.00 - Initial release with comprehensive submarine automation
 #         • Real-time submarine timer monitoring with dual refresh rates
 #         • Auto-launch games when submarines nearly ready (configurable threshold)
@@ -72,6 +74,7 @@ WINDOW_REFRESH_INTERVAL = 60  # Check game window status every 60 seconds
 # Auto-close game settings
 ENABLE_AUTO_CLOSE = True        # Enable automatic game closing when subs not ready soon
 AUTO_CLOSE_THRESHOLD = 0.5      # Close game if soonest sub return time > this many hours
+MAX_RUNTIME = 71
 
 # Auto-launch game settings
 ENABLE_AUTO_LAUNCH = True       # Enable automatic game launching when subs nearly ready
@@ -79,7 +82,7 @@ AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if soonest sub return time <= this
 OPEN_DELAY_THRESHOLD = 60       # Minimum seconds between game launches (prevents opening multiple games too quickly)
 
 # Window arrangement settings
-ENABLE_WINDOW_LAYOUT = False    # Enable automatic window arrangement after launching games
+ENABLE_WINDOW_LAYOUT = False     # Enable automatic window arrangement after launching games
 WINDOW_LAYOUT = "main"          # Which layout to use: "left" or "main"
 WINDOW_MOVER_DIR = Path(__file__).parent  # Local folder where window layout JSON files are stored
 
@@ -91,32 +94,33 @@ DEBUG = False                   # Show debug output (auto-launch checks, window 
 # ===============================================
 user = getpass.getuser()
 
-def acc(nickname, pluginconfigs_path, include_submarines=True):
+def acc(nickname, pluginconfigs_path, include_submarines=True, rotatingretainers=False):
     auto_path = os.path.join(pluginconfigs_path, "AutoRetainer", "DefaultConfig.json")
     return {
         "nickname": nickname,
         "auto_path": auto_path,
         "include_submarines": bool(include_submarines),
+        "rotatingretainers": bool(rotatingretainers),
     }
 
 # In the splatoon script: Rename($"{Environment.ProcessId} - nickname"
 # replace 'nickname' with "Main" of "Acc1" keep the space and dash
 
-# Account configuration - matches AR Parser order
- account_locations = [
-     acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=False),
-     acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True),
-     # acc("Acc2",   f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs", include_submarines=True),
-     # acc("Acc3",   f"C:\\Users\\{user}\\AltData\\Acc3\\pluginConfigs", include_submarines=True),
- ]
+# # Account configuration - matches AR Parser order
+account_locations = [
+    acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=False, rotatingretainers=False),
+    acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True, rotatingretainers=False),
+    # acc("Acc2",   f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs", include_submarines=True, rotatingretainers=False),
+    # acc("Acc3",   f"C:\\Users\\{user}\\AltData\\Acc3\\pluginConfigs", include_submarines=True, rotatingretainers=False),
+]
 
 # # Game launcher paths for each account (update these paths to your actual game launchers)
- GAME_LAUNCHERS = {
-     "Main":   rf"C:\Users\{user}\AppData\Local\XIVLauncher\XIVLauncher.exe",
-     "Acc1":   rf"C:\Users\{user}\AltData\Acc1.bat",
-     # "Acc2":   rf"C:\Users\{user}\AltData\Acc2.bat",
-     # "Acc3":   rf"C:\Users\{user}\AltData\Acc3.bat",
- }
+GAME_LAUNCHERS = {
+    "Main":   rf"C:\Users\{user}\AppData\Local\XIVLauncher\XIVLauncher.exe",
+    "Acc1":   rf"C:\Users\{user}\AltData\Acc1.bat",
+    # "Acc2":   rf"C:\Users\{user}\AltData\Acc2.bat",
+    # "Acc3":   rf"C:\Users\{user}\AltData\Acc3.bat",
+}
 
 # ===============================================
 # Submarine Build Gil Rates (from AR Parser)
@@ -673,6 +677,7 @@ def main():
         game_status_dict = {}
         closed_pids = set()  # Track PIDs we've already closed to avoid repeated attempts
         last_launch_time = {}  # Track last launch time for each account to enforce rate limiting
+        client_start_times = {}
         initial_arrangement_done = False  # Track if we've done initial window arrangement
         
         while True:
@@ -680,10 +685,21 @@ def main():
             
             # Check if we need to refresh window status (every WINDOW_REFRESH_INTERVAL seconds)
             if current_time - last_window_check >= WINDOW_REFRESH_INTERVAL:
+                running_pids = set()
                 # Update game status for all accounts (stores tuple: (is_running, process_id))
                 for account_entry in account_locations:
                     nickname = account_entry["nickname"]
-                    game_status_dict[nickname] = is_ffxiv_running_for_account(nickname)
+                    status = is_ffxiv_running_for_account(nickname)
+                    game_status_dict[nickname] = status
+                    is_running, process_id = status
+                    if is_running and process_id:
+                        running_pids.add(process_id)
+                        if process_id not in client_start_times:
+                            client_start_times[process_id] = current_time
+                # Remove entries for processes that are no longer running
+                for pid in list(client_start_times.keys()):
+                    if pid not in running_pids:
+                        del client_start_times[pid]
                 last_window_check = current_time
             
             # Display submarine timers with current game status FIRST
@@ -711,9 +727,11 @@ def main():
                     print(f"\n[DEBUG] Auto-launch enabled, checking accounts...")
                 for account_entry in account_locations:
                     nickname = account_entry["nickname"]
+                    include_subs = account_entry.get("include_submarines", True)
+                    rotating_retainers = account_entry.get("rotatingretainers", False)
                     
                     # Skip if submarines are disabled for this account
-                    if not account_entry.get("include_submarines", True):
+                    if not include_subs and not rotating_retainers:
                         if DEBUG:
                             print(f"[DEBUG] {nickname}: Submarines disabled, skipping")
                         continue
@@ -731,35 +749,13 @@ def main():
                             print(f"[DEBUG] {nickname}: Already running, skipping")
                         continue
                     
-                    # Get submarine timer data
-                    timer_data = get_submarine_timers_for_account(account_entry)
-                    soonest_hours = timer_data.get("soonest_hours")
-                    
-                    if DEBUG:
-                        print(f"[DEBUG] {nickname}: soonest_hours={soonest_hours}, threshold={AUTO_LAUNCH_THRESHOLD}")
-                    
-                    # Check if we should launch the game
-                    # Launch if soonest_hours <= AUTO_LAUNCH_THRESHOLD
-                    # This includes submarines already ready (negative hours) or nearly ready (positive hours <= threshold)
-                    if soonest_hours is not None and soonest_hours <= AUTO_LAUNCH_THRESHOLD:
-                        if DEBUG:
-                            print(f"[DEBUG] {nickname}: Passed threshold check!")
-                        # Check rate limiting - only launch if it's been at least OPEN_DELAY_THRESHOLD seconds
+                    # If rotatingretainers is enabled, ensure the game is running regardless of submarine timers
+                    if rotating_retainers:
                         last_launch = last_launch_time.get(nickname, 0)
                         time_since_last_launch = current_time - last_launch
-                        
                         if time_since_last_launch < OPEN_DELAY_THRESHOLD:
-                            # Too soon since last launch attempt, skip
                             continue
-                        
-                        # Attempt to launch the game
-                        if soonest_hours < 0:
-                            ready_count = timer_data.get("ready_subs", 0)
-                            print(f"\n[AUTO-LAUNCH] Launching {nickname} - {ready_count} submarines ready")
-                        else:
-                            minutes_remaining = soonest_hours * 60
-                            print(f"\n[AUTO-LAUNCH] Launching {nickname} - Sub ready in {minutes_remaining:.1f} minutes")
-                        
+                        print(f"\n[AUTO-LAUNCH] Launching {nickname} - rotatingretainers enabled")
                         if launch_game(nickname):
                             last_launch_time[nickname] = current_time
                             print(f"[AUTO-LAUNCH] Successfully launched {nickname}")
@@ -789,10 +785,8 @@ def main():
             if ENABLE_AUTO_CLOSE:
                 for account_entry in account_locations:
                     nickname = account_entry["nickname"]
-                    
-                    # Skip if submarines are disabled for this account
-                    if not account_entry.get("include_submarines", True):
-                        continue
+                    include_subs = account_entry.get("include_submarines", True)
+                    rotating_retainers = account_entry.get("rotatingretainers", False)
                     
                     # Get game status
                     game_info = game_status_dict.get(nickname, (None, None))
@@ -806,7 +800,36 @@ def main():
                     # Skip if we've already closed this PID
                     if process_id in closed_pids:
                         continue
-                    
+
+                    # Enforce MAX_RUNTIME for all clients
+                    uptime_hours = None
+                    start_time = client_start_times.get(process_id)
+                    if start_time is not None:
+                        uptime_hours = (current_time - start_time) / 3600.0
+
+                    if uptime_hours is not None and uptime_hours >= MAX_RUNTIME:
+                        print(f"\n[AUTO-CLOSE] Closing {nickname} (PID: {process_id}) - Uptime {uptime_hours:.1f}h exceeds MAX_RUNTIME {MAX_RUNTIME}h")
+                        if kill_process_by_pid(process_id):
+                            closed_pids.add(process_id)
+                            print(f"[AUTO-CLOSE] Successfully closed {nickname} after {uptime_hours:.1f}h")
+                            # Update game status immediately
+                            game_status_dict[nickname] = (False, None)
+                            # Enforce launch delay after runtime-based restart
+                            last_launch_time[nickname] = current_time
+                            if process_id in client_start_times:
+                                del client_start_times[process_id]
+                        else:
+                            print(f"[AUTO-CLOSE] Failed to close {nickname}")
+                        continue
+
+                    # Do not auto-close rotatingretainers accounts based on submarine timers
+                    if rotating_retainers:
+                        continue
+
+                    # Skip timer-based auto-close for accounts without submarines
+                    if not include_subs:
+                        continue
+
                     # Get submarine timer data
                     timer_data = get_submarine_timers_for_account(account_entry)
                     soonest_hours = timer_data.get("soonest_hours")
@@ -823,6 +846,8 @@ def main():
                             # Reset launch time so it can be relaunched if subs become ready
                             if nickname in last_launch_time:
                                 del last_launch_time[nickname]
+                            if process_id in client_start_times:
+                                del client_start_times[process_id]
                         else:
                             print(f"[AUTO-CLOSE] Failed to close {nickname}")
             
