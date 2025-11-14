@@ -27,13 +27,15 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.01
+# Auto-AutoRetainer v1.02
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-11-13 16:27:00
+# Last Updated: 2025-11-13 18:02:09
 #
 # ## Release Notes ##
 #
+# v1.02 - Fixed auto-launch not checking submarine timers for non-rotating accounts
+#         Added submarine timer checking logic to launch games when subs nearly ready (AUTO_LAUNCH_THRESHOLD)
 # v1.01 - Added rotatingretainers per-account flag to keep clients running for AutoRetainer retainers
 #         Added MAX_RUNTIME (71h) per-client uptime limit with forced restart to avoid 72h FFXIV uptime issue
 # v1.00 - Initial release with comprehensive submarine automation
@@ -110,16 +112,16 @@ def acc(nickname, pluginconfigs_path, include_submarines=True, rotatingretainers
 account_locations = [
     acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=False, rotatingretainers=False),
     acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True, rotatingretainers=False),
-    # acc("Acc2",   f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs", include_submarines=True, rotatingretainers=False),
-    # acc("Acc3",   f"C:\\Users\\{user}\\AltData\\Acc3\\pluginConfigs", include_submarines=True, rotatingretainers=False),
+#     acc("Acc2",   f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs", include_submarines=True, rotatingretainers=False),
+#     acc("Acc3",   f"C:\\Users\\{user}\\AltData\\Acc3\\pluginConfigs", include_submarines=True, rotatingretainers=False),
 ]
 
 # # Game launcher paths for each account (update these paths to your actual game launchers)
 GAME_LAUNCHERS = {
     "Main":   rf"C:\Users\{user}\AppData\Local\XIVLauncher\XIVLauncher.exe",
     "Acc1":   rf"C:\Users\{user}\AltData\Acc1.bat",
-    # "Acc2":   rf"C:\Users\{user}\AltData\Acc2.bat",
-    # "Acc3":   rf"C:\Users\{user}\AltData\Acc3.bat",
+#     "Acc2":   rf"C:\Users\{user}\AltData\Acc2.bat",
+#     "Acc3":   rf"C:\Users\{user}\AltData\Acc3.bat",
 }
 
 # ===============================================
@@ -780,6 +782,51 @@ def main():
                         else:
                             print(f"[AUTO-LAUNCH] Failed to launch {nickname}")
                             last_launch_time[nickname] = current_time  # Record failed attempt to enforce rate limit
+                        continue
+                    
+                    # For non-rotating accounts, check submarine timers
+                    if not rotating_retainers and include_subs:
+                        timer_data = get_submarine_timers_for_account(account_entry)
+                        soonest_hours = timer_data.get("soonest_hours")
+                        
+                        if DEBUG:
+                            print(f"[DEBUG] {nickname}: soonest_hours={soonest_hours}, threshold={AUTO_LAUNCH_THRESHOLD}")
+                        
+                        # Launch if submarines are nearly ready or already ready
+                        if soonest_hours is not None and soonest_hours <= AUTO_LAUNCH_THRESHOLD:
+                            # Check launch rate limiting
+                            last_launch = last_launch_time.get(nickname, 0)
+                            time_since_last_launch = current_time - last_launch
+                            if time_since_last_launch < OPEN_DELAY_THRESHOLD:
+                                if DEBUG:
+                                    print(f"[DEBUG] {nickname}: Rate limited, {time_since_last_launch:.0f}s < {OPEN_DELAY_THRESHOLD}s")
+                                continue
+                            
+                            print(f"\n[AUTO-LAUNCH] Launching {nickname} - submarines nearly ready ({soonest_hours:.1f}h)")
+                            if launch_game(nickname):
+                                last_launch_time[nickname] = current_time
+                                print(f"[AUTO-LAUNCH] Successfully launched {nickname}")
+                                if DEBUG:
+                                    print(f"[AUTO-LAUNCH] Waiting 60 seconds for game to start...")
+                                # Wait WINDOW_REFRESH_INTERVAL before next launch attempt to give it time to start
+                                time.sleep(WINDOW_REFRESH_INTERVAL)
+                                # Force window status refresh after launch and check if detected
+                                if DEBUG:
+                                    print(f"[AUTO-LAUNCH] Checking if {nickname} is now detected...")
+                                for acc_entry in account_locations:
+                                    acc_nickname = acc_entry["nickname"]
+                                    game_status_dict[acc_nickname] = is_ffxiv_running_for_account(acc_nickname)
+                                    if acc_nickname == nickname and DEBUG:
+                                        new_status = game_status_dict[acc_nickname]
+                                        print(f"[AUTO-LAUNCH] {nickname} window status: {new_status}")
+                                last_window_check = current_time
+                                
+                                # Arrange all windows after launching and detecting (if enabled)
+                                if ENABLE_WINDOW_LAYOUT:
+                                    arrange_ffxiv_windows()
+                            else:
+                                print(f"[AUTO-LAUNCH] Failed to launch {nickname}")
+                                last_launch_time[nickname] = current_time  # Record failed attempt to enforce rate limit
             
             # Auto-close games if enabled and conditions are met
             if ENABLE_AUTO_CLOSE:
