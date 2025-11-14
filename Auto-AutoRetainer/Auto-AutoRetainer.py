@@ -27,16 +27,34 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.02
+# Auto-AutoRetainer v1.06
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-11-13 18:02:09
+# Last Updated: 2025-11-14 16:30:00
 #
 # ## Release Notes ##
 #
+# v1.06 - Renamed 'rotatingretainers' parameter to 'force247uptime' for better clarity
+#         Updated all references in code, comments, and documentation
+#         Functionality remains identical - parameter name now better reflects its purpose
+# v1.05 - Fixed PID and UPTIME display in single client mode
+#         When USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME=True, display now correctly shows PID and UPTIME
+#         Gets actual PID from running ffxiv_dx11.exe process for display purposes
+#         Uses 'ffxiv_single' key to retrieve start time and calculate uptime
+#         Resolves issue where PID/UPTIME were missing despite running process
+# v1.04 - Enhanced single client mode with MAX_RUNTIME enforcement
+#         Added get_ffxiv_process_start_time() to track ffxiv_dx11.exe uptime via psutil
+#         Single client mode now supports 71h MAX_RUNTIME protection against 72h disconnect
+#         Tracks uptime using 'ffxiv_single' key without requiring process ID
+#         Proper cleanup of single client tracking when game closes or relaunches
+# v1.03 - Added USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME configuration parameter
+#         When True: Uses default "FINAL FANTASY XIV" window title (single account only, kills by process name)
+#         When False: Uses "ProcessID - nickname" format (multiple accounts, kills by PID)
+#         Added validation to prevent multiple accounts when single client mode is enabled
+#         Added kill_ffxiv_process() function for single client mode (kills ffxiv_dx11.exe)
 # v1.02 - Fixed auto-launch not checking submarine timers for non-rotating accounts
 #         Added submarine timer checking logic to launch games when subs nearly ready (AUTO_LAUNCH_THRESHOLD)
-# v1.01 - Added rotatingretainers per-account flag to keep clients running for AutoRetainer retainers
+# v1.01 - Added force247uptime per-account flag to keep clients running for AutoRetainer retainers
 #         Added MAX_RUNTIME (71h) per-client uptime limit with forced restart to avoid 72h FFXIV uptime issue
 # v1.00 - Initial release with comprehensive submarine automation
 #         • Real-time submarine timer monitoring with dual refresh rates
@@ -63,6 +81,15 @@ from ctypes import wintypes
 import re
 import win32con
 
+# Try to import psutil for process information
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    print("[WARNING] psutil not installed. Install with: pip install psutil")
+    print("[WARNING] Uptime will only be tracked from script start time.")
+
 # ===============================================
 # Configuration Parameters
 # ===============================================
@@ -70,6 +97,7 @@ NICKNAME_WIDTH = 5      # Column width for account nicknames
 SUBS_COUNT_WIDTH = 11   # Column width for submarine count display
 HOURS_WIDTH = 24        # Column width for hours/ready status display
 STATUS_WIDTH = 10       # Column width for game status (Running/Closed)
+PID_WIDTH = 11          # Column width for PID display (e.g., "PID: 12345 ")
 TIMER_REFRESH_INTERVAL = 30   # Refresh submarine timers every 30 seconds
 WINDOW_REFRESH_INTERVAL = 60  # Check game window status every 60 seconds
 
@@ -91,18 +119,22 @@ WINDOW_MOVER_DIR = Path(__file__).parent  # Local folder where window layout JSO
 # Debug settings
 DEBUG = False                   # Show debug output (auto-launch checks, window detection, etc.)
 
+# Single client mode settings
+USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = False  # If True, uses default FFXIV window title (single account only)
+                                             # If False, uses "ProcessID - nickname" format (multiple accounts)
+
 # ===============================================
 # Account locations
 # ===============================================
 user = getpass.getuser()
 
-def acc(nickname, pluginconfigs_path, include_submarines=True, rotatingretainers=False):
+def acc(nickname, pluginconfigs_path, include_submarines=True, force247uptime=False):
     auto_path = os.path.join(pluginconfigs_path, "AutoRetainer", "DefaultConfig.json")
     return {
         "nickname": nickname,
         "auto_path": auto_path,
         "include_submarines": bool(include_submarines),
-        "rotatingretainers": bool(rotatingretainers),
+        "force247uptime": bool(force247uptime),
     }
 
 # In the splatoon script: Rename($"{Environment.ProcessId} - nickname"
@@ -110,18 +142,18 @@ def acc(nickname, pluginconfigs_path, include_submarines=True, rotatingretainers
 
 # # Account configuration - matches AR Parser order
 account_locations = [
-    acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=False, rotatingretainers=False),
-    acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True, rotatingretainers=False),
-#     acc("Acc2",   f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs", include_submarines=True, rotatingretainers=False),
-#     acc("Acc3",   f"C:\\Users\\{user}\\AltData\\Acc3\\pluginConfigs", include_submarines=True, rotatingretainers=False),
+    acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=True, force247uptime=True),
+    # acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True, force247uptime=False),
+    # acc("Acc2",   f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs", include_submarines=True, force247uptime=False),
+    # acc("Acc3",   f"C:\\Users\\{user}\\AltData\\Acc3\\pluginConfigs", include_submarines=True, force247uptime=False),
 ]
 
 # # Game launcher paths for each account (update these paths to your actual game launchers)
 GAME_LAUNCHERS = {
     "Main":   rf"C:\Users\{user}\AppData\Local\XIVLauncher\XIVLauncher.exe",
-    "Acc1":   rf"C:\Users\{user}\AltData\Acc1.bat",
-#     "Acc2":   rf"C:\Users\{user}\AltData\Acc2.bat",
-#     "Acc3":   rf"C:\Users\{user}\AltData\Acc3.bat",
+    # "Acc1":   rf"C:\Users\{user}\AltData\Acc1.bat",
+    # "Acc2":   rf"C:\Users\{user}\AltData\Acc2.bat",
+    # "Acc3":   rf"C:\Users\{user}\AltData\Acc3.bat",
 }
 
 # ===============================================
@@ -436,6 +468,25 @@ def kill_process_by_pid(pid):
         print(f"[ERROR] Failed to kill process {pid}: {e}")
         return False
 
+def kill_ffxiv_process():
+    """
+    Kill FFXIV process by terminating ffxiv_dx11.exe.
+    Used when USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME is True.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        # Use taskkill /F /IM to force terminate the process by image name
+        result = subprocess.run(
+            ["taskkill", "/F", "/IM", "ffxiv_dx11.exe"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return result.returncode == 0
+    except Exception as e:
+        print(f"[ERROR] Failed to kill ffxiv_dx11.exe: {e}")
+        return False
+
 def launch_game(nickname):
     """
     Launch the game for a specific account using the configured launcher path.
@@ -476,13 +527,61 @@ def launch_game(nickname):
         print(f"[ERROR] Failed to launch game for {nickname}: {e}")
         return False
 
+def get_process_start_time(pid):
+    """
+    Get the actual start time of a process from Windows using psutil.
+    Returns the start time as a timestamp (seconds since epoch) or None if unavailable.
+    """
+    if not PSUTIL_AVAILABLE:
+        return None
+    
+    try:
+        process = psutil.Process(int(pid))
+        # create_time() returns seconds since epoch
+        return process.create_time()
+    except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError) as e:
+        if DEBUG:
+            print(f"[DEBUG] Could not get start time for PID {pid}: {e}")
+        return None
+
+def get_ffxiv_process_start_time():
+    """
+    Get the start time of the ffxiv_dx11.exe process for single client mode.
+    Returns the start time as a timestamp (seconds since epoch) or None if unavailable.
+    Used when USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME is True.
+    """
+    if not PSUTIL_AVAILABLE:
+        return None
+    
+    try:
+        # Search for ffxiv_dx11.exe process
+        for proc in psutil.process_iter(['name', 'create_time']):
+            try:
+                if proc.info['name'].lower() == 'ffxiv_dx11.exe':
+                    return proc.info['create_time']
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        return None
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Could not find ffxiv_dx11.exe process: {e}")
+        return None
+
 def is_ffxiv_running_for_account(nickname):
     """
-    Check if FFXIV is running for a specific account by looking for windows
-    with titles matching the pattern: 'ProcessID - nickname'
+    Check if FFXIV is running for a specific account.
+    
+    If USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME is True:
+        - Looks for window with title "FINAL FANTASY XIV"
+        - Returns (is_running, None) - process_id is always None
+    
+    If USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME is False:
+        - Looks for windows with titles matching pattern: 'ProcessID - nickname'
+        - Returns (is_running, process_id) - process_id extracted from window title
+    
     Returns tuple: (is_running, process_id)
     - is_running: True if a matching window is found, False otherwise
-    - process_id: The process ID if running, None if not running
+    - process_id: The process ID if running (or None in single client mode)
     """
     try:
         found_windows = []
@@ -495,19 +594,26 @@ def is_ffxiv_running_for_account(nickname):
         
         win32gui.EnumWindows(enum_callback, None)
         
-        # Check if any window title matches the pattern: "ProcessID - nickname"
-        # Example: "3056 - Main", "58696 - Acc1", etc.
-        import re
-        # Pattern: digits, space, dash, space, nickname
-        pattern = re.compile(rf"^(\d+)\s-\s{re.escape(nickname)}$", re.IGNORECASE)
-        
-        for title in found_windows:
-            match = pattern.match(title)
-            if match:
-                process_id = match.group(1)  # Extract the process ID
-                return (True, process_id)
-        
-        return (False, None)
+        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+            # Single client mode: Check if any window title is exactly "FINAL FANTASY XIV"
+            for title in found_windows:
+                if title.strip() == "FINAL FANTASY XIV":
+                    return (True, None)
+            return (False, None)
+        else:
+            # Multi-client mode: Check if any window title matches the pattern: "ProcessID - nickname"
+            # Example: "3056 - Main", "58696 - Acc1", etc.
+            import re
+            # Pattern: digits, space, dash, space, nickname
+            pattern = re.compile(rf"^(\d+)\s-\s{re.escape(nickname)}$", re.IGNORECASE)
+            
+            for title in found_windows:
+                match = pattern.match(title)
+                if match:
+                    process_id = match.group(1)  # Extract the process ID
+                    return (True, process_id)
+            
+            return (False, None)
     except Exception as e:
         # If we can't check window status, assume not running
         return (False, None)
@@ -591,7 +697,7 @@ def format_hours(hours, ready_count=0):
         # Negative means already returned
         return f"{hours:.1f} hours ({ready_count} READY)"
 
-def display_submarine_timers(game_status_dict=None):
+def display_submarine_timers(game_status_dict=None, client_start_times=None):
     """Display submarine timers for all accounts"""
     # Clear screen
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -599,12 +705,14 @@ def display_submarine_timers(game_status_dict=None):
     # Use empty dict if none provided
     if game_status_dict is None:
         game_status_dict = {}
+    if client_start_times is None:
+        client_start_times = {}
     
-    print("=" * 65)
+    print("=" * 85)
     print("FFXIV Submarine Timer Monitor")
-    print("=" * 65)
+    print("=" * 85)
     print(f"Updated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 65)
+    print("=" * 85)
     print()
     
     account_data = []
@@ -640,21 +748,57 @@ def display_submarine_timers(game_status_dict=None):
             process_id = game_info[1]
             
             status_str = ""
-            pid_str = ""
+            pid_uptime_str = ""
             if is_running is not None:
                 if is_running:
                     status_str = f"{'[Running]':{STATUS_WIDTH}s}"
-                    if process_id:
-                        pid_str = f"PID: {process_id}"
+                    
+                    # Handle PID and uptime display differently based on mode
+                    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                        # Single client mode: get actual PID from process and use 'ffxiv_single' for start time
+                        if PSUTIL_AVAILABLE:
+                            try:
+                                for proc in psutil.process_iter(['pid', 'name']):
+                                    if proc.info['name'].lower() == 'ffxiv_dx11.exe':
+                                        actual_pid = proc.info['pid']
+                                        pid_part = f"PID: {actual_pid}"
+                                        pid_formatted = f"{pid_part:{PID_WIDTH}s}"
+                                        
+                                        # Calculate uptime using 'ffxiv_single' key
+                                        current_time = time.time()
+                                        start_time = client_start_times.get('ffxiv_single')
+                                        if start_time is not None:
+                                            uptime_hours = (current_time - start_time) / 3600.0
+                                            uptime_part = f"UPTIME: {uptime_hours:.1f} hours"
+                                            pid_uptime_str = f"{pid_formatted}{uptime_part}"
+                                        else:
+                                            pid_uptime_str = pid_formatted
+                                        break
+                            except Exception:
+                                pass
+                    elif process_id:
+                        # Multi-client mode: use process_id from window title
+                        pid_part = f"PID: {process_id}"
+                        pid_formatted = f"{pid_part:{PID_WIDTH}s}"
+                        
+                        # Calculate uptime in hours
+                        current_time = time.time()
+                        start_time = client_start_times.get(process_id)
+                        if start_time is not None:
+                            uptime_hours = (current_time - start_time) / 3600.0
+                            uptime_part = f"UPTIME: {uptime_hours:.1f} hours"
+                            pid_uptime_str = f"{pid_formatted}{uptime_part}"
+                        else:
+                            pid_uptime_str = pid_formatted
                 else:
                     status_str = f"{'[Closed]':{STATUS_WIDTH}s}"
             
             hours_str = format_hours(soonest_hours, ready_subs)
             subs_str = f"({total_subs} subs)"
-            print(f"{nickname:{NICKNAME_WIDTH}s} {subs_str:{SUBS_COUNT_WIDTH}s}: {hours_str:{HOURS_WIDTH}s}{status_str}{pid_str}")
+            print(f"{nickname:{NICKNAME_WIDTH}s} {subs_str:{SUBS_COUNT_WIDTH}s}: {hours_str:{HOURS_WIDTH}s}{status_str}{pid_uptime_str}")
     
     print()
-    print("=" * 65)
+    print("=" * 85)
     
     # Calculate total daily gil earnings from submarine builds
     total_daily_gil = 0
@@ -667,45 +811,107 @@ def display_submarine_timers(game_status_dict=None):
     if total_daily_gil > 0:
         print(f"Total Gil Per Day: {total_daily_gil:,}")
     
-    print("=" * 65)
+    print("=" * 85)
     print("Press Ctrl+C to exit")
-    print("=" * 65)
+    print("=" * 85)
 
 def main():
     """Main loop - continuously update display with dual refresh rates"""
     try:
+        # Validate configuration: single client mode requires only 1 account
+        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+            if len(account_locations) > 1:
+                print("[ERROR] USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME is True but multiple accounts are configured.")
+                print("[ERROR] Single client mode only supports 1 account.")
+                print(f"[ERROR] Currently configured accounts: {len(account_locations)}")
+                print("[ERROR] Please disable USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME or configure only 1 account.")
+                sys.exit(1)
+            print("[INFO] Running in single client mode (USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME=True)")
+            print("[INFO] Using default FFXIV window title detection\n")
+        
         # Track last window check time (set to negative to force immediate check on first run)
         last_window_check = -WINDOW_REFRESH_INTERVAL
         game_status_dict = {}
         closed_pids = set()  # Track PIDs we've already closed to avoid repeated attempts
         last_launch_time = {}  # Track last launch time for each account to enforce rate limiting
-        client_start_times = {}
+        client_start_times = {}  # Track process start times (will be populated with actual times)
         initial_arrangement_done = False  # Track if we've done initial window arrangement
+        
+        # Initialize client_start_times with actual process start times for already-running games
+        if PSUTIL_AVAILABLE:
+            if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                # Single client mode: track ffxiv_dx11.exe process start time
+                ffxiv_start_time = get_ffxiv_process_start_time()
+                if ffxiv_start_time:
+                    client_start_times['ffxiv_single'] = ffxiv_start_time
+                    if DEBUG:
+                        print(f"[INIT] Found existing FFXIV process with start time: {datetime.datetime.fromtimestamp(ffxiv_start_time).strftime('%Y-%m-%d %H:%M:%S')}")
+            else:
+                # Multi-client mode: track by PID
+                for account_entry in account_locations:
+                    nickname = account_entry["nickname"]
+                    is_running, process_id = is_ffxiv_running_for_account(nickname)
+                    if is_running and process_id:
+                        actual_start_time = get_process_start_time(process_id)
+                        if actual_start_time:
+                            client_start_times[process_id] = actual_start_time
+                            if DEBUG:
+                                print(f"[INIT] Found existing process {nickname} (PID: {process_id}) with start time: {datetime.datetime.fromtimestamp(actual_start_time).strftime('%Y-%m-%d %H:%M:%S')}")
         
         while True:
             current_time = time.time()
             
             # Check if we need to refresh window status (every WINDOW_REFRESH_INTERVAL seconds)
             if current_time - last_window_check >= WINDOW_REFRESH_INTERVAL:
-                running_pids = set()
-                # Update game status for all accounts (stores tuple: (is_running, process_id))
-                for account_entry in account_locations:
-                    nickname = account_entry["nickname"]
-                    status = is_ffxiv_running_for_account(nickname)
-                    game_status_dict[nickname] = status
-                    is_running, process_id = status
-                    if is_running and process_id:
-                        running_pids.add(process_id)
-                        if process_id not in client_start_times:
-                            client_start_times[process_id] = current_time
-                # Remove entries for processes that are no longer running
-                for pid in list(client_start_times.keys()):
-                    if pid not in running_pids:
-                        del client_start_times[pid]
+                if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                    # Single client mode: track ffxiv_dx11.exe process
+                    for account_entry in account_locations:
+                        nickname = account_entry["nickname"]
+                        status = is_ffxiv_running_for_account(nickname)
+                        game_status_dict[nickname] = status
+                        is_running, _ = status
+                        
+                        if is_running:
+                            # Update process start time for single client
+                            if 'ffxiv_single' not in client_start_times:
+                                ffxiv_start_time = get_ffxiv_process_start_time()
+                                if ffxiv_start_time:
+                                    client_start_times['ffxiv_single'] = ffxiv_start_time
+                                    if DEBUG:
+                                        print(f"[DEBUG] Detected FFXIV process with start time")
+                        else:
+                            # Remove tracking if process not running
+                            if 'ffxiv_single' in client_start_times:
+                                del client_start_times['ffxiv_single']
+                else:
+                    # Multi-client mode: track by PID
+                    running_pids = set()
+                    for account_entry in account_locations:
+                        nickname = account_entry["nickname"]
+                        status = is_ffxiv_running_for_account(nickname)
+                        game_status_dict[nickname] = status
+                        is_running, process_id = status
+                        if is_running and process_id:
+                            running_pids.add(process_id)
+                            if process_id not in client_start_times:
+                                # Try to get actual process start time, fallback to current time
+                                actual_start_time = get_process_start_time(process_id)
+                                if actual_start_time:
+                                    client_start_times[process_id] = actual_start_time
+                                    if DEBUG:
+                                        print(f"[DEBUG] Detected new process {nickname} (PID: {process_id}) with actual start time")
+                                else:
+                                    client_start_times[process_id] = current_time
+                                    if DEBUG:
+                                        print(f"[DEBUG] Detected new process {nickname} (PID: {process_id}) using current time")
+                    # Remove entries for processes that are no longer running
+                    for pid in list(client_start_times.keys()):
+                        if pid not in running_pids:
+                            del client_start_times[pid]
                 last_window_check = current_time
             
             # Display submarine timers with current game status FIRST
-            display_submarine_timers(game_status_dict)
+            display_submarine_timers(game_status_dict, client_start_times)
             
             # Initial window arrangement check (only on first run)
             if not initial_arrangement_done and ENABLE_WINDOW_LAYOUT:
@@ -730,7 +936,7 @@ def main():
                 for account_entry in account_locations:
                     nickname = account_entry["nickname"]
                     include_subs = account_entry.get("include_submarines", True)
-                    rotating_retainers = account_entry.get("rotatingretainers", False)
+                    rotating_retainers = account_entry.get("force247uptime", False)
                     
                     # Skip if submarines are disabled for this account
                     if not include_subs and not rotating_retainers:
@@ -751,13 +957,13 @@ def main():
                             print(f"[DEBUG] {nickname}: Already running, skipping")
                         continue
                     
-                    # If rotatingretainers is enabled, ensure the game is running regardless of submarine timers
+                    # If force247uptime is enabled, ensure the game is running regardless of submarine timers
                     if rotating_retainers:
                         last_launch = last_launch_time.get(nickname, 0)
                         time_since_last_launch = current_time - last_launch
                         if time_since_last_launch < OPEN_DELAY_THRESHOLD:
                             continue
-                        print(f"\n[AUTO-LAUNCH] Launching {nickname} - rotatingretainers enabled")
+                        print(f"\n[AUTO-LAUNCH] Launching {nickname} - force247uptime enabled")
                         if launch_game(nickname):
                             last_launch_time[nickname] = current_time
                             print(f"[AUTO-LAUNCH] Successfully launched {nickname}")
@@ -833,43 +1039,66 @@ def main():
                 for account_entry in account_locations:
                     nickname = account_entry["nickname"]
                     include_subs = account_entry.get("include_submarines", True)
-                    rotating_retainers = account_entry.get("rotatingretainers", False)
+                    rotating_retainers = account_entry.get("force247uptime", False)
                     
                     # Get game status
                     game_info = game_status_dict.get(nickname, (None, None))
                     is_running = game_info[0]
                     process_id = game_info[1]
                     
-                    # Only proceed if game is running and we have a PID
-                    if not is_running or not process_id:
+                    # Only proceed if game is running
+                    if not is_running:
                         continue
                     
-                    # Skip if we've already closed this PID
-                    if process_id in closed_pids:
+                    # In multi-client mode, we need a valid process_id
+                    if not USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME and not process_id:
+                        continue
+                    
+                    # Skip if we've already closed this PID (multi-client mode only)
+                    if process_id and process_id in closed_pids:
                         continue
 
                     # Enforce MAX_RUNTIME for all clients
                     uptime_hours = None
-                    start_time = client_start_times.get(process_id)
-                    if start_time is not None:
-                        uptime_hours = (current_time - start_time) / 3600.0
+                    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                        # Single client mode: get uptime from ffxiv_single tracking
+                        start_time = client_start_times.get('ffxiv_single')
+                        if start_time is not None:
+                            uptime_hours = (current_time - start_time) / 3600.0
+                    elif process_id:
+                        # Multi-client mode: get uptime from PID tracking
+                        start_time = client_start_times.get(process_id)
+                        if start_time is not None:
+                            uptime_hours = (current_time - start_time) / 3600.0
 
                     if uptime_hours is not None and uptime_hours >= MAX_RUNTIME:
                         print(f"\n[AUTO-CLOSE] Closing {nickname} (PID: {process_id}) - Uptime {uptime_hours:.1f}h exceeds MAX_RUNTIME {MAX_RUNTIME}h")
-                        if kill_process_by_pid(process_id):
-                            closed_pids.add(process_id)
+                        
+                        # Use appropriate kill method based on mode
+                        kill_success = False
+                        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                            kill_success = kill_ffxiv_process()
+                        else:
+                            kill_success = kill_process_by_pid(process_id)
+                        
+                        if kill_success:
+                            closed_pids.add(process_id) if process_id else None
                             print(f"[AUTO-CLOSE] Successfully closed {nickname} after {uptime_hours:.1f}h")
                             # Update game status immediately
                             game_status_dict[nickname] = (False, None)
                             # Enforce launch delay after runtime-based restart
                             last_launch_time[nickname] = current_time
-                            if process_id in client_start_times:
+                            # Clean up start time tracking
+                            if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                                if 'ffxiv_single' in client_start_times:
+                                    del client_start_times['ffxiv_single']
+                            elif process_id and process_id in client_start_times:
                                 del client_start_times[process_id]
                         else:
                             print(f"[AUTO-CLOSE] Failed to close {nickname}")
                         continue
 
-                    # Do not auto-close rotatingretainers accounts based on submarine timers
+                    # Do not auto-close force247uptime accounts based on submarine timers
                     if rotating_retainers:
                         continue
 
@@ -885,15 +1114,27 @@ def main():
                     # Close if soonest_hours > AUTO_CLOSE_THRESHOLD (submarines won't be ready soon)
                     if soonest_hours is not None and soonest_hours > AUTO_CLOSE_THRESHOLD:
                         print(f"\n[AUTO-CLOSE] Closing {nickname} (PID: {process_id}) - Next sub in {soonest_hours:.1f}h")
-                        if kill_process_by_pid(process_id):
-                            closed_pids.add(process_id)
+                        
+                        # Use appropriate kill method based on mode
+                        kill_success = False
+                        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                            kill_success = kill_ffxiv_process()
+                        else:
+                            kill_success = kill_process_by_pid(process_id)
+                        
+                        if kill_success:
+                            closed_pids.add(process_id) if process_id else None
                             print(f"[AUTO-CLOSE] Successfully closed {nickname}")
                             # Update game status immediately
                             game_status_dict[nickname] = (False, None)
                             # Reset launch time so it can be relaunched if subs become ready
                             if nickname in last_launch_time:
                                 del last_launch_time[nickname]
-                            if process_id in client_start_times:
+                            # Clean up start time tracking
+                            if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                                if 'ffxiv_single' in client_start_times:
+                                    del client_start_times['ffxiv_single']
+                            elif process_id and process_id in client_start_times:
                                 del client_start_times[process_id]
                         else:
                             print(f"[AUTO-CLOSE] Failed to close {nickname}")
