@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.01 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.04 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -9,9 +9,9 @@ A comprehensive automation script that monitors submarine return times across mu
 **Script Operation Flow:**
 - **Script Starts** and initializes monitoring system
 - **Pulls AutoRetainer DefaultConfig** files for ETA and displays timers
-- **Opens game** when there's 0.15 hours (9 minutes) from sub returning (or immediately for rotatingretainers accounts)
+- **Opens game** when there's 0.15 hours (9 minutes) from sub returning (or immediately for force247uptime accounts)
 - **Closes game** once all rotated and submarines won't return for 0.5 hours (30 minutes) for submarine-only accounts
-- **Keeps clients running** for accounts with `rotatingretainers=True` so AutoRetainer can process retainers continuously
+- **Keeps clients running** for accounts with `force247uptime=True` so AutoRetainer can process retainers continuously
 - **Forces client restart** after 71 hours of uptime (`MAX_RUNTIME`) to avoid FFXIV 72-hour stability issues
 - **Crash recovery**: If game crashes when subs or retainers are ready, game automatically relaunches
 - **Timers refresh** every 30 seconds
@@ -30,7 +30,7 @@ A comprehensive automation script that monitors submarine return times across mu
 - **Dual Refresh Rates**: 30-second timer updates, 60-second window status checks
 - **Ready Status Detection**: Shows when submarines are already returned and ready
 - **Gil Earnings Tracking**: Calculates total daily gil from all submarine builds
-- **Process ID Tracking**: Monitors running game instances for each account
+- **Process ID Tracking**: Monitors running game instances for each account (multi-client mode only)
 
 ### Intelligent Automation
 - **Auto-Launch Games**: Automatically opens games when submarines are nearly ready (9 minutes by default)
@@ -55,6 +55,7 @@ A comprehensive automation script that monitors submarine return times across mu
 - FFXIV with XIVLauncher (Dalamud)
 - AutoRetainer plugin (installed and configured)
 - pywin32 package: `pip install pywin32`
+- psutil package (recommended): `pip install psutil` - Enables accurate process uptime tracking. Optional but recommended for proper MAX_RUNTIME enforcement.
 
 **Required Plugin Configuration:**
 - **AutoRetainer Multi-Mode**: Must be enabled and set to auto-enable, enable Wait on login screen in common settings
@@ -71,8 +72,8 @@ Edit the `account_locations` list in `Auto-AutoRetainer.py` (around line 56-65):
 
 ```python
 account_locations = [
-     acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=False, rotatingretainers=False),
-     acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True, rotatingretainers=True),
+     acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=False, force247uptime=False),
+     acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True, force247uptime=True),
     # Add more accounts as needed
 ]
 ```
@@ -80,7 +81,7 @@ account_locations = [
 - **nickname**: Short identifier for the account (used in display and window detection)
 - **pluginconfigs_path**: Path to the account's plugin configuration folder
 - **include_submarines**: Set to `True` to monitor submarines, `False` to disable
-- **rotatingretainers**: Set to `True` to keep the game always running for this account so AutoRetainer can continuously rotate retainers (subject to `MAX_RUNTIME` safety restarts)
+- **force247uptime**: Set to `True` to keep the game always running for this account so AutoRetainer can continuously rotate retainers (subject to `MAX_RUNTIME` safety restarts)
 
 ### Step 2: Configure Game Launchers
 
@@ -219,7 +220,11 @@ Each launcher maintains its own:
 - ✓ Independent AutoRetainer settings
 - ✓ Clean separation of account data
 
-### Step 3: Label Game Windows (CRITICAL)
+### Step 3: Label Game Windows (CRITICAL for Multi-Client Mode)
+
+**⚠️ Note:** If you're using **single client mode** (`USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = True`), you can **skip this entire step**. Single client mode uses the default "FINAL FANTASY XIV" window title and doesn't require window renaming. However, this mode **only supports 1 account** and **disables MAX_RUNTIME protection**.
+
+**For Multi-Client Mode (Default):**
 
 For the script to detect and manage game instances, **you must rename the FFXIV game window title** to follow this exact format:
 
@@ -461,6 +466,31 @@ WINDOW_MOVER_DIR = Path(__file__).parent  # Folder containing layout JSON files
 DEBUG = False                   # Show detailed debug output
 ```
 
+### Single Client Mode Settings
+```python
+USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = False  # Window detection mode
+```
+
+**When False (Default - Multi-Client Mode):**
+- Uses "ProcessID - nickname" window title format
+- Supports multiple accounts simultaneously
+- Tracks individual process IDs for uptime monitoring
+- Kills games by specific PID
+- **MAX_RUNTIME enforcement enabled** (71h uptime limit)
+
+**When True (Single Client Mode):**
+- Uses default "FINAL FANTASY XIV" window title
+- **Only supports 1 account** (validation enforced)
+- Tracks uptime using `psutil` to detect `ffxiv_dx11.exe` process
+- Kills game by process name (ffxiv_dx11.exe)
+- **MAX_RUNTIME enforcement enabled** (71h uptime limit via process name detection)
+- Useful for simple single-account setups without window title modification
+
+**⚠️ Important Limitations in Single Client Mode:**
+- Cannot run multiple accounts simultaneously
+- Script will exit with error if multiple accounts are configured
+- Requires `psutil` package for uptime tracking (install with: `pip install psutil`)
+
 ---
 
 ## Usage
@@ -474,23 +504,20 @@ python Auto-AutoRetainer.py
 ### Display Output
 
 ```
-=================================================================
+=====================================================================================
 FFXIV Submarine Timer Monitor
-=================================================================
-Updated: 2025-11-12 17:19:40
-=================================================================
+=====================================================================================
+Updated: 2025-11-14 16:14:31
+=====================================================================================
 
-Main  Submarines disabled
-Acc1    (4 subs): -0.5 hours (1 READY)  [Running]   PID: 3056
-Acc2    (4 subs): +2.3 hours            [Closed]
-Acc3    (4 subs): +5.7 hours            [Running]   PID: 58696
+Main  (36 subs)  : +20.2 hours             [Running] PID: 12345 UPTIME: 0.9 hours
 
-=================================================================
-Total Subs: 1 / 12
-Total Gil Per Day: 474,644
-=================================================================
+=====================================================================================
+Total Subs: 0 / 36
+Total Gil Per Day: 3,955,914
+=====================================================================================
 Press Ctrl+C to exit
-=================================================================
+=====================================================================================
 ```
 
 ### Status Indicators
