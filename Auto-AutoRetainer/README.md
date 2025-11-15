@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.08 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.09 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -788,3 +788,17 @@ The script will automatically load `window_layout_{name}.json` based on the `WIN
 - **AutoRetainer Plugin**: For submarine data and automation framework
 - **XIVLauncher**: For multi-account support and autologin functionality
 - **Dalamud**: For plugin ecosystem
+
+---
+
+## Version History
+
+**v1.09** (2025-11-15) - Fixed submarine build collection for custom-named submarines and enhanced console display  
+**v1.08** (2025-11-15) - Enhanced configuration flag handling and status display improvements  
+**v1.07** (2025-11-14) - Added (WAITING) status display for running games with 0 ready subs  
+**v1.06** (2025-11-14) - Renamed 'rotatingretainers' parameter to 'force247uptime' for clarity  
+**v1.05** (2025-11-14) - Fixed PID and UPTIME display in single client mode  
+**v1.03** (2025-11-14) - Simplified for single account use with default window title  
+**v1.02** (2025-11-13) - Fixed auto-launch not checking submarine timers for non-rotating accounts  
+**v1.01** (2025-11-13) - Added per-account force247uptime flag and MAX_RUNTIME limits  
+**v1.00** (2025-11-12) - Initial release with comprehensive submarine automation
