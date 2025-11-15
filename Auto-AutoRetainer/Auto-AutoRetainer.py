@@ -27,13 +27,19 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.08
+# Auto-AutoRetainer v1.09
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-11-15 08:50:00
+# Last Updated: 2025-11-15 12:33:00
 #
 # ## Release Notes ##
 #
+# v1.09 - Fixed submarine build collection for custom-named submarines and enhanced console display
+#         Fixed submarine build detection to properly count custom-named submarines (e.g., "You Don't Pay My Sub")
+#         Build collection now matches submarines by name from OfflineSubmarineData instead of filtering by "Submersible-" prefix
+#         Added "Total Subs Leveling" display line showing count of submarines still being leveled
+#         Added "Total Subs Farming" display line showing count of submarines on farming routes (build_gil_rates matches)
+#         Gil calculation now includes all submarines regardless of custom names for accurate daily earnings
 # v1.08 - Enhanced configuration flag handling and status display improvements
 #         Fixed handling of include_submarines and force247uptime flag combinations
 #         Display now shows game status even when include_submarines=False
@@ -665,16 +671,20 @@ def get_submarine_timers_for_account(account_entry):
         
         for char in chars:
             # Get submarine build data from AdditionalSubmarineData
+            # Process all submarines (including renamed ones) by matching via OfflineSubmarineData
             sub_info = char.get("AdditionalSubmarineData", {})
-            for sub_key, sub_dict in sub_info.items():
-                if sub_key.startswith("Submersible-"):
-                    parts_str = get_sub_parts_string(sub_dict)
+            offline_sub_data = char.get("OfflineSubmarineData", [])
+            
+            # First pass: Collect submarine builds from all submarines
+            for offline_sub in offline_sub_data:
+                sub_name = offline_sub.get("Name", "")
+                # Look up build data using the submarine's actual name
+                if sub_name in sub_info:
+                    parts_str = get_sub_parts_string(sub_info[sub_name])
                     if parts_str:
                         result["sub_builds"].append(parts_str)
             
-            # Get submarine data from OfflineSubmarineData
-            offline_sub_data = char.get("OfflineSubmarineData", [])
-            
+            # Second pass: Get submarine return times
             for sub_dict in offline_sub_data:
                 sub_name = sub_dict.get("Name", "")
                 return_timestamp = sub_dict.get("ReturnTime", 0)
@@ -887,16 +897,22 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None):
     print()
     print("=" * 85)
     
-    # Calculate total daily gil earnings from submarine builds
+    # Calculate total daily gil earnings and submarine counts
     total_daily_gil = 0
+    farming_subs_count = 0
     for build in all_builds:
         if build in build_gil_rates:
             total_daily_gil += build_gil_rates[build]
+            farming_subs_count += 1
+    
+    leveling_subs_count = total_all_subs - farming_subs_count
     
     # Display totals
     print(f"Total Subs: {total_ready_subs} / {total_all_subs}")
     if total_daily_gil > 0:
-        print(f"Total Gil Per Day: {total_daily_gil:,}")
+    print(f"Total Gil Per Day: {total_daily_gil:,}")
+    print(f"Total Subs Leveling: {leveling_subs_count}")
+    print(f"Total Subs Farming: {farming_subs_count}")
     
     print("=" * 85)
     print("Press Ctrl+C to exit")
