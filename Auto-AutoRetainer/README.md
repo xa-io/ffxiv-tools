@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.04 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.08 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -80,8 +80,23 @@ account_locations = [
 
 - **nickname**: Short identifier for the account (used in display and window detection)
 - **pluginconfigs_path**: Path to the account's plugin configuration folder
-- **include_submarines**: Set to `True` to monitor submarines, `False` to disable
+- **include_submarines**: Set to `True` to monitor submarines, `False` to disable submarine monitoring
 - **force247uptime**: Set to `True` to keep the game always running for this account so AutoRetainer can continuously rotate retainers (subject to `MAX_RUNTIME` safety restarts)
+
+**Configuration Behavior Matrix:**
+
+| include_submarines | force247uptime | Behavior |
+|-------------------|----------------|----------|
+| `False` | `False` | Client closes if detected running (no submarines or retainers, no need to stay online) |
+| `False` | `True` | Client stays running with **[Up 24/7]** status (for Retainer rotation only) |
+| `True` | `False` | Normal submarine monitoring with timer-based launch/close |
+| `True` | `True` | Submarine monitoring + forced 24/7 uptime with **[Up 24/7]** status |
+
+**Understanding the Flags:**
+- Use `include_submarines=False, force247uptime=False` for accounts with no submarines and no Retainer rotation needs
+- Use `include_submarines=False, force247uptime=True` for accounts that need 24/7 uptime for Retainer but have no submarines
+- Use `include_submarines=True, force247uptime=False` for standard submarine farming accounts
+- Use `include_submarines=True, force247uptime=True` for accounts that need both submarine monitoring and continuous Retainer rotation
 
 ### Step 2: Configure Game Launchers
 
@@ -507,14 +522,14 @@ python Auto-AutoRetainer.py
 =====================================================================================
 FFXIV Submarine Timer Monitor
 =====================================================================================
-Updated: 2025-11-14 16:14:31
+Updated: 2025-11-14 18:25:41
 =====================================================================================
 
-Main  (36 subs)  : +20.2 hours             [Running] PID: 12345 UPTIME: 0.9 hours
+Main  (36 subs)  : -0.0 hours (7 READY)    [Running] PID: 11376 UPTIME: 1.6 hours
 
 =====================================================================================
-Total Subs: 0 / 36
-Total Gil Per Day: 3,955,914
+Total Subs: 7 / 36
+Total Gil Per Day: 4,271,184
 =====================================================================================
 Press Ctrl+C to exit
 =====================================================================================
@@ -523,17 +538,21 @@ Press Ctrl+C to exit
 ### Status Indicators
 
 - **Positive hours** (`+2.3 hours`): Time remaining until submarine returns
+- **Positive hours with (WAITING)** (`+0.0 hours (WAITING)`): Game is running with 0 ready subs, waiting for submarines within auto-close threshold
 - **Negative hours** (`-0.5 hours (1 READY)`): Submarines already returned and waiting
+- **Disabled**: Submarine monitoring is disabled for this account (include_submarines=False)
 - **[Running]**: Game is currently open for this account
 - **[Closed]**: Game is not running
+- **[Up 24/7]**: Account has force247uptime=True enabled, client should remain running continuously
 - **PID: xxxxx**: Process ID of the running game instance
+- **UPTIME: x.x hours**: How long the game process has been running
 
 ### Automation Behavior
 
 **Auto-Launch Example:**
 ```
-[AUTO-LAUNCH] Launching Acc1 - Sub ready in 8.5 minutes
-[AUTO-LAUNCH] Successfully launched Acc1
+[AUTO-LAUNCH] Launching Acc1 - submarines nearly ready (0.1h)
+[AUTO-LAUNCH] Successfully launched Acc1, waiting 60 seconds before checking clients again.
 [WINDOW-MOVER] Arranging windows with 'main' layout...
 [WINDOW-MOVER] Moved: '3056 - Acc1' -> (1920,0,1280,720)
 ```
@@ -541,7 +560,19 @@ Press Ctrl+C to exit
 **Auto-Close Example:**
 ```
 [AUTO-CLOSE] Closing Acc2 (PID: 58696) - Next sub in 2.3h
-[AUTO-CLOSE] Successfully closed Acc2
+[AUTO-CLOSE] Successfully closed Acc2, waiting 30 seconds before checking clients again.
+```
+
+**Force247uptime Launch Example:**
+```
+[AUTO-LAUNCH] Launching Main - force247uptime enabled
+[AUTO-LAUNCH] Successfully launched Main, waiting 60 seconds before checking clients again.
+```
+
+**MAX_RUNTIME Restart Example:**
+```
+[AUTO-CLOSE] Closing Acc1 (PID: 13728) - Uptime 71.2h exceeds MAX_RUNTIME 71h
+[AUTO-CLOSE] Successfully closed Acc1 after 71.2h, waiting 30 seconds before checking clients again.
 ```
 
 ---
