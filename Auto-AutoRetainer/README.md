@@ -13,7 +13,7 @@ A comprehensive automation script that monitors submarine return times across mu
 - **Closes game** once all rotated and submarines won't return for 0.5 hours (30 minutes) for submarine-only accounts
 - **Keeps clients running** for accounts with `force247uptime=True` so AutoRetainer can process retainers continuously
 - **Forces client restart** after 71 hours of uptime (`MAX_RUNTIME`) to avoid FFXIV 72-hour stability issues
-- **Crash recovery**: If game crashes when subs or retainers are ready, game automatically relaunches
+- **Crash recovery**: If game crashes when subs are ready or 24/7 uptime is enabled, game automatically relaunches
 - **Timers refresh** every 30 seconds
 - **Client checkers refresh** every 60 seconds
 
