@@ -100,14 +100,15 @@ The script generates an Excel file with the following sheets:
 - Total Tanks, Kits, and Treasure value
 - **Total Gil Value** (total gil + treasure value combined)
 - **FC statistics**
-  - Total FC's (unique FC count)
-  - Total FC's Farming Subs
+  - Total FC's (count of characters with submarines, identified by FC name or FC housing data)
+  - Total FC's Farming Subs (characters with at least one farming submarine build)
   - Total FC Points
 - **Submarine statistics**
   - Lowest/Highest submarine level
   - Unique submersible parts count
   - Detailed submarine build list with usage counts
   - **Gil farming rates per build** (shows which builds earn what amount per day)
+  - **Total Submarines** (count of all submarine builds including farming and leveling)
 - **Gil farming calculations** (only includes accounts with `include_submarines=True`)
   - Gil Farmed Each Day (based on all submarine builds and their routes)
   - Gil Farmed Every 30 Days  
@@ -178,8 +179,20 @@ Reports are automatically saved with timestamp format:
 YYYY-MM-DD-HH-MM - ffxiv_gil_summary.xlsx
 ```
 
+## Version History
+
+**v1.10** (2025-11-15) - Fixed submarine data extraction for custom-named submarines and FC counting logic  
+**v1.09** (2025-11-11) - Integrated Lifestream housing data  
+**v1.08** (2025-11-01) - Formatting improvements  
+**v1.07** (2025-10-22) - Per-account submarine control  
+**v1.06** (2025-10-13) - Column layout updates  
+**v1.05** (2025-10-07) - Altoholic integration  
+**v1.00** (2025-03-29) - Initial release
+
+---
+
 ## Created by
 
 https://github.com/xa-io
 
-Last Updated: 2025-11-11 13:45:00
+Last Updated: 2025-11-15 12:54:00
