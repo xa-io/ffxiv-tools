@@ -27,13 +27,24 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.06
+# Auto-AutoRetainer v1.08
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-11-14 16:30:00
+# Last Updated: 2025-11-15 08:50:00
 #
 # ## Release Notes ##
 #
+# v1.08 - Enhanced configuration flag handling and status display improvements
+#         Fixed handling of include_submarines and force247uptime flag combinations
+#         Display now shows game status even when include_submarines=False
+#         Auto-close logic properly closes clients when include_submarines=False AND force247uptime=False
+#         Status display shows [Up 24/7] when force247uptime=True instead of [Running]/[Closed]
+#         Added informative wait time messages after all auto-launch and auto-close actions
+#         Changed "Subs off" display text to "Disabled" for cleaner indication
+#         Supports four distinct configuration behaviors for complete flexibility
+# v1.07 - Added (WAITING) status display for running games with 0 ready subs
+#         Shows "(WAITING)" when game is running with positive hours <= AUTO_CLOSE_THRESHOLD
+#         Provides clear feedback when game is idle waiting for submarines to be ready
 # v1.06 - Renamed 'rotatingretainers' parameter to 'force247uptime' for better clarity
 #         Updated all references in code, comments, and documentation
 #         Functionality remains identical - parameter name now better reflects its purpose
@@ -142,7 +153,7 @@ def acc(nickname, pluginconfigs_path, include_submarines=True, force247uptime=Fa
 
 # # Account configuration - matches AR Parser order
 account_locations = [
-    acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=True, force247uptime=True),
+    acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=True, force247uptime=False),
     # acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True, force247uptime=False),
     # acc("Acc2",   f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs", include_submarines=True, force247uptime=False),
     # acc("Acc3",   f"C:\\Users\\{user}\\AltData\\Acc3\\pluginConfigs", include_submarines=True, force247uptime=False),
@@ -687,11 +698,14 @@ def get_submarine_timers_for_account(account_entry):
     
     return result
 
-def format_hours(hours, ready_count=0):
+def format_hours(hours, ready_count=0, is_running=False):
     """Format hours with + prefix for positive values and ready count"""
     if hours is None:
         return "N/A"
     if hours >= 0:
+        # Show (WAITING) when game is running with 0 ready subs and positive hours
+        if is_running and ready_count == 0 and hours <= AUTO_CLOSE_THRESHOLD:
+            return f"+{hours:.1f} hours (WAITING)"
         return f"+{hours:.1f} hours"
     else:
         # Negative means already returned
@@ -735,14 +749,11 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None):
         soonest_hours = data["soonest_hours"]
         
         if not data["include_submarines"]:
-            # Don't show game status for accounts with submarines disabled
-            disabled_str = "Submarines disabled"
-            print(f"{nickname:{NICKNAME_WIDTH}s} {disabled_str:{SUBS_COUNT_WIDTH}s}")
-        elif total_subs == 0:
-            no_subs_str = "No submarines found"
-            print(f"{nickname:{NICKNAME_WIDTH}s} {no_subs_str:{SUBS_COUNT_WIDTH}s}  {'':{HOURS_WIDTH}s}")
-        else:
-            # Get game status for this account (only show for enabled submarines)
+            # Show game status even with submarines disabled (for force247uptime monitoring)
+            subs_disabled_str = "Disabled"
+            
+            # Get game status and force247uptime flag
+            force247 = account_locations[[i for i, acc in enumerate(account_locations) if acc["nickname"] == nickname][0]].get("force247uptime", False)
             game_info = game_status_dict.get(nickname, (None, None))
             is_running = game_info[0]
             process_id = game_info[1]
@@ -751,7 +762,79 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None):
             pid_uptime_str = ""
             if is_running is not None:
                 if is_running:
-                    status_str = f"{'[Running]':{STATUS_WIDTH}s}"
+                    # Show [Up 24/7] if force247uptime is True, otherwise [Running]
+                    if force247:
+                        status_str = f"{'[Up 24/7]':{STATUS_WIDTH}s}"
+                    else:
+                        status_str = f"{'[Running]':{STATUS_WIDTH}s}"
+                    
+                    # Handle PID and uptime display differently based on mode
+                    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                        # Single client mode: get actual PID from process and use 'ffxiv_single' for start time
+                        if PSUTIL_AVAILABLE:
+                            try:
+                                for proc in psutil.process_iter(['pid', 'name']):
+                                    if proc.info['name'].lower() == 'ffxiv_dx11.exe':
+                                        actual_pid = proc.info['pid']
+                                        pid_part = f"PID: {actual_pid}"
+                                        pid_formatted = f"{pid_part:{PID_WIDTH}s}"
+                                        
+                                        # Calculate uptime using 'ffxiv_single' key
+                                        current_time = time.time()
+                                        start_time = client_start_times.get('ffxiv_single')
+                                        if start_time is not None:
+                                            uptime_hours = (current_time - start_time) / 3600.0
+                                            uptime_part = f"UPTIME: {uptime_hours:.1f} hours"
+                                            pid_uptime_str = f"{pid_formatted}{uptime_part}"
+                                        else:
+                                            pid_uptime_str = pid_formatted
+                                        break
+                            except Exception:
+                                pass
+                    else:
+                        # Multi-client mode: use PID from window detection
+                        if process_id:
+                            pid_part = f"PID: {process_id}"
+                            pid_formatted = f"{pid_part:{PID_WIDTH}s}"
+                            
+                            # Calculate uptime if we have start time
+                            current_time = time.time()
+                            start_time = client_start_times.get(process_id)
+                            if start_time is not None:
+                                uptime_hours = (current_time - start_time) / 3600.0
+                                uptime_part = f"UPTIME: {uptime_hours:.1f} hours"
+                                pid_uptime_str = f"{pid_formatted}{uptime_part}"
+                            else:
+                                pid_uptime_str = pid_formatted
+                else:
+                    # Show [Up 24/7] if force247uptime is True, otherwise [Closed]
+                    if force247:
+                        status_str = f"{'[Up 24/7]':{STATUS_WIDTH}s}"
+                    else:
+                        status_str = f"{'[Closed]':{STATUS_WIDTH}s}"
+            
+            # Use same formatting structure as other entries for proper alignment
+            print(f"{nickname:{NICKNAME_WIDTH}s} {subs_disabled_str:{SUBS_COUNT_WIDTH}s}:{'':{HOURS_WIDTH+1}s}{status_str}{pid_uptime_str}")
+        elif total_subs == 0:
+            no_subs_str = "No submarines found"
+            print(f"{nickname:{NICKNAME_WIDTH}s} {no_subs_str:{SUBS_COUNT_WIDTH}s}  {'':{HOURS_WIDTH}s}")
+        else:
+            # Get game status for this account (only show for enabled submarines)
+            # Check force247uptime flag to determine status display
+            force247 = account_locations[[i for i, acc in enumerate(account_locations) if acc["nickname"] == nickname][0]].get("force247uptime", False)
+            game_info = game_status_dict.get(nickname, (None, None))
+            is_running = game_info[0]
+            process_id = game_info[1]
+            
+            status_str = ""
+            pid_uptime_str = ""
+            if is_running is not None:
+                if is_running:
+                    # Show [Up 24/7] if force247uptime is True, otherwise [Running]
+                    if force247:
+                        status_str = f"{'[Up 24/7]':{STATUS_WIDTH}s}"
+                    else:
+                        status_str = f"{'[Running]':{STATUS_WIDTH}s}"
                     
                     # Handle PID and uptime display differently based on mode
                     if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
@@ -791,9 +874,13 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None):
                         else:
                             pid_uptime_str = pid_formatted
                 else:
-                    status_str = f"{'[Closed]':{STATUS_WIDTH}s}"
+                    # Show [Up 24/7] if force247uptime is True, otherwise [Closed]
+                    if force247:
+                        status_str = f"{'[Up 24/7]':{STATUS_WIDTH}s}"
+                    else:
+                        status_str = f"{'[Closed]':{STATUS_WIDTH}s}"
             
-            hours_str = format_hours(soonest_hours, ready_subs)
+            hours_str = format_hours(soonest_hours, ready_subs, is_running=(is_running if is_running is not None else False))
             subs_str = f"({total_subs} subs)"
             print(f"{nickname:{NICKNAME_WIDTH}s} {subs_str:{SUBS_COUNT_WIDTH}s}: {hours_str:{HOURS_WIDTH}s}{status_str}{pid_uptime_str}")
     
@@ -966,7 +1053,7 @@ def main():
                         print(f"\n[AUTO-LAUNCH] Launching {nickname} - force247uptime enabled")
                         if launch_game(nickname):
                             last_launch_time[nickname] = current_time
-                            print(f"[AUTO-LAUNCH] Successfully launched {nickname}")
+                            print(f"[AUTO-LAUNCH] Successfully launched {nickname}, waiting {WINDOW_REFRESH_INTERVAL} seconds before checking clients again.")
                             if DEBUG:
                                 print(f"[AUTO-LAUNCH] Waiting 60 seconds for game to start...")
                             # Wait WINDOW_REFRESH_INTERVAL before next launch attempt to give it time to start
@@ -1011,7 +1098,7 @@ def main():
                             print(f"\n[AUTO-LAUNCH] Launching {nickname} - submarines nearly ready ({soonest_hours:.1f}h)")
                             if launch_game(nickname):
                                 last_launch_time[nickname] = current_time
-                                print(f"[AUTO-LAUNCH] Successfully launched {nickname}")
+                                print(f"[AUTO-LAUNCH] Successfully launched {nickname}, waiting {WINDOW_REFRESH_INTERVAL} seconds before checking clients again.")
                                 if DEBUG:
                                     print(f"[AUTO-LAUNCH] Waiting 60 seconds for game to start...")
                                 # Wait WINDOW_REFRESH_INTERVAL before next launch attempt to give it time to start
@@ -1083,7 +1170,7 @@ def main():
                         
                         if kill_success:
                             closed_pids.add(process_id) if process_id else None
-                            print(f"[AUTO-CLOSE] Successfully closed {nickname} after {uptime_hours:.1f}h")
+                            print(f"[AUTO-CLOSE] Successfully closed {nickname} after {uptime_hours:.1f}h, waiting {TIMER_REFRESH_INTERVAL} seconds before checking clients again.")
                             # Update game status immediately
                             game_status_dict[nickname] = (False, None)
                             # Enforce launch delay after runtime-based restart
@@ -1102,7 +1189,37 @@ def main():
                     if rotating_retainers:
                         continue
 
-                    # Skip timer-based auto-close for accounts without submarines
+                    # Close game if submarines disabled AND force247uptime is False
+                    # (no submarines and no reason to keep game running)
+                    if not include_subs and not rotating_retainers:
+                        print(f"\n[AUTO-CLOSE] Closing {nickname} (PID: {process_id}) - Submarines disabled, force247uptime=False")
+                        
+                        # Use appropriate kill method based on mode
+                        kill_success = False
+                        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                            kill_success = kill_ffxiv_process()
+                        else:
+                            kill_success = kill_process_by_pid(process_id)
+                        
+                        if kill_success:
+                            closed_pids.add(process_id) if process_id else None
+                            print(f"[AUTO-CLOSE] Successfully closed {nickname}, waiting {TIMER_REFRESH_INTERVAL} seconds before checking clients again.")
+                            # Update game status immediately
+                            game_status_dict[nickname] = (False, None)
+                            # Reset launch time
+                            if nickname in last_launch_time:
+                                del last_launch_time[nickname]
+                            # Clean up start time tracking
+                            if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                                if 'ffxiv_single' in client_start_times:
+                                    del client_start_times['ffxiv_single']
+                            elif process_id and process_id in client_start_times:
+                                del client_start_times[process_id]
+                        else:
+                            print(f"[AUTO-CLOSE] Failed to close {nickname}")
+                        continue
+                    
+                    # Skip timer-based auto-close for accounts without submarines (but with force247uptime)
                     if not include_subs:
                         continue
 
@@ -1124,7 +1241,7 @@ def main():
                         
                         if kill_success:
                             closed_pids.add(process_id) if process_id else None
-                            print(f"[AUTO-CLOSE] Successfully closed {nickname}")
+                            print(f"[AUTO-CLOSE] Successfully closed {nickname}, waiting {TIMER_REFRESH_INTERVAL} seconds before checking clients again.")
                             # Update game status immediately
                             game_status_dict[nickname] = (False, None)
                             # Reset launch time so it can be relaunched if subs become ready
