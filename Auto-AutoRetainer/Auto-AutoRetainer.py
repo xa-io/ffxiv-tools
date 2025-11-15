@@ -909,7 +909,6 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None):
     
     # Display totals
     print(f"Total Subs: {total_ready_subs} / {total_all_subs}")
-    if total_daily_gil > 0:
     print(f"Total Gil Per Day: {total_daily_gil:,}")
     print(f"Total Subs Leveling: {leveling_subs_count}")
     print(f"Total Subs Farming: {farming_subs_count}")
