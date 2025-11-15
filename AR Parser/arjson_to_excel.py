@@ -1,3 +1,48 @@
+############################################################################################################################
+#
+#   █████╗ ██████╗     ██████╗  █████╗ ██████╗ ███████╗███████╗██████╗ 
+#  ██╔══██╗██╔══██╗    ██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔════╝██╔══██╗
+#  ███████║██████╔╝    ██████╔╝███████║██████╔╝███████╗█████╗  ██████╔╝
+#  ██╔══██║██╔══██╗    ██╔═══╝ ██╔══██║██╔══██╗╚════██║██╔══╝  ██╔══██╗
+#  ██║  ██║██║  ██║    ██║     ██║  ██║██║  ██║███████║███████╗██║  ██║
+#  ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝
+#
+# Comprehensive FFXIV character data parser that aggregates information from AutoRetainer, Altoholic, and Lifestream
+# plugins to generate detailed Excel reports with gil summaries, submarine tracking, FC data, and housing information.
+#
+# Core Features:
+# • Multi-account AutoRetainer data parsing with character summaries
+# • Submarine build tracking with gil earnings calculations (daily/monthly/annual)
+# • Altoholic database integration for inventory tracking (tanks, kits, treasure items)
+# • Lifestream housing data integration for FC and private housing locations
+# • Excel output with character details, retainer info, submarine data, and summary statistics
+# • Automatic FC detection via FC name or housing data from Lifestream plugin
+#
+# AR Parser with Altoholic v1.10
+# Created by: https://github.com/xa-io
+# Last Updated: 2025-11-15 12:54:00
+#
+# ## Release Notes ##
+#
+# v1.10 - Fixed submarine data extraction for custom-named submarines and FC counting logic
+#         Fixed submarine data extraction to handle submarines with custom names (e.g., "You Don't Pay My Sub")
+#         Submarine data now matches by array index from OfflineSubmarineData, then looks up parts by name in AdditionalSubmarineData
+#         Both return times and level/parts data now correctly extracted for all submarines regardless of custom names
+#         Fixed Total FC's count to properly identify FCs by either FC name OR FC housing data (ward/plot/zone)
+#         Each character with submarines now counts as 1 FC workshop (no longer deduplicates by FC name)
+#         Fixed Total FC's Farming Subs to count characters with at least one farming submarine build
+#         Added "Total Submarines" summary row showing count of ALL submarine builds (farming + leveling)
+#         Total Submarines now appears above gil farming calculations with basic formatting (not bold blue)
+#         Resolved issue where characters with FC housing but no FC name weren't counted
+# v1.09 - Integrated Lifestream housing data into character summaries
+# v1.08 - Formatting improvements for snd_nameworld string
+# v1.07 - Per-account submarine control with include_submarines parameter
+# v1.06 - Column layout updates
+# v1.05 - Altoholic integration for inventory tracking
+# v1.00 - Initial release with AutoRetainer data parsing
+#
+############################################################################################################################
+
 import json
 import xlsxwriter
 import argparse
@@ -385,24 +430,31 @@ def build_char_summaries(all_characters, fc_data, alto_map, account_configs, hou
         
         if include_subs:
             sub_info = char.get("AdditionalSubmarineData", {})
-            for sub_key, sub_dict in sub_info.items():
-                if sub_key in sub_data_map:
-                    sub_data_map[sub_key]["level"] = sub_dict.get("Level", 0)
-                    sub_data_map[sub_key]["parts"] = get_sub_parts_string(sub_dict)
-            
-            # Extract return times from OfflineSubmarineData
             offline_sub_data = char.get("OfflineSubmarineData", [])
             current_time = datetime.datetime.now().timestamp()
-            for sub_dict in offline_sub_data:
-                sub_name = sub_dict.get("Name", "")
-                if sub_name in sub_data_map:
-                    return_timestamp = sub_dict.get("ReturnTime", 0)
+            
+            # Process submarines by matching OfflineSubmarineData index to slot, then lookup by name
+            # OfflineSubmarineData is an array where index corresponds to submarine slot
+            for idx, offline_sub in enumerate(offline_sub_data):
+                # Map index to submarine slot key (0 -> "Submersible-1", 1 -> "Submersible-2", etc.)
+                sub_slot_key = f"Submersible-{idx + 1}"
+                if sub_slot_key in sub_data_map:
+                    # Get the submarine name from OfflineSubmarineData
+                    sub_name = offline_sub.get("Name", "")
+                    
+                    # Use the name to look up level/parts in AdditionalSubmarineData
+                    if sub_name in sub_info:
+                        sub_data_map[sub_slot_key]["level"] = sub_info[sub_name].get("Level", 0)
+                        sub_data_map[sub_slot_key]["parts"] = get_sub_parts_string(sub_info[sub_name])
+                    
+                    # Get return time from OfflineSubmarineData
+                    return_timestamp = offline_sub.get("ReturnTime", 0)
                     if return_timestamp > 0:
                         # Convert to hours remaining (can be negative if already returned)
                         hours_remaining = (return_timestamp - current_time) / 3600
-                        sub_data_map[sub_name]["return_time"] = round(hours_remaining, 2)
+                        sub_data_map[sub_slot_key]["return_time"] = round(hours_remaining, 2)
                     else:
-                        sub_data_map[sub_name]["return_time"] = 0
+                        sub_data_map[sub_slot_key]["return_time"] = 0
 
         fc_name = ""
         fc_points = 0
@@ -764,15 +816,37 @@ def write_excel(char_summaries, excel_output_path):
         sorted_parts = sorted(sub_parts_count.items(), key=lambda x: x[1], reverse=True)
 
         total_fc_points = sum(c["fc_points"] for c in char_summaries)
-        fc_names = set(c["fc_name"] for c in char_summaries if c["fc_name"])
-        total_fc_count = len(fc_names)
-        fc_farming_subs = set(
-            c["fc_name"] for c in char_summaries
-            if c["fc_name"] and (
-                c["sub1parts"] or c["sub2parts"] or c["sub3parts"] or c["sub4parts"]
-            )
-        )
-        total_fc_farming_subs = len(fc_farming_subs)
+        
+        # Total FC's: Count characters with submarine builds (each character = 1 FC workshop)
+        # A character is considered an FC if they have FC name OR FC housing AND have at least one submarine
+        total_fc_count = 0
+        for c in char_summaries:
+            has_fc_name = bool(c["fc_name"])
+            has_fc_housing = bool(c.get("fc_ward") or c.get("fc_plot") or c.get("fc_zone"))
+            has_sub_builds = bool(c["sub1parts"] or c["sub2parts"] or c["sub3parts"] or c["sub4parts"])
+            
+            if (has_fc_name or has_fc_housing) and has_sub_builds:
+                total_fc_count += 1
+        
+        # Total FC's Farming Subs: Count characters with at least one farming submarine
+        build_gil_rates_keys = {
+            "WSUC", "SSUC", "W+S+U+C+", "S+S+S+C+", "YUUW", "Y+U+U+W+",
+            "WCSU", "WUSS", "W+U+S+S+", "YSYC", "Y+S+Y+C+", "S+S+S+C+",
+            "S+S+U+C+", "S+S+U+C", "WCYC", "WUWC", "W+U+W+C+", "YSCU",
+            "SCUS", "S+C+U+S+"
+        }
+        total_fc_farming_subs = 0
+        for c in char_summaries:
+            has_fc_name = bool(c["fc_name"])
+            has_fc_housing = bool(c.get("fc_ward") or c.get("fc_plot") or c.get("fc_zone"))
+            
+            if has_fc_name or has_fc_housing:
+                # Check if ANY of the 4 sub builds are farming builds
+                has_farming_build = any(
+                    c[f"sub{i}parts"] in build_gil_rates_keys for i in [1, 2, 3, 4]
+                )
+                if has_farming_build:
+                    total_fc_farming_subs += 1
 
         sub_levels = []
         for c in char_summaries:
@@ -863,9 +937,11 @@ def write_excel(char_summaries, excel_output_path):
         }
         
         # Add submarine builds to summary with earnings info
+        total_all_subs_count = 0
         if sorted_parts:
             summary_rows.insert(-1, ["Submarine Builds", ""])
             for i, (build, count) in enumerate(sorted_parts, 1):
+                total_all_subs_count += count  # Count ALL submarines
                 if build in build_gil_rates:
                     gil_per_day = build_gil_rates[build]
                     label = f"Build #{i} Earns: {gil_per_day:,} per sub"
@@ -882,6 +958,10 @@ def write_excel(char_summaries, excel_output_path):
                 gil_farmed_daily += gil_per_day * usage_count
                 print(f"[INFO] Build {build} ({usage_count} subs) farms {gil_per_day:,} gil/day each = {gil_per_day * usage_count:,} gil/day total")
 
+        # Add total submarines count (all builds, not just farming)
+        if sorted_parts:
+            summary_rows.insert(-1, ["Total Submarines", total_all_subs_count])
+        
         if gil_farmed_daily > 0:
             summary_rows.insert(-1, ["Gil Farmed Annually", gil_farmed_daily * 365])
             summary_rows.insert(-1, ["Gil Farmed Every 30 Days", gil_farmed_daily * 30])
