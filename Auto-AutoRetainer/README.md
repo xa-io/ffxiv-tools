@@ -21,7 +21,7 @@ A comprehensive automation script that monitors submarine return times across mu
 
 - **Keeps your game closed by default** and only opens it when it actually needs to be running.
 - **Auto-recovers from crashes** by relaunching the game whenever it should be open but has closed unexpectedly.
-- **Avoids the 72-hour lock-in issue** by restarting the client automatically at 71 hours of uptime.
+- **Avoids the 72-hour log-in issue** by restarting the client automatically at 71 hours of uptime.
 - **Supports multiple play styles** whether you want the game open only when submarines are ready, running 24/7, or just throughout the day.
 
 ## Core Automation Features
