@@ -11,6 +11,7 @@ load_dotenv()
 # Configuration toggles
 ENABLE_WEBHOOK = os.getenv("ENABLE_WEBHOOK", "true").lower() == "true"
 ENABLE_MENTION_ROLE = os.getenv("ENABLE_MENTION_ROLE", "true").lower() == "true"
+POST_ASSEMBLYVERSION = os.getenv("POST_ASSEMBLYVERSION", "false").lower() == "true"
 
 # Webhook info
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
@@ -23,8 +24,8 @@ URL = "https://kamori.goats.dev/Dalamud/Release/Meta"
 LAST_SCAN_FILE = "last_scan.json"
 
 # Which top-level keys to watch for changes
-WATCH_KEYS = ["api11", "api12", "net9", "stg", "imgui-bindings"]  # Add or remove keys as needed
-
+# Note: We are now adding "release" to the watcher list, but it has special handling.
+WATCH_KEYS = ["api13", "api14", "api15", "net9", "stg", "imgui-bindings", "release"]
 
 def get_current_release_data():
     """
@@ -76,45 +77,55 @@ def send_discord_notification(message: str):
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [ERROR] Failed to send Discord notification: {e}")
 
 
-def field_change_line(label: str, old_value: str, new_value: str) -> str:
-    """
-    Returns a line showing the new value, and if changed, includes (old: ...).
-    """
-    if old_value != new_value:
-        return f"- **{label}**: {new_value} (old: {old_value})"
-    else:
-        return f"- **{label}**: {new_value}"
-
-
 def build_changed_sections_message(changed_keys, current_data, old_data):
     """
-    Given a list of changed keys and both current and old data,
-    return a nicely formatted message showing each section’s fields.
-    Mention the role if any of the following changed:
-      - DalamudBetaKey
-      - DalamudBetaKind
-      - SupportedGameVer
+    Build a Discord message describing changes for the normal watchers (excluding special release handling).
+    
+    We'll only build messages for keys that are not 'release' or for 'release' if you
+    want to handle it in the same style. However, since 'release' is special, we'll
+    skip it in this function and handle it separately in the main loop.
     """
     # We'll rename 'beta_change_detected' to something more general:
     mention_triggered = False
 
-    for k in changed_keys:
+    # Filter out 'release' since it's handled separately
+    filtered_changed_keys = [k for k in changed_keys if k != 'release']
+
+    # Filter out sections where only AssemblyVersion changed if POST_ASSEMBLYVERSION is False
+    sections_to_post = []
+    for k in filtered_changed_keys:
         new_section = current_data.get(k, {})
         old_section = old_data.get(k, {})
 
-        new_key = new_section.get('key', 'N/A')   # DalamudBetaKey
+        new_key = new_section.get('key', 'N/A')
         old_key = old_section.get('key', 'N/A')
-
-        new_kind = new_section.get('track', 'N/A')  # DalamudBetaKind
+        new_kind = new_section.get('track', 'N/A')
         old_kind = old_section.get('track', 'N/A')
-
         new_gamever = new_section.get('supportedGameVer', 'N/A')
         old_gamever = old_section.get('supportedGameVer', 'N/A')
+        new_assembly = new_section.get('assemblyVersion', 'N/A')
+        old_assembly = old_section.get('assemblyVersion', 'N/A')
 
-        # Trigger a mention if any of these fields changed
-        if (new_key != old_key) or (new_kind != old_kind) or (new_gamever != old_gamever):
+        # Check if only AssemblyVersion changed
+        key_changed = new_key != old_key
+        kind_changed = new_kind != old_kind
+        gamever_changed = new_gamever != old_gamever
+        assembly_changed = new_assembly != old_assembly
+
+        # If POST_ASSEMBLYVERSION is False and only AssemblyVersion changed, skip this section
+        if not POST_ASSEMBLYVERSION and assembly_changed and not (key_changed or kind_changed or gamever_changed):
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Skipping {k} - only AssemblyVersion changed (POST_ASSEMBLYVERSION=False)")
+            continue
+
+        sections_to_post.append(k)
+
+        # Trigger a mention if any mention-worthy fields changed
+        if key_changed or kind_changed or gamever_changed:
             mention_triggered = True
-            break
+
+    # If no sections to post, return empty string
+    if not sections_to_post:
+        return ""
 
     # If mention is triggered AND mention role is enabled, prepend the mention
     if mention_triggered and ENABLE_MENTION_ROLE and MENTION_ROLE:
@@ -124,8 +135,8 @@ def build_changed_sections_message(changed_keys, current_data, old_data):
 
     lines = [f"{mention_text}**Dalamud Update Detected**\n"]
 
-    # Now build the message of changed fields exactly as before
-    for k in changed_keys:
+    # Now build the message of changed fields for the sections we're posting
+    for k in sections_to_post:
         new_section = current_data.get(k, {})
         old_section = old_data.get(k, {})
 
@@ -171,7 +182,39 @@ def build_changed_sections_message(changed_keys, current_data, old_data):
 
         lines.append("")  # Blank line for spacing
 
+    # If no normal watchers changed, return an empty string (so we can skip sending a normal watchers message)
+    # We'll rely on the caller to decide how to handle that scenario.
+    if not filtered_changed_keys:
+        return ""
+
     return "\n".join(lines).strip()
+
+
+def build_release_change_message(current_release):
+    """
+    Build the special message for `release` key changes when
+    isApplicableForCurrentGameVer transitions from False -> True.
+    """
+    # Insert mention if configured
+    if ENABLE_MENTION_ROLE and MENTION_ROLE:
+        mention_text = f"<@&{MENTION_ROLE}> "
+    else:
+        mention_text = ""
+
+    assembly_version = current_release.get('assemblyVersion', 'N/A')
+    supported_game_ver = current_release.get('supportedGameVer', 'N/A')
+
+    lines = [
+        f"{mention_text}**Dalamud Update Detected**",
+        "",
+        "**Section**: `release` (Stable)",
+        f"- **\"DalamudBetaKey\"**: null,",
+        f"- **\"DalamudBetaKind\"**: null,",
+        f"- **AssemblyVersion**: {assembly_version}",
+        f"- **SupportedGameVer**: {supported_game_ver}"
+    ]
+
+    return "\n".join(lines)
 
 
 def main():
@@ -198,16 +241,37 @@ def main():
                     if old_section != new_section:
                         changed_keys.append(key)
 
-                # If any sections changed, send a single combined message
-                if changed_keys:
-                    msg = build_changed_sections_message(changed_keys, current_data, last_data)
-                    send_discord_notification(msg)
-                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Update(s) detected in {changed_keys}. Notification sent.")
+                # If nothing changed, do nothing
+                if not changed_keys:
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] No changes made at this time.")
+                else:
+                    # Handle release's special logic if 'release' is in changed_keys
+                    if 'release' in changed_keys:
+                        old_release = last_data.get('release', {})
+                        new_release = current_data.get('release', {})
+
+                        old_applicable = old_release.get('isApplicableForCurrentGameVer', False)
+                        new_applicable = new_release.get('isApplicableForCurrentGameVer', False)
+
+                        # Check the condition: from false -> true
+                        if not old_applicable and new_applicable:
+                            # Send the special "release" message
+                            special_msg = build_release_change_message(new_release)
+                            send_discord_notification(special_msg)
+                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Release changed from not-applicable to applicable. Notification sent.")
+
+                        # Remove 'release' from normal changed_keys so it won't appear in normal watchers message
+                        changed_keys.remove('release')
+
+                    # Now build normal watchers message (excluding release) if anything remains
+                    if changed_keys:  # if there are still other watchers that changed
+                        msg = build_changed_sections_message(changed_keys, current_data, last_data)
+                        if msg:  # If there's a real message to send
+                            send_discord_notification(msg)
+                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Update(s) detected in {changed_keys}. Notification sent.")
 
                     # Update the local file
                     save_last_data(current_data)
-                else:
-                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] No changes made at this time.")
 
         except Exception as e:
             print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [ERROR] Encountered an error: {e}")
