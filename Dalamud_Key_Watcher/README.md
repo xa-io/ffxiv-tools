@@ -16,7 +16,6 @@ It:
 ---
 
 ## How It Works
-
 1. **Initial Run**  
    - If `last_scan.json` does **not** exist, the script fetches the site data and **creates** `last_scan.json`, but **does not** send a notification.  
    - Logs: `Initial data fetched. No notification sent.`  
@@ -37,50 +36,59 @@ It:
 ---
 
 ## Requirements
-
 - Python 3.7+  
 - `requests` library  
 - `python-dotenv` library  
 
-Install the required libraries if you haven’t already:
+Install the required libraries if you haven't already:
 
-`pip install requests python-dotenv`
+```bash
+pip install requests python-dotenv
+```
 
 ---
 
 ## Setup
-
 1. **Clone or download** this repository (containing `key_watcher.py` and a sample `.env`).
 2. In the **same directory** as `key_watcher.py`, create a `.env` file. You can start with something like this:
 
-   `
+   ```bash
    # Enable or disable Discord webhook usage
-   `ENABLE_WEBHOOK=true`
+   ENABLE_WEBHOOK=true
 
    # Your Discord Webhook URL (from Server Settings -> Integrations -> Webhooks)
-   `DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/1234/abcdef`
+   DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/1234/abcdef
 
    # Enable or disable pinging a specific role
-   `ENABLE_MENTION_ROLE=true`
+   ENABLE_MENTION_ROLE=true
 
    # The numeric role ID to mention
-   `MENTION_ROLE=123456789012345678`
+   MENTION_ROLE=123456789012345678
+
+   # Control whether to post AssemblyVersion-only updates (default: false)
+   # If true: Posts AssemblyVersion updates without mention
+   # If false: Skips posting when only AssemblyVersion changes
+   POST_ASSEMBLYVERSION=false
+   ```
 
 3. **Configure** the script:
    - **`WATCH_KEYS`** in `key_watcher.py` is a list of the top-level JSON keys you want to compare for changes. By default:
-     `WATCH_KEYS = ["api11", "net9", "stg"]`
-     Add or remove items from this list as desired (e.g. `["release", "api11", "net9", "stg"]`).
+     ```python
+     WATCH_KEYS = ["api13", "api14", "api15", "net9", "stg", "imgui-bindings", "release"]
+     ```
+     Add or remove items from this list as desired.
 
 4. **Run the Script**:
-   `python key_watcher.py`
-   - It will print logs to the console as it checks every 10 seconds by default.  
+   ```bash
+   python key_watcher.py
+   ```
+   - It will print logs to the console as it checks every 5 minutes by default.  
    - If `last_scan.json` is missing, the script creates it and does **not** send any notification this first time.  
    - On subsequent checks, if changes are detected in any of the watched sections, it will send a single Discord notification (if `ENABLE_WEBHOOK=true` and `DISCORD_WEBHOOK_URL` is set).
 
 ---
 
 ## Environment Variables Reference
-
 - **`ENABLE_WEBHOOK`** (default `true` if omitted)  
   - Set to `false` to **disable** all Discord notifications.  
 - **`DISCORD_WEBHOOK_URL`** (no default)  
@@ -88,14 +96,17 @@ Install the required libraries if you haven’t already:
 - **`ENABLE_MENTION_ROLE`** (default `true` if omitted)  
   - Set to `false` to **disable** mentioning any role in Discord messages.  
 - **`MENTION_ROLE`** (no default)  
-  - The numeric ID of the role you’d like to ping. This is only used if `ENABLE_MENTION_ROLE=true`.
+  - The numeric ID of the role you'd like to ping. This is only used if `ENABLE_MENTION_ROLE=true`.
+- **`POST_ASSEMBLYVERSION`** (default `false` if omitted)  
+  - Set to `true` to **enable** posting updates when only AssemblyVersion changes (without role mention).  
+  - Set to `false` to **skip** posting when only AssemblyVersion changes in a section.  
+  - If other fields (key, track, supportedGameVer) also changed, the section is posted regardless of this setting.
 
 ---
 
 ## Customizing
-
 1. **Check Interval**  
-   - By default, the script checks every 10 seconds (`time.sleep(10)` in the `while True:` loop). Adjust this to any interval you prefer.
+   - By default, the script checks every 5 minutes (`time.sleep(300)` in the `while True:` loop). Adjust this to any interval you prefer.
 
 2. **Changelog Parsing**  
    - If you want to show detailed changelogs or other fields from each section, you can expand the message-building logic.
@@ -109,15 +120,17 @@ Install the required libraries if you haven’t already:
 
 1. **No Notifications**  
    - Check that `ENABLE_WEBHOOK=true` and `DISCORD_WEBHOOK_URL` is set to a valid webhook URL.  
-   - Confirm your role mention settings if you’re not seeing pings.  
+   - Confirm your role mention settings if you're not seeing pings.  
 
 2. **File Errors**  
    - If `last_scan.json` is corrupt or partially written, the script will treat it as missing and recreate it.  
 
 3. **Timeouts / Errors**  
-   - The script uses a `timeout=10` seconds for the `requests.get(...)` call. If you’re on a slow or unreliable connection, you can increase the timeout.  
+   - The script uses a `timeout=10` seconds for the `requests.get(...)` call. If you're on a slow or unreliable connection, you can increase the timeout.  
    - Errors are printed to the console as `[ERROR] Encountered an error: ...`.
 
 ---
 
 **Enjoy monitoring Dalamud meta changes and receiving Discord updates automatically!**
+
+Created by: https://github.com/xa-io
