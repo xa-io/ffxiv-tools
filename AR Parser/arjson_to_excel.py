@@ -18,22 +18,18 @@
 # • Excel output with character details, retainer info, submarine data, and summary statistics
 # • Automatic FC detection via FC name or housing data from Lifestream plugin
 #
-# AR Parser with Altoholic v1.10
+# AR Parser with Altoholic v1.11
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-11-15 12:54:00
+# Last Updated: 2025-11-18 19:28:00
 #
 # ## Release Notes ##
 #
-# v1.10 - Fixed submarine data extraction for custom-named submarines and FC counting logic
-#         Fixed submarine data extraction to handle submarines with custom names (e.g., "You Don't Pay My Sub")
-#         Submarine data now matches by array index from OfflineSubmarineData, then looks up parts by name in AdditionalSubmarineData
-#         Both return times and level/parts data now correctly extracted for all submarines regardless of custom names
-#         Fixed Total FC's count to properly identify FCs by either FC name OR FC housing data (ward/plot/zone)
-#         Each character with submarines now counts as 1 FC workshop (no longer deduplicates by FC name)
-#         Fixed Total FC's Farming Subs to count characters with at least one farming submarine build
-#         Added "Total Submarines" summary row showing count of ALL submarine builds (farming + leveling)
-#         Total Submarines now appears above gil farming calculations with basic formatting (not bold blue)
-#         Resolved issue where characters with FC housing but no FC name weren't counted
+# v1.11 - Added Inventory Spaces, Ventures, and VentureCoffers columns sourced from AutoRetainer DefaultConfig.json
+#         New column order around treasure data: Tanks → Kits → Inventory Spaces → Ventures → VentureCoffers → Treasure Value
+# v1.10 - Improved submarine handling and FC statistics
+#         Submarines now support custom names, map by OfflineSubmarineData index, and correctly resolve parts/levels/return times
+#         FC counts use FC name or housing data, treat each submarine-owning character as one FC workshop,
+#         correctly detect farming submarines, and include all submarine builds in the Total Submarines summary row
 # v1.09 - Integrated Lifestream housing data into character summaries
 # v1.08 - Formatting improvements for snd_nameworld string
 # v1.07 - Per-account submarine control with include_submarines parameter
@@ -74,10 +70,9 @@ def acc(nickname, pluginconfigs_path, include_altoholic=True, include_submarines
 
 # You do not need to replace "{user}" with your username, the script will get that information.
 account_locations = [
-     acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=True),
-   # acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True),
-   # acc("Acc2",   f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs", include_submarines=False),
-   # acc("Acc3",   f"C:\\Users\\{user}\\AltData\\Acc3\\pluginConfigs", include_submarines=False),
+    acc("Main",       f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=True),
+    # acc("Acc1",    f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True),
+    # acc("Acc2",    f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs", include_submarines=True),
 ]
 
 all_fc_data = {}
@@ -518,6 +513,9 @@ def build_char_summaries(all_characters, fc_data, alto_map, account_configs, hou
             "sub4return": sub_data_map["Submersible-4"]["return_time"],
             "tank": tank,
             "kits": kits,
+            "inventory_space": char.get("InventorySpace", 0),
+            "ventures": char.get("Ventures", 0),
+            "venture_coffers": char.get("VentureCoffers", 0),
             "treasure_value": treasure_value,
             "region": region,
             "private_ward": private_ward,
@@ -589,6 +587,9 @@ def write_excel(char_summaries, excel_output_path):
             "#4 Return",
             "Tanks",
             "Kits",
+            "Inventory Spaces",
+            "Ventures",
+            "VentureCoffers",
             "Treasure Value",
             "Plain Name",
             "List Formatting",
@@ -600,6 +601,9 @@ def write_excel(char_summaries, excel_output_path):
 
         TANK_COL = headers.index("Tanks")
         KITS_COL = headers.index("Kits")
+        INV_SPACE_COL = headers.index("Inventory Spaces")
+        VENTURES_COL = headers.index("Ventures")
+        VENTURE_COFFERS_COL = headers.index("VentureCoffers")
         TREAS_COL = headers.index("Treasure Value")
 
         row = 1
@@ -635,6 +639,9 @@ def write_excel(char_summaries, excel_output_path):
 
             tank = summary.get("tank", 0)
             kits = summary.get("kits", 0)
+            inventory_space = summary.get("inventory_space", 0)
+            ventures = summary.get("ventures", 0)
+            venture_coffers = summary.get("venture_coffers", 0)
             treasure_value = summary.get("treasure_value", 0)
 
             plain_nameworld = f"{char_name}@{world}"
@@ -679,11 +686,14 @@ def write_excel(char_summaries, excel_output_path):
                 worksheet.write_number(row, 31, sub4return, money_format)
                 worksheet.write_number(row, TANK_COL, tank, money_format)
                 worksheet.write_number(row, KITS_COL, kits, money_format)
+                worksheet.write_number(row, INV_SPACE_COL, inventory_space, money_format)
+                worksheet.write_number(row, VENTURES_COL, ventures, money_format)
+                worksheet.write_number(row, VENTURE_COFFERS_COL, venture_coffers, money_format)
                 worksheet.write_number(row, TREAS_COL, treasure_value, total_format if treasure_value else money_format)
-                worksheet.write(row, 35, plain_nameworld)
-                worksheet.write(row, 36, list_nameworld)
-                worksheet.write(row, 37, snd_nameworld)
-                worksheet.write(row, 38, bagman_nameworld_tony)
+                worksheet.write(row, 38, plain_nameworld)
+                worksheet.write(row, 39, list_nameworld)
+                worksheet.write(row, 40, snd_nameworld)
+                worksheet.write(row, 41, bagman_nameworld_tony)
                 row += 1
             else:
                 for i, ret in enumerate(retainers):
@@ -744,13 +754,16 @@ def write_excel(char_summaries, excel_output_path):
                         worksheet.write_number(row, 31, sub4return, money_format)
                         worksheet.write_number(row, TANK_COL, tank, money_format)
                         worksheet.write_number(row, KITS_COL, kits, money_format)
+                        worksheet.write_number(row, INV_SPACE_COL, inventory_space, money_format)
+                        worksheet.write_number(row, VENTURES_COL, ventures, money_format)
+                        worksheet.write_number(row, VENTURE_COFFERS_COL, venture_coffers, money_format)
                         worksheet.write_number(row, TREAS_COL, treasure_value, total_format if treasure_value else money_format)
-                        worksheet.write(row, 35, plain_nameworld)
-                        worksheet.write(row, 36, list_nameworld)
-                        worksheet.write(row, 37, snd_nameworld)
-                        worksheet.write(row, 38, bagman_nameworld_tony)
+                        worksheet.write(row, 38, plain_nameworld)
+                        worksheet.write(row, 39, list_nameworld)
+                        worksheet.write(row, 40, snd_nameworld)
+                        worksheet.write(row, 41, bagman_nameworld_tony)
                     else:
-                        for c in (17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, TANK_COL, KITS_COL, TREAS_COL, 35, 36, 37, 38):
+                        for c in (17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, TANK_COL, KITS_COL, INV_SPACE_COL, VENTURES_COL, VENTURE_COFFERS_COL, TREAS_COL, 38, 39, 40, 41):
                             worksheet.write(row, c, "")
 
                     row += 1
@@ -789,11 +802,14 @@ def write_excel(char_summaries, excel_output_path):
         worksheet.set_column("AF:AF", 3)   # #4 Return
         worksheet.set_column(TANK_COL, TANK_COL, 9)   # Tanks
         worksheet.set_column(KITS_COL, KITS_COL, 9)   # Kits
+        worksheet.set_column(INV_SPACE_COL, INV_SPACE_COL, 3.15) # Inventory Spaces
+        worksheet.set_column(VENTURES_COL, VENTURES_COL, 7)   # Ventures
+        worksheet.set_column(VENTURE_COFFERS_COL, VENTURE_COFFERS_COL, 5)   # VentureCoffers
         worksheet.set_column(TREAS_COL, TREAS_COL, 15) # Treasure Value
-        worksheet.set_column(35, 35, 30)  # Plain Name
-        worksheet.set_column(36, 36, 38)  # List Formatting
-        worksheet.set_column(37, 37, 40)  # SND Formatting
-        worksheet.set_column(38, 38, 55)  # Bagman Formatting
+        worksheet.set_column(38, 38, 30)  # Plain Name
+        worksheet.set_column(39, 39, 38)  # List Formatting
+        worksheet.set_column(40, 40, 40)  # SND Formatting
+        worksheet.set_column(41, 41, 55)  # Bagman Formatting
 
         worksheet.autofilter(0, 0, 0, len(headers) - 1)
         worksheet.freeze_panes(1, 0)
