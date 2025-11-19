@@ -90,6 +90,10 @@ The script generates an Excel file with the following sheets:
   - Build configuration (e.g., WSUC, SSUC, YUUW)
   - Hours until return from voyage (can be negative if already returned)
 - Altoholic inventory (Tanks, Kits, Treasure value)
+- Character resource tracking
+  - Inventory Spaces remaining
+  - Ventures count
+  - VentureCoffers count
 - Formatting options for various tools (Plain Name, List, SND, Bagman)
 
 ### Summary Sheet
@@ -181,6 +185,7 @@ YYYY-MM-DD-HH-MM - ffxiv_gil_summary.xlsx
 
 ## Version History
 
+**v1.11** (2025-11-18) - Added Inventory Spaces, Ventures, and VentureCoffers columns  
 **v1.10** (2025-11-15) - Fixed submarine data extraction for custom-named submarines and FC counting logic  
 **v1.09** (2025-11-11) - Integrated Lifestream housing data  
 **v1.08** (2025-11-01) - Formatting improvements  
@@ -195,4 +200,4 @@ YYYY-MM-DD-HH-MM - ffxiv_gil_summary.xlsx
 
 https://github.com/xa-io
 
-Last Updated: 2025-11-15 12:54:00
+Last Updated: 2025-11-18 19:28:00
