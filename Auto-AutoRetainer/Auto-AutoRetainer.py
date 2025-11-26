@@ -27,13 +27,26 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.09
+# Auto-AutoRetainer v1.11
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-11-15 12:33:00
+# Last Updated: 2025-11-26 10:50:00
 #
 # ## Release Notes ##
 #
+# v1.11 - Added MAX_CLIENTS configuration for hardware-limited setups
+#         MAX_CLIENTS = 0 (default): Unlimited clients, opens all ready clients simultaneously
+#         MAX_CLIENTS = N: Limits to N concurrent running clients at a time
+#         Prioritizes force247uptime clients first, then submarine-ready clients
+#         Opens clients sequentially with OPEN_DELAY_THRESHOLD wait and window arrangement between each
+#         Each [RUNNING] client counts toward the MAX_CLIENTS limit
+#         Ensures proper processing order for 24/7 uptime requirements before submarine timers
+# v1.10 - Added restocking calculation with "Total Days Until Restocking Required" display
+#         Tracks Ceruleum tanks and Repair Kits inventory from DefaultConfig.json per character
+#         Calculates consumption rates based on submarine builds (9-14 tanks/day, 1.33-4 kits/day depending on route)
+#         Added default consumption rates (9 tanks/day, 1.33 kits/day) for unlisted builds (leveling submarines)
+#         Displays minimum days until restocking across all characters to prevent running dry
+#         Formula: min(tanks/consumption, kits/consumption) rounded down per character, showing account minimum
 # v1.09 - Fixed submarine build collection for custom-named submarines and enhanced console display
 #         Fixed submarine build detection to properly count custom-named submarines (e.g., "You Don't Pay My Sub")
 #         Build collection now matches submarines by name from OfflineSubmarineData instead of filtering by "Submersible-" prefix
@@ -127,6 +140,8 @@ MAX_RUNTIME = 71
 ENABLE_AUTO_LAUNCH = True       # Enable automatic game launching when subs nearly ready
 AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if soonest sub return time <= this many hours (9 minutes)
 OPEN_DELAY_THRESHOLD = 60       # Minimum seconds between game launches (prevents opening multiple games too quickly)
+MAX_CLIENTS = 0                 # Maximum concurrent running clients (0 = unlimited, N = limit to N clients)
+                                # Used for hardware-limited setups that can only run a set number of game instances
 
 # Window arrangement settings
 ENABLE_WINDOW_LAYOUT = False     # Enable automatic window arrangement after launching games
@@ -218,6 +233,51 @@ build_gil_rates = {
     "SCUS": 116206,
     "S+C+U+S+": 116206,  # SCUS++
 }
+
+# ===============================================
+# Submarine Build Consumption Rates (from Routes.xlsx)
+# Tanks (Ceruleum) and Repair Kits per day for each build
+# ===============================================
+build_consumption_rates = {
+    # OJ Route (24h) - 9 tanks/day, 1.33 kits/day
+    "WSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
+    "SSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
+    "W+S+U+C+": {"tanks_per_day": 9.0, "kits_per_day": 1.33},  # WSUC++
+    "S+S+S+C+": {"tanks_per_day": 9.0, "kits_per_day": 1.33},  # SSSC++ (for OJ route)
+    
+    # MOJ Route (36h) - 10 tanks/day, 1.6 kits/day
+    "YUUW": {"tanks_per_day": 10.0, "kits_per_day": 1.6},
+    "Y+U+U+W+": {"tanks_per_day": 10.0, "kits_per_day": 1.6},  # YU+U+W+
+    
+    # ROJ Route (36h) - 10 tanks/day, 1.67 kits/day
+    "WCSU": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
+    "WUSS": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
+    "W+U+S+S+": {"tanks_per_day": 10.0, "kits_per_day": 1.67},  # WUSS++
+    
+    # JOZ Route (36h) - 10 tanks/day, 2.5 kits/day
+    "YSYC": {"tanks_per_day": 10.0, "kits_per_day": 2.5},
+    "Y+S+Y+C+": {"tanks_per_day": 10.0, "kits_per_day": 2.5},  # YS+YC+
+    
+    # WCYC builds (JORZ 48h) - 10.5 tanks/day, 3 kits/day
+    "WCYC": {"tanks_per_day": 10.5, "kits_per_day": 3.0},
+    "WUWC": {"tanks_per_day": 10.5, "kits_per_day": 3.0},
+    "W+U+W+C+": {"tanks_per_day": 10.5, "kits_per_day": 3.0},  # WUWC++
+    
+    # YSCU/SCUS builds (MROJZ 48h) - 13.5 tanks/day, 4 kits/day
+    "YSCU": {"tanks_per_day": 13.5, "kits_per_day": 4.0},
+    "SCUS": {"tanks_per_day": 13.5, "kits_per_day": 4.0},
+    "S+C+U+S+": {"tanks_per_day": 13.5, "kits_per_day": 4.0},  # SCUS++
+}
+
+# For builds that can be on multiple routes, use the highest consumption rate
+# SSSC++ and SSUC++ appear in multiple routes - use MROJ/JORZ rates (14 tanks, 1.78-4 kits)
+if "S+S+S+C+" not in build_consumption_rates or build_consumption_rates["S+S+S+C+"]["tanks_per_day"] < 14:
+    build_consumption_rates["S+S+S+C+"] = {"tanks_per_day": 14.0, "kits_per_day": 1.78}  # MROJ rate
+if "S+S+U+C+" not in build_consumption_rates or build_consumption_rates["S+S+U+C+"]["tanks_per_day"] < 14:
+    build_consumption_rates["S+S+U+C+"] = {"tanks_per_day": 14.0, "kits_per_day": 4.0}  # MOJZ rate (highest kit usage)
+
+# SSUC unmodified appears in multiple routes - use JORZ rate (14 tanks, 1.78 kits)
+build_consumption_rates["S+S+U+C"] = {"tanks_per_day": 14.0, "kits_per_day": 1.78}
 
 # Submarine Part Constants for build detection
 SUB_PARTS_LOOKUP = {
@@ -651,7 +711,10 @@ def get_submarine_timers_for_account(account_entry):
         "ready_subs": 0,
         "soonest_hours": None,
         "characters": [],
-        "sub_builds": []  # Track submarine builds for gil calculation
+        "sub_builds": [],  # Track submarine builds for gil calculation
+        "total_ceruleum": 0,  # Total tanks across all characters
+        "total_repair_kits": 0,  # Total repair kits across all characters
+        "days_until_restocking": None  # Minimum days until restocking needed
     }
     
     if not include_subs:
@@ -669,11 +732,23 @@ def get_submarine_timers_for_account(account_entry):
         
         all_return_times = []
         
+        # Collect inventory data for restocking calculation
+        character_days_remaining = []
+        
         for char in chars:
+            # Collect inventory from character
+            ceruleum = char.get("Ceruleum", 0)
+            repair_kits = char.get("RepairKits", 0)
+            result["total_ceruleum"] += ceruleum
+            result["total_repair_kits"] += repair_kits
+            
             # Get submarine build data from AdditionalSubmarineData
             # Process all submarines (including renamed ones) by matching via OfflineSubmarineData
             sub_info = char.get("AdditionalSubmarineData", {})
             offline_sub_data = char.get("OfflineSubmarineData", [])
+            
+            # Collect builds for this character
+            char_builds = []
             
             # First pass: Collect submarine builds from all submarines
             for offline_sub in offline_sub_data:
@@ -683,6 +758,28 @@ def get_submarine_timers_for_account(account_entry):
                     parts_str = get_sub_parts_string(sub_info[sub_name])
                     if parts_str:
                         result["sub_builds"].append(parts_str)
+                        char_builds.append(parts_str)
+            
+            # Calculate consumption rates for this character's submarines
+            if char_builds:
+                total_tanks_per_day = 0
+                total_kits_per_day = 0
+                for build in char_builds:
+                    if build in build_consumption_rates:
+                        total_tanks_per_day += build_consumption_rates[build]["tanks_per_day"]
+                        total_kits_per_day += build_consumption_rates[build]["kits_per_day"]
+                    else:
+                        # Default consumption for unlisted builds (leveling submarines, etc.)
+                        # Use basic OJ route consumption: 9 tanks/day, 1.33 kits/day
+                        total_tanks_per_day += 9.0
+                        total_kits_per_day += 1.33
+                
+                # Calculate days remaining for this character
+                if total_tanks_per_day > 0 and total_kits_per_day > 0:
+                    days_from_tanks = ceruleum / total_tanks_per_day if ceruleum > 0 else 0
+                    days_from_kits = repair_kits / total_kits_per_day if repair_kits > 0 else 0
+                    days_for_char = int(min(days_from_tanks, days_from_kits))  # Round down to lowest solid number
+                    character_days_remaining.append(days_for_char)
             
             # Second pass: Get submarine return times
             for sub_dict in offline_sub_data:
@@ -702,6 +799,10 @@ def get_submarine_timers_for_account(account_entry):
         # Find the soonest submarine (minimum time)
         if all_return_times:
             result["soonest_hours"] = min(all_return_times)
+        
+        # Calculate minimum days until restocking across all characters
+        if character_days_remaining:
+            result["days_until_restocking"] = min(character_days_remaining)
     
     except Exception as e:
         print(f"[ERROR] Failed to process {nickname}: {e}")
@@ -743,6 +844,7 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None):
     total_ready_subs = 0
     total_all_subs = 0
     all_builds = []
+    all_days_remaining = []
     
     for account_entry in account_locations:
         timer_data = get_submarine_timers_for_account(account_entry)
@@ -750,6 +852,8 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None):
         total_ready_subs += timer_data["ready_subs"]
         total_all_subs += timer_data["total_subs"]
         all_builds.extend(timer_data["sub_builds"])
+        if timer_data.get("days_until_restocking") is not None:
+            all_days_remaining.append(timer_data["days_until_restocking"])
     
     # Display results
     for data in account_data:
@@ -907,11 +1011,18 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None):
     
     leveling_subs_count = total_all_subs - farming_subs_count
     
+    # Calculate minimum days until restocking
+    min_days_until_restocking = min(all_days_remaining) if all_days_remaining else None
+    
     # Display totals
     print(f"Total Subs: {total_ready_subs} / {total_all_subs}")
     print(f"Total Gil Per Day: {total_daily_gil:,}")
     print(f"Total Subs Leveling: {leveling_subs_count}")
     print(f"Total Subs Farming: {farming_subs_count}")
+    if min_days_until_restocking is not None:
+        print(f"Total Days Until Restocking Required: {min_days_until_restocking}")
+    if MAX_CLIENTS > 0:
+        print(f"Max Clients: {MAX_CLIENTS}")
     
     print("=" * 85)
     print("Press Ctrl+C to exit")
@@ -1035,106 +1146,105 @@ def main():
             if ENABLE_AUTO_LAUNCH:
                 if DEBUG:
                     print(f"\n[DEBUG] Auto-launch enabled, checking accounts...")
-                for account_entry in account_locations:
-                    nickname = account_entry["nickname"]
-                    include_subs = account_entry.get("include_submarines", True)
-                    rotating_retainers = account_entry.get("force247uptime", False)
-                    
-                    # Skip if submarines are disabled for this account
-                    if not include_subs and not rotating_retainers:
-                        if DEBUG:
-                            print(f"[DEBUG] {nickname}: Submarines disabled, skipping")
-                        continue
-                    
-                    # Get game status
-                    game_info = game_status_dict.get(nickname, (None, None))
-                    is_running = game_info[0]
-                    
+                
+                # Count currently running clients
+                running_count = sum(1 for acc in account_locations if game_status_dict.get(acc["nickname"], (False, None))[0])
+                
+                if DEBUG:
+                    print(f"[DEBUG] Currently running clients: {running_count}")
+                    if MAX_CLIENTS > 0:
+                        print(f"[DEBUG] MAX_CLIENTS limit: {MAX_CLIENTS}")
+                
+                # Check if we've reached MAX_CLIENTS limit (0 = unlimited)
+                if MAX_CLIENTS > 0 and running_count >= MAX_CLIENTS:
                     if DEBUG:
-                        print(f"[DEBUG] {nickname}: is_running={is_running}, game_info={game_info}")
+                        print(f"[DEBUG] MAX_CLIENTS limit reached ({running_count}/{MAX_CLIENTS}), skipping auto-launch")
+                else:
+                    # Build lists of accounts that need launching
+                    force247_accounts = []
+                    submarine_ready_accounts = []
                     
-                    # Only launch if game is NOT already running
-                    if is_running:
-                        if DEBUG:
-                            print(f"[DEBUG] {nickname}: Already running, skipping")
-                        continue
-                    
-                    # If force247uptime is enabled, ensure the game is running regardless of submarine timers
-                    if rotating_retainers:
+                    for account_entry in account_locations:
+                        nickname = account_entry["nickname"]
+                        include_subs = account_entry.get("include_submarines", True)
+                        rotating_retainers = account_entry.get("force247uptime", False)
+                        
+                        # Skip if submarines are disabled for this account and not force247uptime
+                        if not include_subs and not rotating_retainers:
+                            if DEBUG:
+                                print(f"[DEBUG] {nickname}: Submarines disabled, skipping")
+                            continue
+                        
+                        # Get game status
+                        game_info = game_status_dict.get(nickname, (None, None))
+                        is_running = game_info[0]
+                        
+                        # Skip if already running
+                        if is_running:
+                            if DEBUG:
+                                print(f"[DEBUG] {nickname}: Already running, skipping")
+                            continue
+                        
+                        # Check rate limiting
                         last_launch = last_launch_time.get(nickname, 0)
                         time_since_last_launch = current_time - last_launch
                         if time_since_last_launch < OPEN_DELAY_THRESHOLD:
+                            if DEBUG:
+                                print(f"[DEBUG] {nickname}: Rate limited, {time_since_last_launch:.0f}s < {OPEN_DELAY_THRESHOLD}s")
                             continue
-                        print(f"\n[AUTO-LAUNCH] Launching {nickname} - force247uptime enabled")
+                        
+                        # Categorize account by launch priority
+                        if rotating_retainers:
+                            force247_accounts.append((account_entry, "force247uptime enabled"))
+                        elif include_subs:
+                            timer_data = get_submarine_timers_for_account(account_entry)
+                            soonest_hours = timer_data.get("soonest_hours")
+                            if soonest_hours is not None and soonest_hours <= AUTO_LAUNCH_THRESHOLD:
+                                force247_accounts.append((account_entry, f"submarines nearly ready ({soonest_hours:.1f}h)"))
+                    
+                    # Combine lists: force247uptime clients first, then submarine-ready clients
+                    accounts_to_launch = force247_accounts + submarine_ready_accounts
+                    
+                    if DEBUG and accounts_to_launch:
+                        print(f"[DEBUG] Accounts queued for launch: {len(accounts_to_launch)}")
+                        print(f"[DEBUG]  - force247uptime: {len(force247_accounts)}")
+                        print(f"[DEBUG]  - submarine-ready: {len(submarine_ready_accounts)}")
+                    
+                    # Launch accounts sequentially until MAX_CLIENTS limit reached
+                    for account_entry, reason in accounts_to_launch:
+                        # Recount running clients before each launch
+                        running_count = sum(1 for acc in account_locations if game_status_dict.get(acc["nickname"], (False, None))[0])
+                        
+                        # Check if limit reached
+                        if MAX_CLIENTS > 0 and running_count >= MAX_CLIENTS:
+                            if DEBUG:
+                                print(f"[DEBUG] MAX_CLIENTS limit reached ({running_count}/{MAX_CLIENTS}), stopping launches")
+                            break
+                        
+                        nickname = account_entry["nickname"]
+                        print(f"\n[AUTO-LAUNCH] Launching {nickname} - {reason}")
+                        
                         if launch_game(nickname):
                             last_launch_time[nickname] = current_time
-                            print(f"[AUTO-LAUNCH] Successfully launched {nickname}, waiting {WINDOW_REFRESH_INTERVAL} seconds before checking clients again.")
+                            print(f"[AUTO-LAUNCH] Successfully launched {nickname}, waiting {OPEN_DELAY_THRESHOLD} seconds before next client...")
+                            
+                            # Wait OPEN_DELAY_THRESHOLD before next launch
+                            time.sleep(OPEN_DELAY_THRESHOLD)
+                            
+                            # Refresh window status for all accounts
                             if DEBUG:
-                                print(f"[AUTO-LAUNCH] Waiting 60 seconds for game to start...")
-                            # Wait WINDOW_REFRESH_INTERVAL before next launch attempt to give it time to start
-                            time.sleep(WINDOW_REFRESH_INTERVAL)
-                            # Force window status refresh after launch and check if detected
-                            if DEBUG:
-                                print(f"[AUTO-LAUNCH] Checking if {nickname} is now detected...")
+                                print(f"[AUTO-LAUNCH] Refreshing window status...")
                             for acc_entry in account_locations:
                                 acc_nickname = acc_entry["nickname"]
                                 game_status_dict[acc_nickname] = is_ffxiv_running_for_account(acc_nickname)
-                                if acc_nickname == nickname and DEBUG:
-                                    new_status = game_status_dict[acc_nickname]
-                                    print(f"[AUTO-LAUNCH] {nickname} window status: {new_status}")
                             last_window_check = current_time
                             
-                            # Arrange all windows after launching and detecting (if enabled)
+                            # Arrange all windows after launch (if enabled)
                             if ENABLE_WINDOW_LAYOUT:
                                 arrange_ffxiv_windows()
                         else:
                             print(f"[AUTO-LAUNCH] Failed to launch {nickname}")
                             last_launch_time[nickname] = current_time  # Record failed attempt to enforce rate limit
-                        continue
-                    
-                    # For non-rotating accounts, check submarine timers
-                    if not rotating_retainers and include_subs:
-                        timer_data = get_submarine_timers_for_account(account_entry)
-                        soonest_hours = timer_data.get("soonest_hours")
-                        
-                        if DEBUG:
-                            print(f"[DEBUG] {nickname}: soonest_hours={soonest_hours}, threshold={AUTO_LAUNCH_THRESHOLD}")
-                        
-                        # Launch if submarines are nearly ready or already ready
-                        if soonest_hours is not None and soonest_hours <= AUTO_LAUNCH_THRESHOLD:
-                            # Check launch rate limiting
-                            last_launch = last_launch_time.get(nickname, 0)
-                            time_since_last_launch = current_time - last_launch
-                            if time_since_last_launch < OPEN_DELAY_THRESHOLD:
-                                if DEBUG:
-                                    print(f"[DEBUG] {nickname}: Rate limited, {time_since_last_launch:.0f}s < {OPEN_DELAY_THRESHOLD}s")
-                                continue
-                            
-                            print(f"\n[AUTO-LAUNCH] Launching {nickname} - submarines nearly ready ({soonest_hours:.1f}h)")
-                            if launch_game(nickname):
-                                last_launch_time[nickname] = current_time
-                                print(f"[AUTO-LAUNCH] Successfully launched {nickname}, waiting {WINDOW_REFRESH_INTERVAL} seconds before checking clients again.")
-                                if DEBUG:
-                                    print(f"[AUTO-LAUNCH] Waiting 60 seconds for game to start...")
-                                # Wait WINDOW_REFRESH_INTERVAL before next launch attempt to give it time to start
-                                time.sleep(WINDOW_REFRESH_INTERVAL)
-                                # Force window status refresh after launch and check if detected
-                                if DEBUG:
-                                    print(f"[AUTO-LAUNCH] Checking if {nickname} is now detected...")
-                                for acc_entry in account_locations:
-                                    acc_nickname = acc_entry["nickname"]
-                                    game_status_dict[acc_nickname] = is_ffxiv_running_for_account(acc_nickname)
-                                    if acc_nickname == nickname and DEBUG:
-                                        new_status = game_status_dict[acc_nickname]
-                                        print(f"[AUTO-LAUNCH] {nickname} window status: {new_status}")
-                                last_window_check = current_time
-                                
-                                # Arrange all windows after launching and detecting (if enabled)
-                                if ENABLE_WINDOW_LAYOUT:
-                                    arrange_ffxiv_windows()
-                            else:
-                                print(f"[AUTO-LAUNCH] Failed to launch {nickname}")
-                                last_launch_time[nickname] = current_time  # Record failed attempt to enforce rate limit
             
             # Auto-close games if enabled and conditions are met
             if ENABLE_AUTO_CLOSE:
