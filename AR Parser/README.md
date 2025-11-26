@@ -5,7 +5,7 @@ Excel report generator for FFXIV AutoRetainer data with integrated Altoholic inv
 ## Features
 
 - **Character Gil Tracking**: Aggregates gil across all characters and retainers
-- **Altoholic Integration**: Scans Tanks, Kits, and Treasure items from Altoholic inventory
+- **Inventory Tracking**: Tracks Tanks and Kits from DefaultConfig.json, Treasure items from Altoholic
 - **Lifestream Housing Integration**: Tracks both private and FC housing locations
   - Displays Ward, Plot, and District for each character
   - Separate columns for private house and FC house
@@ -51,11 +51,21 @@ account_locations = [
 ]
 ```
 
+### Restocking Days Calculation
+
+The script automatically calculates days until restocking based on:
+- **Inventory Data**: Ceruleum tanks and Repair Kits from DefaultConfig.json
+- **Submarine Builds**: Consumption rates per build (9-14 tanks/day, 1.33-4 kits/day)
+- **Default Rates**: Unlisted builds (leveling submarines) use 9 tanks/day, 1.33 kits/day
+- **Formula**: Days = min(tanks/consumption, kits/consumption) rounded down
+- **Display**: Shows 0 if character has submarines but no inventory (immediate restocking needed)
+
 ### Submarine Inclusion Control
 
 When `include_submarines=False` for an account:
 - Submarine levels will display as 0
 - Submarine build codes will be empty
+- Restocking days will not be calculated
 - That account's submarines will NOT be included in:
   - Summary monthly gil calculations (Gil Farmed Daily/Monthly/Annually)
   - Submarine build statistics
@@ -89,11 +99,14 @@ The script generates an Excel file with the following sheets:
   - Level for each submarine (#1-#4)
   - Build configuration (e.g., WSUC, SSUC, YUUW)
   - Hours until return from voyage (can be negative if already returned)
-- Altoholic inventory (Tanks, Kits, Treasure value)
-- Character resource tracking
+- Inventory tracking from DefaultConfig.json
+  - Tanks (Ceruleum) quantity
+  - Kits (Repair Kits) quantity
+  - **Restocking Days** - Calculated days until restocking required based on submarine build consumption rates
   - Inventory Spaces remaining
   - Ventures count
   - VentureCoffers count
+- Altoholic inventory (Treasure value only)
 - Formatting options for various tools (Plain Name, List, SND, Bagman)
 
 ### Summary Sheet
@@ -185,6 +198,7 @@ YYYY-MM-DD-HH-MM - ffxiv_gil_summary.xlsx
 
 ## Version History
 
+**v1.12** (2025-11-26) - Added Restocking Days calculation and improved data sources  
 **v1.11** (2025-11-18) - Added Inventory Spaces, Ventures, and VentureCoffers columns  
 **v1.10** (2025-11-15) - Fixed submarine data extraction for custom-named submarines and FC counting logic  
 **v1.09** (2025-11-11) - Integrated Lifestream housing data  
@@ -200,4 +214,4 @@ YYYY-MM-DD-HH-MM - ffxiv_gil_summary.xlsx
 
 https://github.com/xa-io
 
-Last Updated: 2025-11-18 19:28:00
+Last Updated: 2025-11-26 08:42:00
