@@ -771,10 +771,10 @@ def write_excel(char_summaries, excel_output_path):
                 worksheet.write_number(row, VENTURES_COL, ventures, money_format)
                 worksheet.write_number(row, VENTURE_COFFERS_COL, venture_coffers, money_format)
                 worksheet.write_number(row, TREAS_COL, treasure_value, total_format if treasure_value else money_format)
-                worksheet.write(row, 38, plain_nameworld)
-                worksheet.write(row, 39, list_nameworld)
-                worksheet.write(row, 40, snd_nameworld)
-                worksheet.write(row, 41, bagman_nameworld_tony)
+                worksheet.write(row, 39, plain_nameworld)
+                worksheet.write(row, 40, list_nameworld)
+                worksheet.write(row, 41, snd_nameworld)
+                worksheet.write(row, 42, bagman_nameworld_tony)
                 row += 1
             else:
                 for i, ret in enumerate(retainers):
@@ -843,12 +843,12 @@ def write_excel(char_summaries, excel_output_path):
                         worksheet.write_number(row, VENTURES_COL, ventures, money_format)
                         worksheet.write_number(row, VENTURE_COFFERS_COL, venture_coffers, money_format)
                         worksheet.write_number(row, TREAS_COL, treasure_value, total_format if treasure_value else money_format)
-                        worksheet.write(row, 38, plain_nameworld)
-                        worksheet.write(row, 39, list_nameworld)
-                        worksheet.write(row, 40, snd_nameworld)
-                        worksheet.write(row, 41, bagman_nameworld_tony)
+                        worksheet.write(row, 39, plain_nameworld)
+                        worksheet.write(row, 40, list_nameworld)
+                        worksheet.write(row, 41, snd_nameworld)
+                        worksheet.write(row, 42, bagman_nameworld_tony)
                     else:
-                        for c in (17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, TANK_COL, KITS_COL, RESTOCK_COL, INV_SPACE_COL, VENTURES_COL, VENTURE_COFFERS_COL, TREAS_COL, 38, 39, 40, 41):
+                        for c in (17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, TANK_COL, KITS_COL, RESTOCK_COL, INV_SPACE_COL, VENTURES_COL, VENTURE_COFFERS_COL, TREAS_COL, 39, 40, 41, 42):
                             worksheet.write(row, c, "")
 
                     row += 1
@@ -892,10 +892,10 @@ def write_excel(char_summaries, excel_output_path):
         worksheet.set_column(VENTURES_COL, VENTURES_COL, 7)   # Ventures
         worksheet.set_column(VENTURE_COFFERS_COL, VENTURE_COFFERS_COL, 5)   # VentureCoffers
         worksheet.set_column(TREAS_COL, TREAS_COL, 15) # Treasure Value
-        worksheet.set_column(38, 38, 30)  # Plain Name
-        worksheet.set_column(39, 39, 38)  # List Formatting
-        worksheet.set_column(40, 40, 40)  # SND Formatting
-        worksheet.set_column(41, 41, 55)  # Bagman Formatting
+        worksheet.set_column(39, 39, 30)  # Plain Name
+        worksheet.set_column(40, 40, 38)  # List Formatting
+        worksheet.set_column(41, 41, 40)  # SND Formatting
+        worksheet.set_column(42, 42, 55)  # Bagman Formatting
 
         worksheet.autofilter(0, 0, 0, len(headers) - 1)
         worksheet.freeze_panes(1, 0)
