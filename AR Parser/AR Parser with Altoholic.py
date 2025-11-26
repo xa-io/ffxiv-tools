@@ -13,17 +13,25 @@
 # Core Features:
 # • Multi-account AutoRetainer data parsing with character summaries
 # • Submarine build tracking with gil earnings calculations (daily/monthly/annual)
-# • Altoholic database integration for inventory tracking (tanks, kits, treasure items)
+# • Inventory tracking from DefaultConfig.json (tanks, kits, ventures, inventory spaces)
+# • Altoholic database integration for treasure item tracking
 # • Lifestream housing data integration for FC and private housing locations
 # • Excel output with character details, retainer info, submarine data, and summary statistics
 # • Automatic FC detection via FC name or housing data from Lifestream plugin
+# • Restocking days calculation based on submarine build consumption rates
 #
-# AR Parser with Altoholic v1.11
+# AR Parser with Altoholic v1.12
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-11-18 19:28:00
+# Last Updated: 2025-11-26 08:42:00
 #
 # ## Release Notes ##
 #
+# v1.12 - Added Restocking Days calculation and data source improvements
+#         Added "Restocking Days" column showing days until restocking required based on submarine build consumption rates
+#         Changed Tanks/Kits data source from Altoholic to DefaultConfig.json for consistency with Auto-AutoRetainer
+#         Added default consumption rates (9 tanks/day, 1.33 kits/day) for unlisted builds (leveling submarines)
+#         Restocking calculation: min(tanks/consumption, kits/consumption) rounded down, displays 0 for submarines with no inventory
+#         Altoholic now only tracks treasure items, removed tank/kit scanning from scan_altoholic_db()
 # v1.11 - Added Inventory Spaces, Ventures, and VentureCoffers columns sourced from AutoRetainer DefaultConfig.json
 #         New column order around treasure data: Tanks → Kits → Inventory Spaces → Ventures → VentureCoffers → Treasure Value
 # v1.10 - Improved submarine handling and FC statistics
@@ -79,13 +87,10 @@ all_fc_data = {}
 all_characters = []
 
 # ===============================================
-# CONFIG: Altoholic integration
+# CONFIG: Altoholic integration (for treasure items only)
+# Tanks and Kits are now read from DefaultConfig.json for consistency with Auto-AutoRetainer
 # ===============================================
 INCLUDE_ALTOHOLIC_BY_DEFAULT = True
-
-# Item IDs to aggregate
-TANK_ITEM_ID = 10155   # "Tanks"
-KITS_ITEM_ID = 10373   # "Kits"
 
 # Treasure values (gil) per item id
 TREASURE_VALUES = {
@@ -99,6 +104,51 @@ TREASURE_VALUES = {
     22507: 34500,  # Extravagant Salvaged Necklace
 }
 TREASURE_IDS = set(TREASURE_VALUES.keys())
+
+# ===============================================
+# Submarine Build Consumption Rates
+# Based on Routes.xlsx - Tanks (Ceruleum) and Repair Kits per day for each route
+# ===============================================
+build_consumption_rates = {
+    # OJ Route (24h) - 9 tanks/day, 1.33 kits/day
+    "WSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
+    "SSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
+    "W+S+U+C+": {"tanks_per_day": 9.0, "kits_per_day": 1.33},  # WSUC++
+    "S+S+S+C+": {"tanks_per_day": 9.0, "kits_per_day": 1.33},  # SSSC++ (for OJ route)
+    
+    # MOJ Route (36h) - 10 tanks/day, 1.6 kits/day
+    "YUUW": {"tanks_per_day": 10.0, "kits_per_day": 1.6},
+    "Y+U+U+W+": {"tanks_per_day": 10.0, "kits_per_day": 1.6},  # YU+U+W+
+    
+    # ROJ Route (36h) - 10 tanks/day, 1.67 kits/day
+    "WCSU": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
+    "WUSS": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
+    "W+U+S+S+": {"tanks_per_day": 10.0, "kits_per_day": 1.67},  # WUSS++
+    
+    # JOZ Route (36h) - 10 tanks/day, 2.5 kits/day
+    "YSYC": {"tanks_per_day": 10.0, "kits_per_day": 2.5},
+    "Y+S+Y+C+": {"tanks_per_day": 10.0, "kits_per_day": 2.5},  # YS+YC+
+    
+    # WCYC builds (JORZ 48h) - 10.5 tanks/day, 3 kits/day
+    "WCYC": {"tanks_per_day": 10.5, "kits_per_day": 3.0},
+    "WUWC": {"tanks_per_day": 10.5, "kits_per_day": 3.0},
+    "W+U+W+C+": {"tanks_per_day": 10.5, "kits_per_day": 3.0},  # WUWC++
+    
+    # YSCU/SCUS builds (MROJZ 48h) - 13.5 tanks/day, 4 kits/day
+    "YSCU": {"tanks_per_day": 13.5, "kits_per_day": 4.0},
+    "SCUS": {"tanks_per_day": 13.5, "kits_per_day": 4.0},
+    "S+C+U+S+": {"tanks_per_day": 13.5, "kits_per_day": 4.0},  # SCUS++
+}
+
+# For builds that can be on multiple routes, use the highest consumption rate
+# SSSC++ and SSUC++ appear in multiple routes - use MROJ/JORZ rates (14 tanks, 1.78-4 kits)
+if "S+S+S+C+" not in build_consumption_rates or build_consumption_rates["S+S+S+C+"]["tanks_per_day"] < 14:
+    build_consumption_rates["S+S+S+C+"] = {"tanks_per_day": 14.0, "kits_per_day": 1.78}  # MROJ rate
+if "S+S+U+C+" not in build_consumption_rates or build_consumption_rates["S+S+U+C+"]["tanks_per_day"] < 14:
+    build_consumption_rates["S+S+U+C+"] = {"tanks_per_day": 14.0, "kits_per_day": 4.0}  # MOJZ rate (highest kit usage)
+
+# SSUC unmodified appears in multiple routes - use JORZ rate (14 tanks, 1.78 kits)
+build_consumption_rates["S+S+U+C"] = {"tanks_per_day": 14.0, "kits_per_day": 1.78}
 
 # ===============================================
 # Region mapping by world
@@ -271,8 +321,8 @@ def load_lifestream_data(lifestream_path):
 def scan_altoholic_db(db_path):
     """
     Scan a single Altoholic DB and return a mapping:
-      { CharacterId: {"tank": int, "kits": int, "treasure_value": int} }
-    (Region is now derived from World, not the DB.)
+      { CharacterId: {"treasure_value": int} }
+    Note: Tanks and Kits are now sourced from DefaultConfig.json, not Altoholic.
     """
     result = {}
     if not os.path.isfile(db_path):
@@ -283,12 +333,10 @@ def scan_altoholic_db(db_path):
         cur = con.cursor()
         rows = cur.execute("SELECT CharacterId, Inventory, Saddle FROM characters").fetchall()
         for char_id, inv_json, saddle_json in rows:
-            tank = 0
-            kits = 0
             treasure_value = 0
 
             def consume(items):
-                nonlocal tank, kits, treasure_value
+                nonlocal treasure_value
                 if not items:
                     return
                 for it in items:
@@ -299,10 +347,6 @@ def scan_altoholic_db(db_path):
                             qty = int(qty)
                         except Exception:
                             qty = 1
-                    if iid == TANK_ITEM_ID:
-                        tank += qty
-                    elif iid == KITS_ITEM_ID:
-                        kits += qty
                     if iid in TREASURE_IDS:
                         treasure_value += qty * TREASURE_VALUES[iid]
 
@@ -313,10 +357,8 @@ def scan_altoholic_db(db_path):
             if isinstance(sad, list):
                 consume(sad)
 
-            if tank or kits or treasure_value:
+            if treasure_value:
                 result[int(char_id)] = {
-                    "tank": int(tank),
-                    "kits": int(kits),
                     "treasure_value": int(treasure_value),
                 }
         con.close()
@@ -457,14 +499,45 @@ def build_char_summaries(all_characters, fc_data, alto_map, account_configs, hou
             fc_name = fc_data[cid].get("Name", "")
             fc_points = fc_data[cid].get("FCPoints", 0)
 
-        # Altoholic fields (no region here)
-        tank = 0
-        kits = 0
+        # Get tanks and kits from DefaultConfig.json (same source as Auto-AutoRetainer)
+        # This ensures consistency with the submarine timer scripts
+        tank = char.get("Ceruleum", 0)
+        kits = char.get("RepairKits", 0)
+        
+        # Altoholic fields (treasure value only)
         treasure_value = 0
         if isinstance(cid, int) and cid in alto_map:
-            tank = alto_map[cid].get("tank", 0)
-            kits = alto_map[cid].get("kits", 0)
             treasure_value = alto_map[cid].get("treasure_value", 0)
+        
+        # Calculate restocking days based on submarine builds
+        restocking_days = None
+        # Collect all submarine builds for this character
+        char_builds = []
+        for slot_num in range(1, 5):
+            slot_key = f"Submersible-{slot_num}"
+            parts = sub_data_map[slot_key]["parts"]
+            if parts and parts != "":
+                char_builds.append(parts)
+        
+        # Only calculate if character has submarines
+        if char_builds:
+            total_tanks_per_day = 0
+            total_kits_per_day = 0
+            for build in char_builds:
+                if build in build_consumption_rates:
+                    total_tanks_per_day += build_consumption_rates[build]["tanks_per_day"]
+                    total_kits_per_day += build_consumption_rates[build]["kits_per_day"]
+                else:
+                    # Default consumption for unlisted builds (leveling submarines, etc.)
+                    # Use basic OJ route consumption: 9 tanks/day, 1.33 kits/day
+                    total_tanks_per_day += 9.0
+                    total_kits_per_day += 1.33
+            
+            # Calculate days remaining (0 if no inventory)
+            if total_tanks_per_day > 0 and total_kits_per_day > 0:
+                days_from_tanks = tank / total_tanks_per_day if tank > 0 else 0
+                days_from_kits = kits / total_kits_per_day if kits > 0 else 0
+                restocking_days = int(min(days_from_tanks, days_from_kits))  # Round down to lowest solid number (will be 0 if either is 0)
 
         # Region is always derived from World
         region = region_from_world(world)
@@ -513,6 +586,7 @@ def build_char_summaries(all_characters, fc_data, alto_map, account_configs, hou
             "sub4return": sub_data_map["Submersible-4"]["return_time"],
             "tank": tank,
             "kits": kits,
+            "restocking_days": restocking_days,
             "inventory_space": char.get("InventorySpace", 0),
             "ventures": char.get("Ventures", 0),
             "venture_coffers": char.get("VentureCoffers", 0),
@@ -587,6 +661,7 @@ def write_excel(char_summaries, excel_output_path):
             "#4 Return",
             "Tanks",
             "Kits",
+            "Restocking Days",
             "Inventory Spaces",
             "Ventures",
             "VentureCoffers",
@@ -601,6 +676,7 @@ def write_excel(char_summaries, excel_output_path):
 
         TANK_COL = headers.index("Tanks")
         KITS_COL = headers.index("Kits")
+        RESTOCK_COL = headers.index("Restocking Days")
         INV_SPACE_COL = headers.index("Inventory Spaces")
         VENTURES_COL = headers.index("Ventures")
         VENTURE_COFFERS_COL = headers.index("VentureCoffers")
@@ -639,6 +715,7 @@ def write_excel(char_summaries, excel_output_path):
 
             tank = summary.get("tank", 0)
             kits = summary.get("kits", 0)
+            restocking_days = summary.get("restocking_days")
             inventory_space = summary.get("inventory_space", 0)
             ventures = summary.get("ventures", 0)
             venture_coffers = summary.get("venture_coffers", 0)
@@ -686,6 +763,10 @@ def write_excel(char_summaries, excel_output_path):
                 worksheet.write_number(row, 31, sub4return, money_format)
                 worksheet.write_number(row, TANK_COL, tank, money_format)
                 worksheet.write_number(row, KITS_COL, kits, money_format)
+                if restocking_days is not None:
+                    worksheet.write_number(row, RESTOCK_COL, restocking_days, money_format)
+                else:
+                    worksheet.write(row, RESTOCK_COL, "")
                 worksheet.write_number(row, INV_SPACE_COL, inventory_space, money_format)
                 worksheet.write_number(row, VENTURES_COL, ventures, money_format)
                 worksheet.write_number(row, VENTURE_COFFERS_COL, venture_coffers, money_format)
@@ -754,6 +835,10 @@ def write_excel(char_summaries, excel_output_path):
                         worksheet.write_number(row, 31, sub4return, money_format)
                         worksheet.write_number(row, TANK_COL, tank, money_format)
                         worksheet.write_number(row, KITS_COL, kits, money_format)
+                        if restocking_days is not None:
+                            worksheet.write_number(row, RESTOCK_COL, restocking_days, money_format)
+                        else:
+                            worksheet.write(row, RESTOCK_COL, "")
                         worksheet.write_number(row, INV_SPACE_COL, inventory_space, money_format)
                         worksheet.write_number(row, VENTURES_COL, ventures, money_format)
                         worksheet.write_number(row, VENTURE_COFFERS_COL, venture_coffers, money_format)
@@ -763,7 +848,7 @@ def write_excel(char_summaries, excel_output_path):
                         worksheet.write(row, 40, snd_nameworld)
                         worksheet.write(row, 41, bagman_nameworld_tony)
                     else:
-                        for c in (17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, TANK_COL, KITS_COL, INV_SPACE_COL, VENTURES_COL, VENTURE_COFFERS_COL, TREAS_COL, 38, 39, 40, 41):
+                        for c in (17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, TANK_COL, KITS_COL, RESTOCK_COL, INV_SPACE_COL, VENTURES_COL, VENTURE_COFFERS_COL, TREAS_COL, 38, 39, 40, 41):
                             worksheet.write(row, c, "")
 
                     row += 1
@@ -802,6 +887,7 @@ def write_excel(char_summaries, excel_output_path):
         worksheet.set_column("AF:AF", 3)   # #4 Return
         worksheet.set_column(TANK_COL, TANK_COL, 9)   # Tanks
         worksheet.set_column(KITS_COL, KITS_COL, 9)   # Kits
+        worksheet.set_column(RESTOCK_COL, RESTOCK_COL, 6)  # Restocking Days
         worksheet.set_column(INV_SPACE_COL, INV_SPACE_COL, 3.15) # Inventory Spaces
         worksheet.set_column(VENTURES_COL, VENTURES_COL, 7)   # Ventures
         worksheet.set_column(VENTURE_COFFERS_COL, VENTURE_COFFERS_COL, 5)   # VentureCoffers
@@ -951,6 +1037,7 @@ def write_excel(char_summaries, excel_output_path):
             "SCUS": 116206,
             "S+C+U+S+": 116206,  # SCUS++
         }
+        
         
         # Add submarine builds to summary with earnings info
         total_all_subs_count = 0
