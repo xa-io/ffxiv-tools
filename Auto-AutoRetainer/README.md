@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.09 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.11 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -38,6 +38,9 @@ A comprehensive automation script that monitors submarine return times across mu
 - **Ready Status Detection**: Shows when submarines are already returned and ready
 - **Gil Earnings Tracking**: Calculates total daily gil from all submarine builds
 - **Process ID Tracking**: Monitors running game instances for each account (multi-client mode only)
+- **Restocking Alerts**: Displays "Total Days Until Restocking Required" showing the lowest value across all characters
+- **Build-Based Consumption**: Tracks Ceruleum tanks and Repair Kit usage per submarine build (9-14 tanks/day, 1.33-4 kits/day depending on route)
+- **Default Consumption Rates**: Unlisted builds (leveling submarines like SSUS, SSSS) automatically use 9 tanks/day and 1.33 kits/day
 
 ### Intelligent Automation
 - **Auto-Launch Games**: Automatically opens games when submarines are nearly ready (9 minutes by default)
@@ -50,6 +53,10 @@ A comprehensive automation script that monitors submarine return times across mu
 - **Route Recognition**: Matches builds to known voyage routes (OJ, MOJ, ROJ, JOZ, JORZ, etc.)
 - **Gil Calculations**: Displays total gil per day from all submarine builds
 - **Multiple Build Support**: Handles all submarine classes (Shark, Unkiu, Whale, Coelacanth, Syldra, Modified variants)
+- **Restocking Calculation**: Automatically calculates days until restocking required based on Ceruleum (tanks) and Repair Kits inventory
+- **Inventory Tracking**: Monitors tank and kit consumption rates per submarine build (includes fallback rates for unlisted builds)
+- **Proactive Alerts**: Shows minimum days remaining across all characters to prevent submarines from running dry
+- **Universal Build Support**: All submarine builds tracked, including leveling builds not listed in consumption rate dictionary
 
 ---
 
@@ -474,7 +481,17 @@ MAX_RUNTIME = 71                # Maximum allowed client uptime in hours before 
 ENABLE_AUTO_LAUNCH = True       # Enable automatic game launching
 AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if next sub <= 0.15 hours (9 minutes)
 OPEN_DELAY_THRESHOLD = 60       # Minimum 60 seconds between game launches
+MAX_CLIENTS = 0                 # Maximum concurrent running clients (0 = unlimited, N = limit to N clients)
 ```
+
+**MAX_CLIENTS Behavior:**
+- **When set to 0 (Default)**: No limit on concurrent clients, launches all ready accounts simultaneously
+- **When set to N**: Limits to N concurrent running game clients at a time
+- **Prioritizes force247uptime accounts**: Ensures 24/7 uptime clients launch first before submarine-ready clients
+- **Sequential Processing**: Opens clients one at a time with OPEN_DELAY_THRESHOLD wait between each
+- **Per-Client Workflow**: After launching each client, refreshes window status, waits OPEN_DELAY_THRESHOLD, arranges windows, then proceeds to next client
+- **Terminal Display**: Shows "Max Clients: N" in the terminal output when set to 1 or above (hidden when 0)
+- **Use Case**: Ideal for hardware-limited setups that can only run a set number of game instances due to RAM/CPU constraints
 
 ### Window Layout Settings
 ```python
@@ -529,14 +546,17 @@ python Auto-AutoRetainer.py
 =====================================================================================
 FFXIV Submarine Timer Monitor
 =====================================================================================
-Updated: 2025-11-14 18:25:41
+Updated: 2025-11-26 11:44:56
 =====================================================================================
 
 Main  (36 subs)  : -0.0 hours (7 READY)    [Running] PID: 11376 UPTIME: 1.6 hours
 
 =====================================================================================
-Total Subs: 7 / 36
-Total Gil Per Day: 4,271,184
+Total Subs: 0 / 36
+Total Gil Per Day: 4,193,236
+Total Subs Leveling: 0
+Total Subs Farming: 36
+Total Days Until Restocking Required: 11
 =====================================================================================
 Press Ctrl+C to exit
 =====================================================================================
@@ -800,6 +820,8 @@ The script will automatically load `window_layout_{name}.json` based on the `WIN
 
 ## Version History
 
+**v1.11** (2025-11-26) - Added MAX_CLIENTS configuration for hardware-limited setups with sequential client processing, force247uptime prioritization, and terminal display  
+**v1.10** (2025-11-26) - Added restocking calculation with "Total Days Until Restocking Required" display  
 **v1.09** (2025-11-15) - Fixed submarine build collection for custom-named submarines and enhanced console display  
 **v1.08** (2025-11-15) - Enhanced configuration flag handling and status display improvements  
 **v1.07** (2025-11-14) - Added (WAITING) status display for running games with 0 ready subs  
