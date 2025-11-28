@@ -188,7 +188,7 @@ local min_gil_keep = 85000 -- Minimum amount of gil to keep
 local gil_buffer = 40000 -- Buffer to ignore missing gil if less than this amount
 local min_fire_shards = 600 -- [400] for boosted world -- [600] for non-boosted world
 local zone_id = 129 -- Zone ID for Limsa Lominsa Lower Decks
-local position = "left" -- Default position to change between "left", "middle", or "right" 
+position = "left" -- Default position to change between "left", "middle", or "right" 
 
 local delay_lists = {left = 1, middle = 2, right = 3} -- Add custom delay so you're not all stacking if using multiple toons
 
