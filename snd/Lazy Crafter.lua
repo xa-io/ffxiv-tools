@@ -169,8 +169,10 @@
 require("dfunc")
 require("xafunc")
 DisableARMultiXA()
-EnableArtisanXA()
+EnableArtisanXA() -- Artisan Collection
 rsrXA("off")
+DisableSprintingInTownXA()
+if not CheckPluginEnabledXA({"Artisan", "Dropbox", "Lifestream", "vnavmesh", "AutoRetainer", "PandorasBox", "TextAdvance"}) then return end
 -- DO NOT TOUCH THESE LINES ABOVE
 
 -- ---------------------------------------
@@ -188,7 +190,7 @@ local min_gil_keep = 85000 -- Minimum amount of gil to keep
 local gil_buffer = 40000 -- Buffer to ignore missing gil if less than this amount
 local min_fire_shards = 600 -- [400] for boosted world -- [600] for non-boosted world
 local zone_id = 129 -- Zone ID for Limsa Lominsa Lower Decks
-position = "left" -- Default position to change between "left", "middle", or "right" 
+position = "left" -- Default position to change between "left", "middle", or "right" (must be global for get_coordinates function) 
 
 local delay_lists = {left = 1, middle = 2, right = 3} -- Add custom delay so you're not all stacking if using multiple toons
 
@@ -488,7 +490,7 @@ local function LazyCrafterXA()
     if check_needed_items() then
         EchoXA("Moving to Tony's location for needed items.")
         EchoXA("-------------")
-        local coords = get_coordinates(tony_coords)
+        coords = get_coordinates(tony_coords)
         move_to(coords)
 
         while GetItemCount(2) < min_fire_shards or GetItemCount(1) < min_gil_keep do
@@ -706,7 +708,7 @@ local function LazyCrafterXA()
         SleepXA(60)
         MonitorJobLevel(25, function()
             EchoXA("Crafting completed at level 25.")
-            local coords = get_coordinates(aftcastle_coords)
+            coords = get_coordinates(aftcastle_coords)
             SleepXA(2)
             yield("/ays discard")
             move_to(coords)
