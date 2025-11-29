@@ -10,6 +10,10 @@
 import json
 import os
 import requests
+import getpass
+
+# Get the current Windows username
+user = getpass.getuser()
 
 # Select the configuration you want to apply by setting the value below.
 # Options: "Dev", "Beta", "Default"
@@ -20,9 +24,9 @@ config_url = "https://kamori.goats.dev/Dalamud/Release/Meta"
 
 # Define the file paths
 file_paths = [
-    r"C:\Users\username\AppData\Roaming\XIVLauncher\dalamudConfig.json",
-    r"C:\Users\username\AltData\launcher1\dalamudConfig.json",
-    r"C:\Users\username\AltData\launcher2\dalamudConfig.json"
+    rf"C:\Users\{user}\AppData\Roaming\XIVLauncher\launcherConfigV3.json",
+    # rf"C:\Users\{user}\AltData\launcher1\launcherConfigV3.json",
+    # rf"C:\Users\{user}\AltData\launcher2\launcherConfigV3.json"
 ]
 
 # Function to fetch and parse the latest configurations from the URL
@@ -39,20 +43,16 @@ latest_configs = fetch_configurations(config_url)
 # Map the selected configuration to the appropriate section in the JSON data
 config_map = {
     "Dev": {
-        "DalamudBetaKey": latest_configs.get("imgui-bindings", {}).get("key"),
-        "DalamudBetaKind": latest_configs.get("imgui-bindings", {}).get("track")
+        "DalamudBetaKey": latest_configs.get("api14", {}).get("key"),
+        "DalamudBetaKind": latest_configs.get("api14", {}).get("track")
     },
     "Beta": {
         "DalamudBetaKey": latest_configs.get("stg", {}).get("key"),
         "DalamudBetaKind": latest_configs.get("stg", {}).get("track")
     },
-    "Force13": {
-        "DalamudBetaKey": latest_configs.get("api13", {}).get("key"),
-        "DalamudBetaKind": latest_configs.get("api13", {}).get("track")
-    },
     "Default": {
-        "DalamudBetaKey": None,
-        "DalamudBetaKind": None
+        "DalamudBetaKey": "",
+        "DalamudBetaKind": "release"
     }
 }
 
