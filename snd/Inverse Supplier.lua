@@ -28,28 +28,50 @@
 -- |  distributes items while Bagman waits for thresholds to be met on each character.
 -- | 
 -- |  Important Steps: Be logged into the Supplier toon before starting the script.
--- |  * will be adding fallback suppliers soon
 -- | 
--- |  XA Inverse Supplier v2.1
--- |  Automated resource distribution via dropbox trading
--- |  Created by: https://github.com/xa-io
--- |  Last Updated: 2025-11-07 17:00:00
+-- | XA Inverse Supplier v2.14
+-- | Automated resource distribution via dropbox trading
+-- | Created by: https://github.com/xa-io
+-- | Last Updated: 2025-11-30 16:50:00
 -- | 
--- |  ## Release Notes ##
+-- | ## Release Notes ##
 -- | 
--- |  v2.1 
--- |    - Added required plugin checks (KitchenSink, Dropbox, Lifestream, vnavmesh, AutoRetainer, Pandora, TextAdvance)
--- |    - Script now validates all required plugins are installed and enabled before execution
--- |    - Detailed plugin status display via CheckPluginStatus() from xafunc
+-- | v2.14
+-- |   - Enhanced toon_list documentation with comprehensive format guide
+-- |   - Added Smart Distribution (with AR Parser) section with detailed examples
+-- |   - Added Manual Override section for custom threshold amounts
+-- |   - Added Threshold-Based section for default behavior
+-- |   - Added Workflow section explaining Bagman/Supplier interaction
+-- |   - Improved documentation formatting consistency with Inverse Bagman
 -- | 
--- |  v2.0 
--- |    - Enhanced automated supplier with dropbox trading
--- |    - Automated franchise owner detection and targeting
--- |    - Threshold-based resource distribution from synchronized configuration
--- |    - Trade completion tracking with remaining character list
--- |    - Distance-based movement with configurable thresholds
--- |    - Dropbox trading integration using Bagman Type 69 methodology
--- |    - Configuration synchronization markers for Inverse Bagman pairing
+-- | v2.13
+-- |   - Fixed trade failure repositioning when player moves toward supplier
+-- |   - When trade fails, supplier now repositions back to original location before retrying
+-- |   - Added re-targeting and distance check after repositioning
+-- |   - Prevents out-of-range trade failures when players approach supplier during initial movement
+-- |   - Enhanced retry logic: supplies check → reposition → re-target → distance check → retry trade
+-- | 
+-- | v2.11
+-- |   - Added smart inventory-based distribution logic
+-- |   - Toon list now supports optional current inventory counts for Ceruleum Tanks and Repair Kits
+-- |   - Format: {"Toon@World", current_fuel_count, current_kits_count} - inventory counts are optional
+-- |   - Script calculates needed items: gives (threshold - current_count) instead of full threshold
+-- |   - Backwards compatible: 0 values or missing values use original behavior (full threshold)
+-- |   - Optimizes resource distribution by only giving what each character actually needs
+-- | 
+-- | v2.1
+-- |   - Added required plugin checks (KitchenSink, Dropbox, Lifestream, vnavmesh, AutoRetainer, Pandora, TextAdvance)
+-- |   - Script now validates all required plugins are installed and enabled before execution
+-- |   - Detailed plugin status display via CheckPluginStatus() from xafunc
+-- | 
+-- | v2.0 
+-- |   - Enhanced automated supplier with dropbox trading
+-- |   - Automated franchise owner detection and targeting
+-- |   - Threshold-based resource distribution from synchronized configuration
+-- |   - Trade completion tracking with remaining character list
+-- |   - Distance-based movement with configurable thresholds
+-- |   - Dropbox trading integration using Bagman Type 69 methodology
+-- |   - Configuration synchronization markers for Inverse Bagman pairing
 -- | 
 -- |  ## Dependencies ##
 -- | 
@@ -63,7 +85,7 @@
 -- | 
 -- |  ## Companion Script ##
 -- | 
--- |  Works with: XA Inverse Bagman v2.0
+-- |  Works with: XA Inverse Bagman
 -- |  Configuration: Synchronize toon_list and item thresholds between both scripts
 -- └-----------------------------------------------------------------------------------------------------------------------
 
@@ -85,8 +107,8 @@ listdebug_mode = false
 
 local scan_interval = 2                 -- Scan interval in seconds (how often to check for nearby players)
 local max_scan_distance = 6             -- Maximum distance to scan for players (in yalms)
-local move_distance_threshold = 3       -- Distance threshold to trigger movement (in yalms)
-local stop_distance = 3                 -- Stop movement when within this distance (in yalms)
+local move_distance_threshold = 4       -- Distance threshold to trigger movement (in yalms)
+local stop_distance = 2                 -- Stop movement when within this distance (in yalms)
 local trade_delay = 2                   -- Delay before initiating trade sequence (in seconds)
 
 -- Supplier's coordinates (set this manually so the supplier stays at a set location)
@@ -97,21 +119,81 @@ local tony_z = -253.4475402832
 -- The above location will walk slightly away from the actual afk placement so it will move and face the general direction
 -- The targeting system in the script and functions will handle the movements needed and may even move sometimes slightly
 
+-- -------------------------------------------------------
+-- -- Inverse Supplier Toon List - Format Documentation --
+-- -------------------------------------------------------
+-- Format: {"Character@World", fuel_to_give, kits_to_give}
+--
+-- IMPORTANT: The numbers represent HOW MANY ITEMS TO GIVE (not current inventory)
+--
+-- -------------------------------------------------------
+-- -- Smart Distribution (with AR Parser) - RECOMMENDED --
+-- -------------------------------------------------------
+--   The AR Parser calculates: items_to_give = threshold - current_inventory
+--   This is the MOST COMMON use case for fuel and kits distribution
+--
+--   Example from AR Parser output in column (Inverse Supplier Formatting):
+--     {"Toon One@World", 76, 1}
+--       → Supplier gives 76 Ceruleum Tanks and 0 Repair Kits
+--       → AR Parser calculated this:
+--       → Has 24,924 tanks (needs 76 to reach 25,000)
+--       → Has 3,999 kits (needs 1 to reach 4,000)
+--       → Allows per-character control based on actual inventory levels
+--
+--       Example Thresholds used for Inverse Bagman & Inverse Supplier:
+--       local fuel_threshold = 25000
+--       local repair_mats_threshold = 4000
+--
+-- -----------------------------------------
+-- -- Manual Override (without AR Parser) --
+-- -----------------------------------------
+--   You can specify custom amounts that OVERRIDE the thresholds below:
+--
+--   Example:
+--     {"Toon One@World", 500, 200}
+--       → Supplier gives 500 Ceruleum Tanks and 200 Repair Kits
+--       → Even if fuel_threshold and repair_mats_threshold are set to different values
+--       → Custom amounts always take priority over threshold settings
+--
+-- --------------------------------------------
+-- -- Threshold-Based (no amounts specified) --
+-- --------------------------------------------
+--   When no custom amounts are provided, uses threshold values from configuration below:
+--
+--   Example:
+--     {"Toon One@World"}
+--       → Supplier gives fuel_threshold tanks and repair_mats_threshold kits
+--
+--   Example:
+--     {"Toon One@World", 0, 0}
+--       → Same as above (0 means "use threshold instead")
+--
+-- --------------
+-- -- Workflow --
+-- --------------
+--   1. Inverse Bagman: Logs into each character → Requests full thresholds from Supplier
+--   2. Inverse Supplier: Gives items → Uses custom amounts if specified, otherwise uses thresholds
+--   3. Result: Characters get threshold amounts for most items, except fuel/kits which use AR Parser values (if specified)
+--
+-- ------------------------------------------------------------
+
+-- Toon list (last toon should not have a comma at the end)
+local toon_list = {
+    {"Toon One@World"},
+    {"Toon Two@World", 10, 20},
+    {"Toon Three@World", 10, 20},
+    {"Toon Four@World"},
+    {"Toon Five@World"}
+}
+
 -- ------------------------------------------
 -- Get the below lines from Inverse Bagman --
 -- ------------------------------------------
 
 -- Where is the supplier location
-local TonyTurf = "Golem"
+local TonyTurf = "Sophia"
 local TonySpot = "Summerford Farms" -- Use the Aetheryte Name for this
 local TonyZoneID = 134 -- Use GetZoneIDXA() from xafunc to get this
-
--- Toon list (last toon should not have a comma at the end)
-local toon_list = {
-    {"Toon One@World"},
-    {"Toon Two@World"},
-    {"Toon Three@World"}
-}
 
 -- Inventory Management Thresholds
 local gil_threshold = 0
@@ -152,6 +234,55 @@ local fire_shard_id = 2
 -- ------------------------
 -- -- Start of Functions --
 -- ------------------------
+
+-- Smart Distribution Functions (v2.11)
+-- These functions implement inventory-aware distribution logic
+
+local function GetToonInventoryData(target_name)
+    -- Get the needed amounts from toon_list for a specific character
+    -- These represent how much the character needs, calculated by AR Parser as (threshold - current_inventory)
+    -- Returns: fuel_needed, kits_needed (or nil, nil if not found/not specified)
+    for _, owner_data in ipairs(toon_list) do
+        if owner_data[1] == target_name then
+            local fuel_needed = owner_data[2] or 0
+            local kits_needed = owner_data[3] or 0
+            return fuel_needed, kits_needed
+        end
+    end
+    return nil, nil
+end
+
+local function CalculateNeededAmount(needed_count, threshold)
+    -- Calculate how many items to give based on needed amount
+    -- If needed_count is 0 or nil, return full threshold (original behavior)
+    -- Otherwise return the needed_count directly (already calculated by AR Parser)
+    if not needed_count or needed_count == 0 then
+        return threshold
+    end
+    
+    -- Return the needed amount (AR Parser already calculated: threshold - current_inventory)
+    -- Ensure it's not negative
+    local needed = needed_count
+    if needed < 0 then
+        needed = 0
+    end
+    
+    return needed
+end
+
+local function ShouldUseSmartDistribution(fuel_needed, kits_needed)
+    -- Determine if we should use smart distribution logic
+    -- Returns false if both values are nil/0 (use original behavior)
+    -- Returns true if either value is greater than 0 (use smart distribution)
+    if not fuel_needed and not kits_needed then
+        return false
+    end
+    
+    fuel_needed = fuel_needed or 0
+    kits_needed = kits_needed or 0
+    
+    return (fuel_needed > 0 or kits_needed > 0)
+end
 
 local function ApproachTonyXA()
     PathfindAndMoveTo(tony_x, tony_y, tony_z, false)
@@ -303,19 +434,46 @@ end
 
 function CalculateItemsNeeded(target_name)
     -- Calculate how many of each item the target needs based on thresholds
-    -- This function assumes we can query the target's inventory (via trade window or other means)
-    -- For now, we'll send max amounts and let the receiver manage
+    -- v2.11: Now supports smart distribution using needed amounts from toon_list
     
     DebugXA(string.format("[Calculating Items] Determining supplies needed for %s...", target_name))
     
     local items_to_send = {}
     
+    -- Get needed amounts from toon_list (calculated by AR Parser as threshold - current_inventory)
+    local fuel_needed, kits_needed = GetToonInventoryData(target_name)
+    local use_smart_distribution = ShouldUseSmartDistribution(fuel_needed, kits_needed)
+    
+    if use_smart_distribution then
+        DebugXA(string.format("[Smart Distribution] Using needed amounts for %s", target_name))
+        DebugXA(string.format("  Ceruleum Tanks Needed: %d", fuel_needed or 0))
+        DebugXA(string.format("  Repair Kits Needed: %d", kits_needed or 0))
+    else
+        DebugXA("[Standard Distribution] Using full threshold amounts (no needed data specified)")
+    end
+    
+    -- Calculate amounts for Ceruleum Tanks and Repair Kits with smart distribution
+    local fuel_amount = fuel_threshold
+    local kits_amount = repair_mats_threshold
+    
+    if use_smart_distribution then
+        fuel_amount = CalculateNeededAmount(fuel_needed, fuel_threshold)
+        kits_amount = CalculateNeededAmount(kits_needed, repair_mats_threshold)
+        
+        if fuel_threshold > 0 then
+            DebugXA(string.format("  Ceruleum Tanks: Giving %d (needed to reach threshold %d)", fuel_amount, fuel_threshold))
+        end
+        if repair_mats_threshold > 0 then
+            DebugXA(string.format("  Repair Kits: Giving %d (needed to reach threshold %d)", kits_amount, repair_mats_threshold))
+        end
+    end
+    
     -- Consolidated item definitions using table-driven approach
     local item_definitions = {
         {name = "Gil", id = gil_id, threshold = gil_threshold},
         {name = "Miniature Aetheryte", id = miniature_aetheryte_id, threshold = miniature_aetheryte_count},
-        {name = "Ceruleum Tank", id = fuel_id, threshold = fuel_threshold},
-        {name = "Magitek Repair Materials", id = kits_id, threshold = repair_mats_threshold},
+        {name = "Ceruleum Tank", id = fuel_id, threshold = fuel_amount},  -- Uses smart amount
+        {name = "Magitek Repair Materials", id = kits_id, threshold = kits_amount},  -- Uses smart amount
         {name = "Shark-class Pressure Hull", id = shark_hull_id, threshold = shark_hull_threshold},
         {name = "Shark-class Stern", id = shark_stern_id, threshold = shark_stern_threshold},
         {name = "Shark-class Bow", id = shark_bow_id, threshold = shark_bow_threshold},
@@ -425,10 +583,62 @@ function SendItemsViaDropbox(target_name, items_to_send)
         if not trade_successful then
             if trade_attempt < max_trade_attempts then
                 EchoXA("========================================")
-                EchoXA("[Trade Failed] Will retry after checking supplies...")
+                EchoXA("[Trade Failed] Will retry after repositioning...")
                 EchoXA("<se.7> Inverse Supplier Attention Needed")
                 EchoXA("========================================")
+                
+                -- Check supplies first
                 WhileSuppliesAreLow(items_to_send, target_name)
+                
+                -- Reposition: Move back to original Tony location
+                EchoXA("[Repositioning] Moving back to supplier location...")
+                ApproachTonyXA()
+                SleepXA(2)
+                
+                -- Strip world name from target_name to get searchable name
+                local search_name = target_name
+                local at_pos = string.find(target_name, "@")
+                if at_pos then
+                    search_name = string.sub(target_name, 1, at_pos - 1)
+                end
+                
+                -- Re-target the player
+                EchoXA(string.format("[Re-targeting] Targeting %s...", target_name))
+                TargetXA(search_name)
+                SleepXA(1)
+                FocusTargetXA()
+                SleepXA(1)
+                
+                -- Check distance and move closer if needed
+                local obj_x = GetObjectRawXPos(search_name)
+                local obj_y = GetObjectRawYPos(search_name)
+                local obj_z = GetObjectRawZPos(search_name)
+                
+                if obj_x ~= 0 or obj_y ~= 0 or obj_z ~= 0 then
+                    local player_x = EntityPlayerPositionX()
+                    local player_y = EntityPlayerPositionY()
+                    local player_z = EntityPlayerPositionZ()
+                    
+                    local dx = obj_x - player_x
+                    local dy = obj_y - player_y
+                    local dz = obj_z - player_z
+                    local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
+                    
+                    EchoXA(string.format("[Distance Check] %.1f yalms from target", distance))
+                    
+                    if distance > move_distance_threshold then
+                        EchoXA(string.format("[Moving] Distance %.1f yalms > %d, moving closer...", distance, move_distance_threshold))
+                        WalkToTargetXA(obj_x, obj_y, obj_z, stop_distance)
+                        EchoXA("[Movement Complete] Ready to retry trade")
+                    else
+                        EchoXA("[Range OK] Target is within range")
+                    end
+                else
+                    EchoXA("[Warning] Could not get target position, will attempt trade anyway")
+                end
+                
+                SleepXA(2)
+                EchoXA("[Retry Ready] Attempting trade again...")
             else
                 EchoXA("========================================")
                 EchoXA("[!!! MAX ATTEMPTS REACHED !!!]")
@@ -525,6 +735,7 @@ function ScanNearbyPlayers()
                             MarkTradeCompleted(owner_name)
                         else
                             EchoXA("[Trade Failed] Not marking as completed, will retry on next scan")
+                            OpenDropboxXA()
                         end
                         
                         -- Display updated trade status
