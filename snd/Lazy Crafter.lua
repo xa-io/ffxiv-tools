@@ -712,7 +712,7 @@ local function LazyCrafterXA()
             SleepXA(2)
             yield("/ays discard")
             move_to(coords)
-            while AutoRetainerIsBusy() do
+            while AutoRetainerIsBusyXA() do
 
                 SleepXA(1)
             end
