@@ -29,20 +29,26 @@
 -- | 
 -- |  Important Steps: Enable Dropbox Auto-Trading, Lifesteam Paths
 -- | 
--- |  XA Inverse Bagman v2.0
--- |  Mass toon inventory threshold checker for submarine operations
--- |  Created by: https://github.com/xa-io
--- |  Last Updated: 2025-11-5 13:20:00
+-- | XA Inverse Bagman v2.10
+-- | Mass toon inventory threshold checker for submarine operations
+-- | Created by: https://github.com/xa-io
+-- | Last Updated: 2025-11-30 16:50:00
 -- | 
--- |  ## Release Notes ##
+-- | ## Release Notes ##
 -- | 
--- |  v2.0
--- |    - Enhanced multi-character submarine resource management
--- |    - Comprehensive threshold checking for different resources
--- |    - Automated supplier pathing with custom location configuration
--- |    - Real-time status reporting with visual indicators
--- |    - Safe character switching with proper wait states
--- |    - Homeworld return functionality after threshold completion
+-- | v2.10
+-- |   - Enhanced toon_list documentation with comprehensive format guide
+-- |   - Added Workflow section explaining Bagman/Supplier interaction
+-- |   - Clarified that custom amounts should be configured in Inverse Supplier via AR Parser
+-- |   - Enhanced user guidance to prevent configuration errors between scripts
+-- | 
+-- | v2.0
+-- |   - Enhanced multi-character submarine resource management
+-- |   - Comprehensive threshold checking for different resources
+-- |   - Automated supplier pathing with custom location configuration
+-- |   - Real-time status reporting with visual indicators
+-- |   - Safe character switching with proper wait states
+-- |   - Homeworld return functionality after threshold completion
 -- | 
 -- |  ## Dependencies ##
 -- | 
@@ -56,7 +62,7 @@
 -- | 
 -- |  ## Companion Script ##
 -- | 
--- |  Works with: XA Inverse Supplier v2.0
+-- |  Works with: XA Inverse Supplier
 -- |  Configuration: Synchronize toon_list and item thresholds between both scripts
 -- └-----------------------------------------------------------------------------------------------------------------------
 
@@ -84,14 +90,22 @@ local tony_z = -254.736328125
 -- No auto pathing is setup within Inverse Bagman, so you cannot use 42069420 from Bagman type 69
 -- This was done specifically because you'll likely have different supplier toons
 
--- ----------------------------------------------
--- Share the below lines with Inverse Supplier --
--- ----------------------------------------------
-
--- Where is the supplier location
-local TonyTurf = "Golem"
-local TonySpot = "Summerford Farms" -- Use the Aetheryte Name for this
-local TonyZoneID = 134 -- Use GetZoneIDXA() from xafunc to get this
+-- ------------------------------------------------------------
+-- -- IMPORTANT: DO NOT USE INVERSE SUPPLIER FORMATTING HERE --
+-- ------------------------------------------------------------
+--
+-- Inverse Bagman Format (SND Formatting):
+--   {"Character@World"}  -- NO custom amounts, requests full thresholds
+--
+-- This script logs into each character and requests items up to the thresholds
+-- defined below. Each character will receive the FULL threshold amounts.
+--
+-- --------------
+-- -- Workflow --
+-- --------------
+--   1. Inverse Bagman: Logs into each toon → Requests full thresholds from Supplier
+--   2. Inverse Supplier: Gives items → Overrides tanks/kits amounts if specified in its toon_list
+--   3. Result: Characters get threshold amounts, except fuel/kits which use AR Parser values
 
 -- Toon list (last toon should not have a comma at the end)
 local toon_list = {
@@ -99,6 +113,15 @@ local toon_list = {
     {"Toon Two@World"},
     {"Toon Three@World"}
 }
+
+-- ----------------------------------------------
+-- Share the below lines with Inverse Supplier --
+-- ----------------------------------------------
+
+-- Where is the supplier location
+local TonyTurf = "Sophia"
+local TonySpot = "Summerford Farms" -- Use the Aetheryte Name for this
+local TonyZoneID = 134 -- Use GetZoneIDXA() from xafunc to get this
 
 -- Inventory Management Thresholds
 local gil_threshold = 0
