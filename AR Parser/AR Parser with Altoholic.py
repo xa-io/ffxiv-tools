@@ -20,12 +20,18 @@
 # • Automatic FC detection via FC name or housing data from Lifestream plugin
 # • Restocking days calculation based on submarine build consumption rates
 #
-# AR Parser with Altoholic v1.12
+# AR Parser with Altoholic v1.13
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-11-26 08:42:00
+# Last Updated: 2025-12-04 17:15:00
 #
 # ## Release Notes ##
 #
+# v1.13 - Added Inverse Supplier Formatting column with smart inventory-based distribution
+#         New "Inverse Supplier Formatting" column generates format for XA Inverse Supplier v2.11 smart distribution
+#         Format: {"Toon@World", fuel_needed, kits_needed}, where amounts show (threshold - current_inventory)
+#         Added fuel_threshold and repair_mats_threshold parameters to acc() function (default 0)
+#         When threshold > 0, calculates needed amount; when 0, outputs 0 (excludes from smart distribution)
+#         Column width set to 45 spaces (10 less than Bagman Formatting)
 # v1.12 - Added Restocking Days calculation and data source improvements
 #         Added "Restocking Days" column showing days until restocking required based on submarine build consumption rates
 #         Changed Tanks/Kits data source from Altoholic to DefaultConfig.json for consistency with Auto-AutoRetainer
@@ -62,10 +68,16 @@ import sqlite3
 # ===============================================
 user = getpass.getuser()
 
-def acc(nickname, pluginconfigs_path, include_altoholic=True, include_submarines=True):
+def acc(nickname, pluginconfigs_path, include_altoholic=True, include_submarines=True, fuel_threshold=None, repair_mats_threshold=None):
     auto_path = os.path.join(pluginconfigs_path, "AutoRetainer", "DefaultConfig.json")
     alto_path = os.path.join(pluginconfigs_path, "Altoholic", "altoholic.db")
     lfstrm_path = os.path.join(pluginconfigs_path, "Lifestream", "DefaultConfig.json")
+    
+    # Use global inventory_needs if not explicitly specified per-account
+    if fuel_threshold is None:
+        fuel_threshold = inventory_needs.get("fuel_threshold", 0)
+    if repair_mats_threshold is None:
+        repair_mats_threshold = inventory_needs.get("repair_mats_threshold", 0)
     
     return {
         "nickname": nickname,
@@ -74,9 +86,24 @@ def acc(nickname, pluginconfigs_path, include_altoholic=True, include_submarines
         "lfstrm_path": lfstrm_path,
         "include_altoholic": bool(include_altoholic),
         "include_submarines": bool(include_submarines),
+        "fuel_threshold": int(fuel_threshold),
+        "repair_mats_threshold": int(repair_mats_threshold),
     }
 
 # You do not need to replace "{user}" with your username, the script will get that information.
+
+# ===============================================
+# Global Inventory Thresholds for Inverse Supplier
+# Applied to all accounts unless overridden per-account
+# ===============================================
+inventory_needs = {
+    "fuel_threshold": 3000,
+    "repair_mats_threshold": 500
+}
+
+# Optional: Set fuel_threshold and repair_mats_threshold for Inverse Supplier smart distribution
+# To override global settings per-account, add parameters to acc():
+# Example: acc("Main", path, include_submarines=True, fuel_threshold=1000, repair_mats_threshold=1000)
 account_locations = [
     acc("Main",       f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=True),
     # acc("Acc1",    f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True),
@@ -240,6 +267,57 @@ CLASS_SHORTCUTS = {
     "Modified Syldra-class": "Y+"
 }
 
+# Part type abbreviations for column headers
+PART_TYPE_ABBREV = {
+    "Bow": "BOW",
+    "Bridge": "BRG",
+    "Pressure Hull": "PH",
+    "Stern": "STN"
+}
+
+# Generate ordered list of part column names (40 columns)
+def generate_part_column_names():
+    """Generate the 40 submarine part column names in order."""
+    class_order = ["S", "U", "W", "C", "Y", "S+", "U+", "W+", "C+", "Y+"]
+    part_order = ["BOW", "BRG", "PH", "STN"]
+    columns = []
+    for class_code in class_order:
+        for part_code in part_order:
+            columns.append(f"{class_code} {part_code}")
+    return columns
+
+PART_COLUMNS = generate_part_column_names()
+
+# Map item IDs to part column names
+def get_part_column_name(item_id):
+    """Get the column name for a submarine part item ID."""
+    if item_id not in SUB_PARTS_LOOKUP:
+        return None
+    
+    full_name = SUB_PARTS_LOOKUP[item_id]
+    
+    # Find class
+    class_code = None
+    for class_name, code in CLASS_SHORTCUTS.items():
+        if full_name.startswith(class_name):
+            class_code = code
+            break
+    
+    if not class_code:
+        return None
+    
+    # Find part type
+    part_code = None
+    for part_name, abbrev in PART_TYPE_ABBREV.items():
+        if part_name in full_name:
+            part_code = abbrev
+            break
+    
+    if not part_code:
+        return None
+    
+    return f"{class_code} {part_code}"
+
 # ===============================================
 # Altoholic scanning helpers
 # ===============================================
@@ -321,7 +399,7 @@ def load_lifestream_data(lifestream_path):
 def scan_altoholic_db(db_path):
     """
     Scan a single Altoholic DB and return a mapping:
-      { CharacterId: {"treasure_value": int} }
+      { CharacterId: {"treasure_value": int, "parts": {"S BOW": qty, ...}} }
     Note: Tanks and Kits are now sourced from DefaultConfig.json, not Altoholic.
     """
     result = {}
@@ -334,6 +412,7 @@ def scan_altoholic_db(db_path):
         rows = cur.execute("SELECT CharacterId, Inventory, Saddle FROM characters").fetchall()
         for char_id, inv_json, saddle_json in rows:
             treasure_value = 0
+            parts_count = {col: 0 for col in PART_COLUMNS}  # Initialize all 40 part columns to 0
 
             def consume(items):
                 nonlocal treasure_value
@@ -347,8 +426,16 @@ def scan_altoholic_db(db_path):
                             qty = int(qty)
                         except Exception:
                             qty = 1
+                    
+                    # Check for treasure items
                     if iid in TREASURE_IDS:
                         treasure_value += qty * TREASURE_VALUES[iid]
+                    
+                    # Check for submarine parts
+                    if iid in SUB_PARTS_LOOKUP:
+                        col_name = get_part_column_name(iid)
+                        if col_name:
+                            parts_count[col_name] += qty
 
             inv = _safe_json_load(inv_json)
             if isinstance(inv, list):
@@ -357,9 +444,11 @@ def scan_altoholic_db(db_path):
             if isinstance(sad, list):
                 consume(sad)
 
-            if treasure_value:
+            # Only add to result if there's any data
+            if treasure_value or any(parts_count.values()):
                 result[int(char_id)] = {
                     "treasure_value": int(treasure_value),
+                    "parts": parts_count
                 }
         con.close()
     except Exception as e:
@@ -429,6 +518,15 @@ def build_char_summaries(all_characters, fc_data, alto_map, account_configs, hou
     # Create a mapping of account nickname to config
     acc_config_map = {acc["nickname"]: acc for acc in account_configs}
     
+    # Helper function to calculate Inverse Supplier needed amounts
+    def calculate_inverse_supplier_amounts(current_tanks, current_kits, fuel_threshold, repair_mats_threshold):
+        """Calculate needed amounts for Inverse Supplier v2.11 smart distribution"""
+        # If threshold is 0, output 0 (excludes from smart distribution)
+        # If threshold > 0, calculate: threshold - current_count (minimum 0)
+        fuel_needed = max(0, fuel_threshold - current_tanks) if fuel_threshold > 0 else 0
+        kits_needed = max(0, repair_mats_threshold - current_kits) if repair_mats_threshold > 0 else 0
+        return fuel_needed, kits_needed
+    
     for char in all_characters:
         cid = char.get("CID", 0)
         char_name = char.get("Name", "Unknown")
@@ -457,6 +555,10 @@ def build_char_summaries(all_characters, fc_data, alto_map, account_configs, hou
 
         # Check if submarines should be included for this account
         include_subs = acc_config_map.get(nickname, {}).get("include_submarines", True)
+        
+        # Get Inverse Supplier thresholds for this account
+        fuel_threshold = acc_config_map.get(nickname, {}).get("fuel_threshold", 0)
+        repair_mats_threshold = acc_config_map.get(nickname, {}).get("repair_mats_threshold", 0)
         
         sub_data_map = {
             "Submersible-1": {"level": 0, "parts": "", "return_time": 0},
@@ -504,10 +606,12 @@ def build_char_summaries(all_characters, fc_data, alto_map, account_configs, hou
         tank = char.get("Ceruleum", 0)
         kits = char.get("RepairKits", 0)
         
-        # Altoholic fields (treasure value only)
+        # Altoholic fields (treasure value and submarine parts)
         treasure_value = 0
+        parts_inventory = {col: 0 for col in PART_COLUMNS}  # Initialize all 40 part columns
         if isinstance(cid, int) and cid in alto_map:
             treasure_value = alto_map[cid].get("treasure_value", 0)
+            parts_inventory = alto_map[cid].get("parts", {col: 0 for col in PART_COLUMNS})
         
         # Calculate restocking days based on submarine builds
         restocking_days = None
@@ -598,6 +702,9 @@ def build_char_summaries(all_characters, fc_data, alto_map, account_configs, hou
             "fc_ward": fc_ward,
             "fc_plot": fc_plot,
             "fc_zone": fc_zone,
+            "fuel_threshold": fuel_threshold,
+            "repair_mats_threshold": repair_mats_threshold,
+            "parts_inventory": parts_inventory,
         })
     return char_summaries
 
@@ -669,8 +776,11 @@ def write_excel(char_summaries, excel_output_path):
             "Plain Name",
             "List Formatting",
             "SND Formatting",
-            "Bagman Formatting"
-        ]
+            "Bagman Formatting",
+            "Inverse Supplier Formatting",
+            "Tanks Needed",
+            "Kits Needed"
+        ] + PART_COLUMNS + ["Total Parts"]  # Add 40 part columns + Total Parts column
         for col_idx, head in enumerate(headers):
             worksheet.write(0, col_idx, head, header_format)
 
@@ -681,6 +791,11 @@ def write_excel(char_summaries, excel_output_path):
         VENTURES_COL = headers.index("Ventures")
         VENTURE_COFFERS_COL = headers.index("VentureCoffers")
         TREAS_COL = headers.index("Treasure Value")
+        TANKS_NEEDED_COL = headers.index("Tanks Needed")
+        KITS_NEEDED_COL = headers.index("Kits Needed")
+        # Part columns start after Kits Needed
+        PARTS_START_COL = KITS_NEEDED_COL + 1
+        TOTAL_PARTS_COL = headers.index("Total Parts")
 
         row = 1
         for summary in char_summaries:
@@ -720,11 +835,27 @@ def write_excel(char_summaries, excel_output_path):
             ventures = summary.get("ventures", 0)
             venture_coffers = summary.get("venture_coffers", 0)
             treasure_value = summary.get("treasure_value", 0)
+            
+            # Get parts inventory and calculate total
+            parts_inventory = summary.get("parts_inventory", {col: 0 for col in PART_COLUMNS})
+            total_parts = sum(parts_inventory.values())
 
             plain_nameworld = f"{char_name}@{world}"
             list_nameworld = f"\"{char_name}@{world}\","
             snd_nameworld = f"{{\"{char_name}@{world}\"}},"
             bagman_nameworld_tony = f"{{\"{char_name}@{world}\", 1, 69,\"Tony Name\"}},"
+            
+            # Calculate Inverse Supplier formatting with smart distribution
+            fuel_threshold = summary.get("fuel_threshold", 0)
+            repair_mats_threshold = summary.get("repair_mats_threshold", 0)
+            
+            # Helper function for smart distribution calculation
+            def calc_needed(current, threshold):
+                return max(0, threshold - current) if threshold > 0 else 0
+            
+            fuel_needed = calc_needed(tank, fuel_threshold)
+            kits_needed = calc_needed(kits, repair_mats_threshold)
+            inverse_supplier_formatting = f"{{\"{char_name}@{world}\", {fuel_needed}, {kits_needed}}},"
 
             retainers = summary["retainers"]
 
@@ -775,6 +906,18 @@ def write_excel(char_summaries, excel_output_path):
                 worksheet.write(row, 40, list_nameworld)
                 worksheet.write(row, 41, snd_nameworld)
                 worksheet.write(row, 42, bagman_nameworld_tony)
+                worksheet.write(row, 43, inverse_supplier_formatting)
+                worksheet.write_number(row, TANKS_NEEDED_COL, fuel_needed, money_format)
+                worksheet.write_number(row, KITS_NEEDED_COL, kits_needed, money_format)
+                # Write submarine parts data (40 columns)
+                for i, part_col in enumerate(PART_COLUMNS):
+                    part_qty = parts_inventory.get(part_col, 0)
+                    if part_qty > 0:
+                        worksheet.write_number(row, PARTS_START_COL + i, part_qty, money_format)
+                    else:
+                        worksheet.write(row, PARTS_START_COL + i, "")
+                # Write total parts
+                worksheet.write_number(row, TOTAL_PARTS_COL, total_parts, money_format)
                 row += 1
             else:
                 for i, ret in enumerate(retainers):
@@ -847,9 +990,26 @@ def write_excel(char_summaries, excel_output_path):
                         worksheet.write(row, 40, list_nameworld)
                         worksheet.write(row, 41, snd_nameworld)
                         worksheet.write(row, 42, bagman_nameworld_tony)
+                        worksheet.write(row, 43, inverse_supplier_formatting)
+                        worksheet.write_number(row, TANKS_NEEDED_COL, fuel_needed, money_format)
+                        worksheet.write_number(row, KITS_NEEDED_COL, kits_needed, money_format)
+                        # Write submarine parts data (40 columns)
+                        for j, part_col in enumerate(PART_COLUMNS):
+                            part_qty = parts_inventory.get(part_col, 0)
+                            if part_qty > 0:
+                                worksheet.write_number(row, PARTS_START_COL + j, part_qty, money_format)
+                            else:
+                                worksheet.write(row, PARTS_START_COL + j, "")
+                        # Write total parts
+                        worksheet.write_number(row, TOTAL_PARTS_COL, total_parts, money_format)
                     else:
-                        for c in (17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, TANK_COL, KITS_COL, RESTOCK_COL, INV_SPACE_COL, VENTURES_COL, VENTURE_COFFERS_COL, TREAS_COL, 39, 40, 41, 42):
+                        # Blank out all non-retainer columns for subsequent retainer rows
+                        for c in (17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, TANK_COL, KITS_COL, RESTOCK_COL, INV_SPACE_COL, VENTURES_COL, VENTURE_COFFERS_COL, TREAS_COL, 39, 40, 41, 42, 43, TANKS_NEEDED_COL, KITS_NEEDED_COL):
                             worksheet.write(row, c, "")
+                        # Blank out parts columns for subsequent retainer rows
+                        for j in range(len(PART_COLUMNS)):
+                            worksheet.write(row, PARTS_START_COL + j, "")
+                        worksheet.write(row, TOTAL_PARTS_COL, "")
 
                     row += 1
 
@@ -896,9 +1056,17 @@ def write_excel(char_summaries, excel_output_path):
         worksheet.set_column(40, 40, 38)  # List Formatting
         worksheet.set_column(41, 41, 40)  # SND Formatting
         worksheet.set_column(42, 42, 55)  # Bagman Formatting
+        worksheet.set_column(43, 43, 45)  # Inverse Supplier Formatting (10 spaces less than Bagman)
+        worksheet.set_column(TANKS_NEEDED_COL, TANKS_NEEDED_COL, 9)  # Tanks Needed (same width as Tanks)
+        worksheet.set_column(KITS_NEEDED_COL, KITS_NEEDED_COL, 9)  # Kits Needed (same width as Kits)
+        # Set widths for all 40 submarine part columns (width 7)
+        for i in range(len(PART_COLUMNS)):
+            worksheet.set_column(PARTS_START_COL + i, PARTS_START_COL + i, 4)
+        # Set width for Total Parts column (width 10)
+        worksheet.set_column(TOTAL_PARTS_COL, TOTAL_PARTS_COL, 10)
 
         worksheet.autofilter(0, 0, 0, len(headers) - 1)
-        worksheet.freeze_panes(1, 0)
+        worksheet.freeze_panes(1, 5)  # Freeze first row (headers) and columns A-E (through Region)
 
         summary_headers = ["Metric", "Value"]
         for col_idx, head in enumerate(summary_headers):
