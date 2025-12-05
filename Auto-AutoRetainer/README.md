@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.11 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.12 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -820,6 +820,7 @@ The script will automatically load `window_layout_{name}.json` based on the `WIN
 
 ## Version History
 
+**v1.12** (2025-12-05) - Enhanced auto-launch visual feedback with real-time client status display after each game launch, reducing console spam and improving visibility during sequential launches  
 **v1.11** (2025-11-26) - Added MAX_CLIENTS configuration for hardware-limited setups with sequential client processing, force247uptime prioritization, and terminal display  
 **v1.10** (2025-11-26) - Added restocking calculation with "Total Days Until Restocking Required" display  
 **v1.09** (2025-11-15) - Fixed submarine build collection for custom-named submarines and enhanced console display  
