@@ -27,13 +27,18 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.11
+# Auto-AutoRetainer v1.12
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-11-26 10:50:00
+# Last Updated: 2025-12-05 07:15:00
 #
 # ## Release Notes ##
 #
+# v1.12 - Enhanced auto-launch visual feedback with real-time client status display
+#         After launching each client and waiting OPEN_DELAY_THRESHOLD, redisplays the submarine timer table
+#         Shows newly opened client status before proceeding to launch next client
+#         Provides clearer feedback during multi-client launches and reduces console message spam
+#         Improves visibility of which clients are currently running during sequential launch process
 # v1.11 - Added MAX_CLIENTS configuration for hardware-limited setups
 #         MAX_CLIENTS = 0 (default): Unlimited clients, opens all ready clients simultaneously
 #         MAX_CLIENTS = N: Limits to N concurrent running clients at a time
@@ -1242,6 +1247,25 @@ def main():
                             # Arrange all windows after launch (if enabled)
                             if ENABLE_WINDOW_LAYOUT:
                                 arrange_ffxiv_windows()
+                            
+                            # Update process tracking for newly launched client
+                            if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                                ffxiv_start_time = get_ffxiv_process_start_time()
+                                if ffxiv_start_time:
+                                    client_start_times['ffxiv_single'] = ffxiv_start_time
+                            else:
+                                is_running, process_id = game_status_dict.get(nickname, (False, None))
+                                if is_running and process_id and process_id not in client_start_times:
+                                    actual_start_time = get_process_start_time(process_id)
+                                    if actual_start_time:
+                                        client_start_times[process_id] = actual_start_time
+                                    else:
+                                        client_start_times[process_id] = current_time
+                            
+                            # Redisplay submarine timers to show newly opened client status
+                            print("")  # Empty line for spacing
+                            display_submarine_timers(game_status_dict, client_start_times)
+                            print("")  # Empty line for spacing
                         else:
                             print(f"[AUTO-LAUNCH] Failed to launch {nickname}")
                             last_launch_time[nickname] = current_time  # Record failed attempt to enforce rate limit
