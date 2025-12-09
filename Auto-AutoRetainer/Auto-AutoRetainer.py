@@ -27,13 +27,20 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.12
+# Auto-AutoRetainer v1.13
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-12-05 07:15:00
+# Last Updated: 2025-12-08 14:30:00
 #
 # ## Release Notes ##
 #
+# v1.13 - Added window title update checking after game launch for reliable window detection
+#         After OPEN_DELAY_THRESHOLD wait, checks if default "FINAL FANTASY XIV" window title exists
+#         Waits indefinitely for plugin to update window title from default to "ProcessID - nickname" format
+#         Uses WINDOW_TITLE_RESCAN (5s) to poll for title updates until custom title appears
+#         Ensures plugins have loaded and window can be identified before moving windows/launching next game
+#         Only applies in multi-client mode (skipped when USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME=True)
+#         Removed timeout - will keep waiting until window title updates (never skips)
 # v1.12 - Enhanced auto-launch visual feedback with real-time client status display
 #         After launching each client and waiting OPEN_DELAY_THRESHOLD, redisplays the submarine timer table
 #         Shows newly opened client status before proceeding to launch next client
@@ -145,6 +152,7 @@ MAX_RUNTIME = 71
 ENABLE_AUTO_LAUNCH = True       # Enable automatic game launching when subs nearly ready
 AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if soonest sub return time <= this many hours (9 minutes)
 OPEN_DELAY_THRESHOLD = 60       # Minimum seconds between game launches (prevents opening multiple games too quickly)
+WINDOW_TITLE_RESCAN = 5         # Seconds to wait between window title update checks (waits for plugin to rename window)
 MAX_CLIENTS = 0                 # Maximum concurrent running clients (0 = unlimited, N = limit to N clients)
                                 # Used for hardware-limited setups that can only run a set number of game instances
 
@@ -157,7 +165,7 @@ WINDOW_MOVER_DIR = Path(__file__).parent  # Local folder where window layout JSO
 DEBUG = False                   # Show debug output (auto-launch checks, window detection, etc.)
 
 # Single client mode settings
-USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = False  # If True, uses default FFXIV window title (single account only)
+USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = True   # If True, uses default FFXIV window title (single account only)
                                              # If False, uses "ProcessID - nickname" format (multiple accounts)
 
 # ===============================================
@@ -700,6 +708,67 @@ def is_ffxiv_running_for_account(nickname):
         # If we can't check window status, assume not running
         return (False, None)
 
+def check_for_default_ffxiv_window():
+    """
+    Check if any window has the default "FINAL FANTASY XIV" title.
+    This indicates the plugin hasn't updated the window title yet.
+    
+    Returns True if default title found, False otherwise.
+    """
+    try:
+        found_default = False
+        
+        def enum_callback(hwnd, extra):
+            nonlocal found_default
+            if win32gui.IsWindow(hwnd) and win32gui.IsWindowVisible(hwnd):
+                title = win32gui.GetWindowText(hwnd)
+                if title.strip() == "FINAL FANTASY XIV":
+                    found_default = True
+        
+        win32gui.EnumWindows(enum_callback, None)
+        return found_default
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Error checking for default FFXIV window: {e}")
+        return False
+
+def wait_for_window_title_update(nickname):
+    """
+    Wait for a launched game's window title to update from "FINAL FANTASY XIV" to "ProcessID - nickname".
+    This ensures plugins have loaded and the window can be properly identified.
+    
+    Args:
+        nickname: The account nickname to wait for
+    
+    Returns True when title successfully updates (waits indefinitely until it does)
+    """
+    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+        # Skip check in single client mode (always uses default title)
+        return True
+    
+    check_count = 0
+    
+    while True:
+        # Check if default window exists
+        has_default_title = check_for_default_ffxiv_window()
+        
+        if not has_default_title:
+            # Default title is gone, check if our custom title exists
+            is_running, process_id = is_ffxiv_running_for_account(nickname)
+            if is_running and process_id:
+                if DEBUG:
+                    print(f"[WINDOW-TITLE] {nickname} window title updated to: {process_id} - {nickname}")
+                return True
+            elif DEBUG:
+                print(f"[WINDOW-TITLE] Check #{check_count + 1}: Default title gone but custom title not found yet for {nickname}")
+        else:
+            if DEBUG:
+                print(f"[WINDOW-TITLE] Check #{check_count + 1}: Default 'FINAL FANTASY XIV' title still active, waiting for plugin update...")
+        
+        # Wait before next check
+        time.sleep(WINDOW_TITLE_RESCAN)
+        check_count += 1
+
 def get_submarine_timers_for_account(account_entry):
     """
     Get all submarine timers for a single account.
@@ -1231,10 +1300,16 @@ def main():
                         
                         if launch_game(nickname):
                             last_launch_time[nickname] = current_time
-                            print(f"[AUTO-LAUNCH] Successfully launched {nickname}, waiting {OPEN_DELAY_THRESHOLD} seconds before next client...")
+                            print(f"[AUTO-LAUNCH] Successfully launched {nickname}, waiting {OPEN_DELAY_THRESHOLD} seconds for game startup...")
                             
-                            # Wait OPEN_DELAY_THRESHOLD before next launch
+                            # Wait OPEN_DELAY_THRESHOLD before checking window title
                             time.sleep(OPEN_DELAY_THRESHOLD)
+                            
+                            # Wait for window title to update (multi-client mode only)
+                            if not USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                                print(f"[AUTO-LAUNCH] Checking window title for {nickname}...")
+                                wait_for_window_title_update(nickname)
+                                print(f"[AUTO-LAUNCH] Window title confirmed for {nickname}")
                             
                             # Refresh window status for all accounts
                             if DEBUG:
