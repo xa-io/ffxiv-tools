@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.12 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.13 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -481,6 +481,7 @@ MAX_RUNTIME = 71                # Maximum allowed client uptime in hours before 
 ENABLE_AUTO_LAUNCH = True       # Enable automatic game launching
 AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if next sub <= 0.15 hours (9 minutes)
 OPEN_DELAY_THRESHOLD = 60       # Minimum 60 seconds between game launches
+WINDOW_TITLE_RESCAN = 5         # Seconds between window title update checks (waits for plugin to load)
 MAX_CLIENTS = 0                 # Maximum concurrent running clients (0 = unlimited, N = limit to N clients)
 ```
 
@@ -489,9 +490,17 @@ MAX_CLIENTS = 0                 # Maximum concurrent running clients (0 = unlimi
 - **When set to N**: Limits to N concurrent running game clients at a time
 - **Prioritizes force247uptime accounts**: Ensures 24/7 uptime clients launch first before submarine-ready clients
 - **Sequential Processing**: Opens clients one at a time with OPEN_DELAY_THRESHOLD wait between each
-- **Per-Client Workflow**: After launching each client, refreshes window status, waits OPEN_DELAY_THRESHOLD, arranges windows, then proceeds to next client
+- **Per-Client Workflow**: After launching each client, waits for game startup, checks window title updates, refreshes window status, arranges windows, then proceeds to next client
 - **Terminal Display**: Shows "Max Clients: N" in the terminal output when set to 1 or above (hidden when 0)
 - **Use Case**: Ideal for hardware-limited setups that can only run a set number of game instances due to RAM/CPU constraints
+
+**WINDOW_TITLE_RESCAN Behavior:**
+- **Purpose**: Ensures plugins have loaded before moving windows or launching next game
+- **How it works**: After OPEN_DELAY_THRESHOLD, checks if window title is still "FINAL FANTASY XIV" (default)
+- **Multi-Client Mode Only**: Skipped in single client mode since it always uses default title
+- **Polling**: Rechecks every WINDOW_TITLE_RESCAN seconds until title updates to "ProcessID - nickname"
+- **No Timeout**: Waits indefinitely until window title updates (never skips to next account)
+- **Benefit**: Ensures plugins have fully loaded and window can be properly identified before proceeding
 
 ### Window Layout Settings
 ```python
@@ -579,7 +588,9 @@ Press Ctrl+C to exit
 **Auto-Launch Example:**
 ```
 [AUTO-LAUNCH] Launching Acc1 - submarines nearly ready (0.1h)
-[AUTO-LAUNCH] Successfully launched Acc1, waiting 60 seconds before checking clients again.
+[AUTO-LAUNCH] Successfully launched Acc1, waiting 60 seconds for game startup...
+[AUTO-LAUNCH] Checking window title for Acc1...
+[AUTO-LAUNCH] Window title confirmed for Acc1
 [WINDOW-MOVER] Arranging windows with 'main' layout...
 [WINDOW-MOVER] Moved: '3056 - Acc1' -> (1920,0,1280,720)
 ```
@@ -820,6 +831,7 @@ The script will automatically load `window_layout_{name}.json` based on the `WIN
 
 ## Version History
 
+**v1.13** (2025-12-08) - Added window title update checking after game launch to ensure plugins have loaded before proceeding. After OPEN_DELAY_THRESHOLD, checks if window still has default "FINAL FANTASY XIV" title and waits indefinitely for plugin to update to "ProcessID - nickname" format. Uses WINDOW_TITLE_RESCAN (5s) polling interval. Only applies in multi-client mode. Removed timeout - will keep waiting until window title updates (never skips). Ensures reliable window detection before moving windows or launching next game.  
 **v1.12** (2025-12-05) - Enhanced auto-launch visual feedback with real-time client status display after each game launch, reducing console spam and improving visibility during sequential launches  
 **v1.11** (2025-11-26) - Added MAX_CLIENTS configuration for hardware-limited setups with sequential client processing, force247uptime prioritization, and terminal display  
 **v1.10** (2025-11-26) - Added restocking calculation with "Total Days Until Restocking Required" display  
