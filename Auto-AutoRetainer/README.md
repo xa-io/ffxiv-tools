@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.13 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.14 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -37,6 +37,7 @@ A comprehensive automation script that monitors submarine return times across mu
 - **Dual Refresh Rates**: 30-second timer updates, 60-second window status checks
 - **Ready Status Detection**: Shows when submarines are already returned and ready
 - **Gil Earnings Tracking**: Calculates total daily gil from all submarine builds
+- **Supply Cost Tracking**: Displays "Total Supply Cost Per Day" based on submarine consumption rates (Ceruleum Tank = 350 gil, Repair Kit = 2,000 gil)
 - **Process ID Tracking**: Monitors running game instances for each account (multi-client mode only)
 - **Restocking Alerts**: Displays "Total Days Until Restocking Required" showing the lowest value across all characters
 - **Build-Based Consumption**: Tracks Ceruleum tanks and Repair Kit usage per submarine build (9-14 tanks/day, 1.33-4 kits/day depending on route)
@@ -553,9 +554,10 @@ python Auto-AutoRetainer.py
 
 ```
 =====================================================================================
-FFXIV Submarine Timer Monitor
+Auto-Autoretainer v1.14
+FFXIV Game Instance Manager
 =====================================================================================
-Updated: 2025-11-26 11:44:56
+Updated: 2025-12-11 09:00:00
 =====================================================================================
 
 Main  (36 subs)  : -0.0 hours (7 READY)    [Running] PID: 11376 UPTIME: 1.6 hours
@@ -565,6 +567,7 @@ Total Subs: 0 / 36
 Total Gil Per Day: 4,193,236
 Total Subs Leveling: 0
 Total Subs Farming: 36
+Total Supply Cost Per Day: 12,345
 Total Days Until Restocking Required: 11
 =====================================================================================
 Press Ctrl+C to exit
@@ -831,6 +834,7 @@ The script will automatically load `window_layout_{name}.json` based on the `WIN
 
 ## Version History
 
+**v1.14** (2025-12-11) - Updated Daily Supply Cost Basis calculation and added to the display. Calculates total supply costs per day based on submarine consumption rates. Displays "Total Supply Cost Per Day" in terminal output (Ceruleum Tank = 350 gil, Repair Kit = 2,000 gil). Added version number display to terminal header for better tracking. Supply costs calculated using build_consumption_rates with default fallback (9 tanks/day, 1.33 kits/day).  
 **v1.13** (2025-12-08) - Added window title update checking after game launch to ensure plugins have loaded before proceeding. After OPEN_DELAY_THRESHOLD, checks if window still has default "FINAL FANTASY XIV" title and waits indefinitely for plugin to update to "ProcessID - nickname" format. Uses WINDOW_TITLE_RESCAN (5s) polling interval. Only applies in multi-client mode. Removed timeout - will keep waiting until window title updates (never skips). Ensures reliable window detection before moving windows or launching next game.  
 **v1.12** (2025-12-05) - Enhanced auto-launch visual feedback with real-time client status display after each game launch, reducing console spam and improving visibility during sequential launches  
 **v1.11** (2025-11-26) - Added MAX_CLIENTS configuration for hardware-limited setups with sequential client processing, force247uptime prioritization, and terminal display  
