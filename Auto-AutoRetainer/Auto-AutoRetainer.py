@@ -27,13 +27,18 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.13
+# Auto-AutoRetainer v1.14
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-12-08 14:30:00
+# Last Updated: 2025-12-11 09:00:00
 #
 # ## Release Notes ##
 #
+# v1.14 - Updated Daily Supply Cost Basis calculation and added to the display
+#         Calculates total supply costs per day based on submarine consumption rates
+#         Displays "Total Supply Cost Per Day" in terminal output (Ceruleum Tank = 350 gil, Repair Kit = 2000 gil)
+#         Added version number display to terminal header for better tracking
+#         Supply costs calculated using build_consumption_rates with default fallback (9 tanks/day, 1.33 kits/day)
 # v1.13 - Added window title update checking after game launch for reliable window detection
 #         After OPEN_DELAY_THRESHOLD wait, checks if default "FINAL FANTASY XIV" window title exists
 #         Waits indefinitely for plugin to update window title from default to "ProcessID - nickname" format
@@ -135,6 +140,8 @@ except ImportError:
 # ===============================================
 # Configuration Parameters
 # ===============================================
+VERSION = "v1.14"       # Current script version
+
 NICKNAME_WIDTH = 5      # Column width for account nicknames
 SUBS_COUNT_WIDTH = 11   # Column width for submarine count display
 HOURS_WIDTH = 24        # Column width for hours/ready status display
@@ -252,45 +259,45 @@ build_gil_rates = {
 # Tanks (Ceruleum) and Repair Kits per day for each build
 # ===============================================
 build_consumption_rates = {
-    # OJ Route (24h) - 9 tanks/day, 1.33 kits/day
+    # OJ Route (24h) - Unmod: 9/1.33, Mod: 9/3.43
     "WSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
     "SSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
-    "W+S+U+C+": {"tanks_per_day": 9.0, "kits_per_day": 1.33},  # WSUC++
-    "S+S+S+C+": {"tanks_per_day": 9.0, "kits_per_day": 1.33},  # SSSC++ (for OJ route)
+    "W+S+U+C+": {"tanks_per_day": 9.0, "kits_per_day": 3.43},  # WSUC++ (modified)
+    "S+S+S+C+": {"tanks_per_day": 9.0, "kits_per_day": 3.43},  # SSSC++ (modified for OJ route)
     
-    # MOJ Route (36h) - 10 tanks/day, 1.6 kits/day
-    "YUUW": {"tanks_per_day": 10.0, "kits_per_day": 1.6},
-    "Y+U+U+W+": {"tanks_per_day": 10.0, "kits_per_day": 1.6},  # YU+U+W+
+    # MOJ Route (36h) - Unmod: 7.5/1.40, Mod: 10/3.07
+    "YUUW": {"tanks_per_day": 7.5, "kits_per_day": 1.40},
+    "Y+U+U+W+": {"tanks_per_day": 10.0, "kits_per_day": 3.07},  # YU+U+W+ (modified)
     
-    # ROJ Route (36h) - 10 tanks/day, 1.67 kits/day
+    # ROJ Route (36h) - Unmod: 10/1.67, Mod: 10/3.20
     "WCSU": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
     "WUSS": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
-    "W+U+S+S+": {"tanks_per_day": 10.0, "kits_per_day": 1.67},  # WUSS++
+    "W+U+S+S+": {"tanks_per_day": 10.0, "kits_per_day": 3.20},  # WUSS++ (modified)
     
-    # JOZ Route (36h) - 10 tanks/day, 2.5 kits/day
-    "YSYC": {"tanks_per_day": 10.0, "kits_per_day": 2.5},
-    "Y+S+Y+C+": {"tanks_per_day": 10.0, "kits_per_day": 2.5},  # YS+YC+
+    # JOZ Route (36h) - Unmod: 10/2.50, Mod: 10/3.20
+    "YSYC": {"tanks_per_day": 10.0, "kits_per_day": 2.50},
+    "Y+S+Y+C+": {"tanks_per_day": 10.0, "kits_per_day": 3.20},  # YS+YC+ (modified)
     
-    # WCYC builds (JORZ 48h) - 10.5 tanks/day, 3 kits/day
-    "WCYC": {"tanks_per_day": 10.5, "kits_per_day": 3.0},
-    "WUWC": {"tanks_per_day": 10.5, "kits_per_day": 3.0},
-    "W+U+W+C+": {"tanks_per_day": 10.5, "kits_per_day": 3.0},  # WUWC++
+    # MROJ Route (36h) - Unmod: 14/1.78, Mod: 14/4.00
+    # SSUC appears on MROJ at rank 99 (unmodified)
+    # SSSC++/SSUC++ are modified builds for MROJ
     
-    # YSCU/SCUS builds (MROJZ 48h) - 13.5 tanks/day, 4 kits/day
-    "YSCU": {"tanks_per_day": 13.5, "kits_per_day": 4.0},
-    "SCUS": {"tanks_per_day": 13.5, "kits_per_day": 4.0},
-    "S+C+U+S+": {"tanks_per_day": 13.5, "kits_per_day": 4.0},  # SCUS++
+    # JORZ Route (36h) - Unmod: 14/1.78, Mod: 14/3.67
+    "S+S+U+C": {"tanks_per_day": 14.0, "kits_per_day": 3.67},  # SSUC modified for JORZ
+    
+    # JORZ 48h Route - Unmod: 10.5/2.00, Mod: 10.5/3.00
+    "WCYC": {"tanks_per_day": 10.5, "kits_per_day": 2.00},
+    "WUWC": {"tanks_per_day": 10.5, "kits_per_day": 2.00},
+    "W+U+W+C+": {"tanks_per_day": 10.5, "kits_per_day": 3.00},  # WUWC++ (modified)
+    
+    # MOJZ Route (36h) - Unmod: 14/1.78, Mod: 14/4.00
+    "S+S+U+C+": {"tanks_per_day": 14.0, "kits_per_day": 4.0},  # SSUC++ (modified for MOJZ/MROJ)
+    
+    # MROJZ Route (48h) - Unmod: 9/1.67, Mod: 13.5/4.00
+    "YSCU": {"tanks_per_day": 9.0, "kits_per_day": 1.67},
+    "SCUS": {"tanks_per_day": 9.0, "kits_per_day": 1.67},
+    "S+C+U+S+": {"tanks_per_day": 13.5, "kits_per_day": 4.0},  # SCUS++ (modified)
 }
-
-# For builds that can be on multiple routes, use the highest consumption rate
-# SSSC++ and SSUC++ appear in multiple routes - use MROJ/JORZ rates (14 tanks, 1.78-4 kits)
-if "S+S+S+C+" not in build_consumption_rates or build_consumption_rates["S+S+S+C+"]["tanks_per_day"] < 14:
-    build_consumption_rates["S+S+S+C+"] = {"tanks_per_day": 14.0, "kits_per_day": 1.78}  # MROJ rate
-if "S+S+U+C+" not in build_consumption_rates or build_consumption_rates["S+S+U+C+"]["tanks_per_day"] < 14:
-    build_consumption_rates["S+S+U+C+"] = {"tanks_per_day": 14.0, "kits_per_day": 4.0}  # MOJZ rate (highest kit usage)
-
-# SSUC unmodified appears in multiple routes - use JORZ rate (14 tanks, 1.78 kits)
-build_consumption_rates["S+S+U+C"] = {"tanks_per_day": 14.0, "kits_per_day": 1.78}
 
 # Submarine Part Constants for build detection
 SUB_PARTS_LOOKUP = {
@@ -908,7 +915,7 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None):
         client_start_times = {}
     
     print("=" * 85)
-    print("FFXIV Submarine Timer Monitor")
+    print(f"Auto-Autoretainer {VERSION}\nFFXIV Game Instance Manager")
     print("=" * 85)
     print(f"Updated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 85)
@@ -1085,6 +1092,23 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None):
     
     leveling_subs_count = total_all_subs - farming_subs_count
     
+    # Calculate total supply cost per day (tanks and repair kits)
+    total_tanks_per_day = 0
+    total_kits_per_day = 0
+    for build in all_builds:
+        if build in build_consumption_rates:
+            total_tanks_per_day += build_consumption_rates[build]["tanks_per_day"]
+            total_kits_per_day += build_consumption_rates[build]["kits_per_day"]
+        else:
+            # Default consumption for unlisted builds (leveling submarines)
+            total_tanks_per_day += 9.0
+            total_kits_per_day += 1.33
+    
+    # Calculate costs (Ceruleum Tank = 350 gil, Repair Kit = 2000 gil)
+    tank_cost = 350
+    kit_cost = 2000
+    total_supply_cost_per_day = int((total_tanks_per_day * tank_cost) + (total_kits_per_day * kit_cost))
+    
     # Calculate minimum days until restocking
     min_days_until_restocking = min(all_days_remaining) if all_days_remaining else None
     
@@ -1093,6 +1117,7 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None):
     print(f"Total Gil Per Day: {total_daily_gil:,}")
     print(f"Total Subs Leveling: {leveling_subs_count}")
     print(f"Total Subs Farming: {farming_subs_count}")
+    print(f"Total Supply Cost Per Day: {total_supply_cost_per_day:,}")
     if min_days_until_restocking is not None:
         print(f"Total Days Until Restocking Required: {min_days_until_restocking}")
     if MAX_CLIENTS > 0:
