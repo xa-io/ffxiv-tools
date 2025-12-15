@@ -27,13 +27,24 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.14
+# Auto-AutoRetainer v1.15
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-12-11 09:00:00
+# Last Updated: 2025-12-15 15:25:00
 #
 # ## Release Notes ##
 #
+# v1.15 - Enhanced submarine processing detection and added FORCE_CRASH_TIMER for frozen client detection
+#         Submarine processing now accurately tracks subs sent per scan by counting decrease in ready submarines
+#         Processing count = (previous ready count - current ready count) - eliminates false positives from total-ready calculations
+#         Added detailed debug output showing ready subs, voyaging subs, and newly sent subs per scan
+#         FORCE_CRASH_INACTIVITY_MINUTES = 30 minutes (configurable) - crashes client if DefaultConfig.json not modified
+#         Monitoring activates CRASH_MONITOR_DELAY hours after submarines become ready (ensures game has fully loaded)
+#         Automatically stops monitoring during (WAITING) status and restarts timer when subs become ready again
+#         Checks every cycle if AR file hasn't been updated in 30+ minutes → crashes client
+#         Deactivates monitoring when force247uptime=True and all subs processed (no ready subs)
+#         Resets timer and starts new countdown when subs become ready again
+#         Handles frozen clients, lost connections, stuck in character select, and other stuck scenarios
 # v1.14 - Updated Daily Supply Cost Basis calculation and added to the display
 #         Calculates total supply costs per day based on submarine consumption rates
 #         Displays "Total Supply Cost Per Day" in terminal output (Ceruleum Tank = 350 gil, Repair Kit = 2000 gil)
@@ -140,40 +151,47 @@ except ImportError:
 # ===============================================
 # Configuration Parameters
 # ===============================================
-VERSION = "v1.14"       # Current script version
+VERSION = "v1.15"       # Current script version
 
-NICKNAME_WIDTH = 5      # Column width for account nicknames
-SUBS_COUNT_WIDTH = 11   # Column width for submarine count display
-HOURS_WIDTH = 24        # Column width for hours/ready status display
-STATUS_WIDTH = 10       # Column width for game status (Running/Closed)
-PID_WIDTH = 11          # Column width for PID display (e.g., "PID: 12345 ")
-TIMER_REFRESH_INTERVAL = 30   # Refresh submarine timers every 30 seconds
-WINDOW_REFRESH_INTERVAL = 60  # Check game window status every 60 seconds
+# Display settings
+NICKNAME_WIDTH = 5      # Display column width for account nicknames in terminal output
+SUBS_COUNT_WIDTH = 11   # Display column width for submarine count (e.g., "Subs: 4/4")
+HOURS_WIDTH = 24        # Display column width for submarine return times/ready status
+STATUS_WIDTH = 10       # Display column width for game status (Running/Closed/Up 24/7)
+PID_WIDTH = 11          # Display column width for process ID (e.g., "PID: 12345")
+
+# Timer settings
+TIMER_REFRESH_INTERVAL = 30     # Main loop cycle time (seconds) - updates submarine timers and checks for launch/close conditions
+WINDOW_REFRESH_INTERVAL = 60    # How often (seconds) to scan running processes to detect which game clients are open/closed
 
 # Auto-close game settings
-ENABLE_AUTO_CLOSE = True        # Enable automatic game closing when subs not ready soon
-AUTO_CLOSE_THRESHOLD = 0.5      # Close game if soonest sub return time > this many hours
-MAX_RUNTIME = 71
+ENABLE_AUTO_CLOSE = True            # Enable automatic closing of game clients when submarines are not ready soon
+AUTO_CLOSE_THRESHOLD = 0.5          # Close game if soonest submarine return time exceeds this many hours (0.5h = 30 minutes)
+MAX_RUNTIME = 71                    # Force close any game client that has been running for this many hours (prevents indefinite uptime)
+FORCE_CRASH_INACTIVITY_MINUTES = 10 # Force crash client if no submarine processing detected for this many minutes (when subs are ready and monitoring active)
+CRASH_MONITOR_DELAY = 0.2           # Hours to wait after subs become ready before activating force-crash monitoring (ensures game has fully loaded)
 
 # Auto-launch game settings
-ENABLE_AUTO_LAUNCH = True       # Enable automatic game launching when subs nearly ready
-AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if soonest sub return time <= this many hours (9 minutes)
-OPEN_DELAY_THRESHOLD = 60       # Minimum seconds between game launches (prevents opening multiple games too quickly)
-WINDOW_TITLE_RESCAN = 5         # Seconds to wait between window title update checks (waits for plugin to rename window)
-MAX_CLIENTS = 0                 # Maximum concurrent running clients (0 = unlimited, N = limit to N clients)
-                                # Used for hardware-limited setups that can only run a set number of game instances
+ENABLE_AUTO_LAUNCH = True       # Enable automatic launching of game clients when submarines are nearly ready
+AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if soonest submarine return time is at or below this many hours (0.15h = 9 minutes)
+OPEN_DELAY_THRESHOLD = 60       # Minimum seconds to wait between launching the same account (rate limiting per account, prevents launch spam)
+WINDOW_TITLE_RESCAN = 5         # Seconds to wait between each window title check after launch (polling interval for plugin to rename window)
+MAX_WINDOW_TITLE_RESCAN = 20    # Maximum number of title check attempts before giving up (20 checks × 5s = 100s timeout, then kills stuck process and retries)
+MAX_CLIENTS = 0                 # Maximum concurrent running game clients allowed (0 = unlimited, N = caps at N clients for hardware-limited systems)
+                                # When limit reached, prioritizes force247uptime accounts first, then submarine-ready accounts
 
 # Window arrangement settings
-ENABLE_WINDOW_LAYOUT = False     # Enable automatic window arrangement after launching games
-WINDOW_LAYOUT = "main"          # Which layout to use: "left" or "main"
-WINDOW_MOVER_DIR = Path(__file__).parent  # Local folder where window layout JSON files are stored
+ENABLE_WINDOW_LAYOUT = False                 # Enable automatic positioning/sizing of game windows after launch (requires window layout JSON files)
+WINDOW_LAYOUT = "main"                       # Which layout configuration to use: "left" (SubTimers_left) or "main" (SubTimers_main)
+WINDOW_MOVER_DIR = Path(__file__).parent     # Directory containing window layout JSON files (windows_layout_left.json / windows_layout_main.json)
 
 # Debug settings
-DEBUG = False                   # Show debug output (auto-launch checks, window detection, etc.)
+DEBUG = False                   # Show verbose debug output (auto-launch eligibility checks, window detection, process tracking, etc.)
 
 # Single client mode settings
-USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = True   # If True, uses default FFXIV window title (single account only)
-                                             # If False, uses "ProcessID - nickname" format (multiple accounts)
+USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = True    # If True: uses default "FINAL FANTASY XIV" window title (single account mode, no Dalamud renaming needed)
+                                              # If False: expects "ProcessID - nickname" window titles (multi-account mode, requires Dalamud plugin for window renaming)
+                                              # Single client mode is intended for single-account setups where the game window title does not need to be customized
 
 # ===============================================
 # Account locations
@@ -355,7 +373,6 @@ CLASS_SHORTCUTS = {
     "Modified Coelacanth-class": "C+",
     "Modified Syldra-class": "Y+"
 }
-
 
 def collect_characters(full_data, account_nickname):
     """Extract characters from AutoRetainer JSON data"""
@@ -664,6 +681,7 @@ def get_ffxiv_process_start_time():
             print(f"[DEBUG] Could not find ffxiv_dx11.exe process: {e}")
         return None
 
+
 def is_ffxiv_running_for_account(nickname):
     """
     Check if FFXIV is running for a specific account.
@@ -747,7 +765,7 @@ def wait_for_window_title_update(nickname):
     Args:
         nickname: The account nickname to wait for
     
-    Returns True when title successfully updates (waits indefinitely until it does)
+    Returns True when title successfully updates, False if max attempts reached
     """
     if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
         # Skip check in single client mode (always uses default title)
@@ -755,7 +773,7 @@ def wait_for_window_title_update(nickname):
     
     check_count = 0
     
-    while True:
+    while check_count < MAX_WINDOW_TITLE_RESCAN:
         # Check if default window exists
         has_default_title = check_for_default_ffxiv_window()
         
@@ -775,6 +793,10 @@ def wait_for_window_title_update(nickname):
         # Wait before next check
         time.sleep(WINDOW_TITLE_RESCAN)
         check_count += 1
+    
+    # Max attempts reached without successful title update
+    print(f"[WINDOW-TITLE] Max attempts ({MAX_WINDOW_TITLE_RESCAN}) reached for {nickname}, will restart launch")
+    return False
 
 def get_submarine_timers_for_account(account_entry):
     """
@@ -889,6 +911,83 @@ def get_submarine_timers_for_account(account_entry):
         print(f"[ERROR] Failed to process {nickname}: {e}")
     
     return result
+
+def detect_submarine_processing(account_entry, submarine_state_cache, current_time):
+    """
+    Detect submarine processing by comparing cached submarine return times to current times.
+    Returns the number of submarines that transitioned from negative (ready) to positive (sent out) since last scan.
+    
+    Args:
+        account_entry: Dictionary with account information including auto_path
+        submarine_state_cache: Dictionary caching previous submarine return times by nickname
+        current_time: Current timestamp for calculating return times
+    
+    Returns:
+        int: Number of submarines processed (negative -> positive transitions)
+    """
+    nickname = account_entry["nickname"]
+    auto_path = account_entry["auto_path"]
+    
+    if not os.path.isfile(auto_path):
+        return 0
+    
+    try:
+        with open(auto_path, "r", encoding="utf-8-sig") as f:
+            data = json.load(f)
+        
+        chars = collect_characters(data, account_nickname=nickname)
+        current_return_times = []  # List of (sub_name, hours_remaining) tuples
+        
+        for char in chars:
+            offline_sub_data = char.get("OfflineSubmarineData", [])
+            
+            for sub_dict in offline_sub_data:
+                sub_name = sub_dict.get("Name", "")
+                return_timestamp = sub_dict.get("ReturnTime", 0)
+                
+                if return_timestamp > 0:
+                    # Convert to hours remaining (can be negative if already returned)
+                    hours_remaining = (return_timestamp - current_time) / 3600
+                    current_return_times.append((sub_name, hours_remaining))
+        
+        # Count current submarine states
+        ready_subs = sum(1 for _, hours in current_return_times if hours < 0)
+        voyaging_subs = sum(1 for _, hours in current_return_times if hours > 0)
+        
+        # Get cached ready count for this account
+        cached_state = submarine_state_cache.get(nickname, {})
+        
+        # If cache is empty, initialize it but don't count anything as processed
+        if not cached_state:
+            submarine_state_cache[nickname] = {
+                'ready_count': ready_subs,
+                'voyaging_count': voyaging_subs
+            }
+            if DEBUG:
+                print(f"[DEBUG] {nickname}: Initializing cache - {ready_subs} ready, {voyaging_subs} voyaging, 0 newly sent")
+            return 0
+        
+        # Calculate processed count based on decrease in ready submarines
+        # When ready count decreases, those subs were sent out on voyages
+        previous_ready = cached_state.get('ready_count', ready_subs)
+        processed_count = max(0, previous_ready - ready_subs)
+        
+        # Update cache with current counts
+        submarine_state_cache[nickname] = {
+            'ready_count': ready_subs,
+            'voyaging_count': voyaging_subs
+        }
+        
+        # Enhanced debug output
+        if DEBUG and processed_count > 0:
+            print(f"[DEBUG] {nickname}: {ready_subs} ready, {voyaging_subs} voyaging, {processed_count} newly sent this scan")
+        
+        return processed_count
+    
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Error detecting submarine processing for {nickname}: {e}")
+        return 0
 
 def format_hours(hours, ready_count=0, is_running=False):
     """Format hours with + prefix for positive values and ready count"""
@@ -1148,6 +1247,9 @@ def main():
         last_launch_time = {}  # Track last launch time for each account to enforce rate limiting
         client_start_times = {}  # Track process start times (will be populated with actual times)
         initial_arrangement_done = False  # Track if we've done initial window arrangement
+        subs_ready_timestamp = {}  # Track when subs first became ready for each account (for force crash monitoring)
+        submarine_state_cache = {}  # Cache submarine return times by nickname to detect processing (negative → positive transitions)
+        last_sub_processed = {}  # Track timestamp of last detected submarine processing by nickname
         
         # Initialize client_start_times with actual process start times for already-running games
         if PSUTIL_AVAILABLE:
@@ -1281,7 +1383,28 @@ def main():
                         # Skip if already running
                         if is_running:
                             if DEBUG:
-                                print(f"[DEBUG] {nickname}: Already running, skipping")
+                                debug_msg = f"[DEBUG] {nickname}: Already running, skipping"
+                                
+                                # Add force-close timer info if monitoring is active
+                                if nickname in subs_ready_timestamp:
+                                    subs_ready_time = subs_ready_timestamp[nickname]
+                                    monitoring_start_time = subs_ready_time + (CRASH_MONITOR_DELAY * 3600)
+                                    
+                                    if current_time >= monitoring_start_time:
+                                        # Monitoring is active - show inactivity timer
+                                        if nickname in last_sub_processed:
+                                            minutes_since_processing = (current_time - last_sub_processed[nickname]) / 60
+                                            minutes_until_crash = FORCE_CRASH_INACTIVITY_MINUTES - minutes_since_processing
+                                            debug_msg += f" [Force-Close] Last sub processed {minutes_since_processing:.1f} minutes ago. Force close in {minutes_until_crash:.1f} minutes."
+                                        else:
+                                            # No processing detected yet
+                                            debug_msg += f" [Force-Close] Monitoring active, no submarine processing detected yet."
+                                    else:
+                                        # Still in countdown phase - show time until monitoring starts
+                                        time_until_monitoring = (monitoring_start_time - current_time) / 60
+                                        debug_msg += f" [Force-Close] Monitoring starts in {time_until_monitoring:.1f} minutes"
+                                
+                                print(debug_msg)
                             continue
                         
                         # Check rate limiting
@@ -1331,10 +1454,19 @@ def main():
                             time.sleep(OPEN_DELAY_THRESHOLD)
                             
                             # Wait for window title to update (multi-client mode only)
+                            title_updated = True
                             if not USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
                                 print(f"[AUTO-LAUNCH] Checking window title for {nickname}...")
-                                wait_for_window_title_update(nickname)
-                                print(f"[AUTO-LAUNCH] Window title confirmed for {nickname}")
+                                title_updated = wait_for_window_title_update(nickname)
+                                if title_updated:
+                                    print(f"[AUTO-LAUNCH] Window title confirmed for {nickname}")
+                                else:
+                                    print(f"[AUTO-LAUNCH] Window title check failed for {nickname}, killing process and will retry...")
+                                    # Kill any ffxiv_dx11.exe process that may be stuck
+                                    kill_ffxiv_process()
+                                    # Reset launch time to allow immediate retry
+                                    last_launch_time[nickname] = 0
+                                    continue
                             
                             # Refresh window status for all accounts
                             if DEBUG:
@@ -1504,6 +1636,106 @@ def main():
                                 del client_start_times[process_id]
                         else:
                             print(f"[AUTO-CLOSE] Failed to close {nickname}")
+            
+            # Force crash timer - check for frozen/stuck clients
+            for account_entry in account_locations:
+                nickname = account_entry["nickname"]
+                include_subs = account_entry.get("include_submarines", True)
+                force247 = account_entry.get("force247uptime", False)
+                auto_path = account_entry["auto_path"]
+                
+                # Skip if submarines disabled
+                if not include_subs:
+                    continue
+                
+                # Get game status
+                game_info = game_status_dict.get(nickname, (None, None))
+                is_running = game_info[0]
+                process_id = game_info[1]
+                
+                # Only check if game is running
+                if not is_running:
+                    # Clean up tracking if game not running
+                    if nickname in subs_ready_timestamp:
+                        del subs_ready_timestamp[nickname]
+                    continue
+                
+                # Get submarine timer data
+                timer_data = get_submarine_timers_for_account(account_entry)
+                ready_subs = timer_data.get("ready_subs", 0)
+                soonest_hours = timer_data.get("soonest_hours")
+                
+                # Only monitor when ENABLE_AUTO_CLOSE is True and in (READY) status - when ready_subs > 0
+                # Stop monitoring when in (WAITING) status or when subs are not ready
+                if ENABLE_AUTO_CLOSE and ready_subs > 0:
+                    # Subs are ready - activate or continue monitoring
+                    if nickname not in subs_ready_timestamp:
+                        # Record timestamp when subs first became ready - start new 30min timer
+                        subs_ready_timestamp[nickname] = current_time
+                        if DEBUG:
+                            print(f"[FORCE-CRASH] {nickname}: Subs ready, starting {CRASH_MONITOR_DELAY}h countdown for monitoring activation")
+                else:
+                    # No ready subs - deactivate monitoring (for all accounts, not just force247uptime)
+                    # This includes (WAITING) status when ready_subs=0 and next sub < AUTO_CLOSE_THRESHOLD
+                    if nickname in subs_ready_timestamp:
+                        del subs_ready_timestamp[nickname]
+                        if DEBUG:
+                            print(f"[FORCE-CRASH] {nickname}: All subs processed, deactivating force crash monitoring")
+                    continue
+                
+                # Check if we should start monitoring (CRASH_MONITOR_DELAY hours after subs became ready)
+                if nickname in subs_ready_timestamp:
+                    subs_ready_time = subs_ready_timestamp[nickname]
+                    monitoring_start_time = subs_ready_time + (CRASH_MONITOR_DELAY * 3600)  # Convert hours to seconds
+                    
+                    # Only monitor if enough time has passed
+                    if current_time >= monitoring_start_time:
+                        # Detect submarine processing activity
+                        processed_count = detect_submarine_processing(account_entry, submarine_state_cache, datetime.datetime.now().timestamp())
+                        
+                        if processed_count > 0:
+                            # Submarine processing detected - reset inactivity timer
+                            last_sub_processed[nickname] = current_time
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: {processed_count} sub(s) processed, resetting inactivity timer")
+                        
+                        # Check inactivity timer if we have a last processed timestamp
+                        if nickname in last_sub_processed:
+                            minutes_since_processing = (current_time - last_sub_processed[nickname]) / 60
+                            
+                            # Force crash if no processing detected for FORCE_CRASH_INACTIVITY_MINUTES
+                            if minutes_since_processing > FORCE_CRASH_INACTIVITY_MINUTES:
+                                time_since_ready = (current_time - subs_ready_time) / 3600
+                                print(f"\n[FORCE-CRASH] Crashing {nickname} (PID: {process_id}) - No submarine processing for {minutes_since_processing:.1f}m (subs ready for {time_since_ready:.1f}h)")
+                                
+                                # Use appropriate kill method
+                                kill_success = False
+                                if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                                    kill_success = kill_ffxiv_process()
+                                else:
+                                    kill_success = kill_process_by_pid(process_id)
+                                
+                                if kill_success:
+                                    closed_pids.add(process_id) if process_id else None
+                                    print(f"[FORCE-CRASH] Successfully crashed {nickname} - likely frozen/stuck, waiting {TIMER_REFRESH_INTERVAL} seconds before relaunch")
+                                    # Update game status immediately
+                                    game_status_dict[nickname] = (False, None)
+                                    # Clear tracking
+                                    if nickname in subs_ready_timestamp:
+                                        del subs_ready_timestamp[nickname]
+                                    if nickname in last_sub_processed:
+                                        del last_sub_processed[nickname]
+                                    # Reset launch time to allow immediate relaunch
+                                    if nickname in last_launch_time:
+                                        del last_launch_time[nickname]
+                                    # Clean up start time tracking
+                                    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                                        if 'ffxiv_single' in client_start_times:
+                                            del client_start_times['ffxiv_single']
+                                    elif process_id and process_id in client_start_times:
+                                        del client_start_times[process_id]
+                                else:
+                                    print(f"[FORCE-CRASH] Failed to crash {nickname}")
             
             # Wait for TIMER_REFRESH_INTERVAL seconds before next timer update
             time.sleep(TIMER_REFRESH_INTERVAL)
