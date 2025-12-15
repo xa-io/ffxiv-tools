@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.14 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.15 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -472,10 +472,32 @@ WINDOW_REFRESH_INTERVAL = 60   # Check game window status every 60 seconds
 
 ### Auto-Close Settings
 ```python
-ENABLE_AUTO_CLOSE = True        # Enable automatic game closing
+ENABLE_AUTO_CLOSE = True        # Enable automatic game closing and crash monitoring
 AUTO_CLOSE_THRESHOLD = 0.5      # Close game if next sub > 0.5 hours (30 minutes)
 MAX_RUNTIME = 71                # Maximum allowed client uptime in hours before a forced restart
+FORCE_CRASH_INACTIVITY_MINUTES = 10  # Force crash client if no submarine processing detected for this many minutes (only works when ENABLE_AUTO_CLOSE = True)
+CRASH_MONITOR_DELAY = 0.2       # Hours to wait after subs become ready before activating force-crash monitoring (only works when ENABLE_AUTO_CLOSE = True)
 ```
+
+**FORCE_CRASH_INACTIVITY_MINUTES and CRASH_MONITOR_DELAY Behavior:**
+- **⚠️ Requires ENABLE_AUTO_CLOSE = True**: Both parameters are completely disabled when ENABLE_AUTO_CLOSE = False
+- **Purpose**: Detects and crashes frozen, disconnected, or stuck game clients
+- **Detection Method**: Tracks submarine processing by counting decrease in ready submarines per scan (ready-count-based detection)
+- **Processing Count**: `processed = (previous ready count - current ready count)` - accurately reflects actual subs sent per scan
+- **Monitoring Activation**: Starts CRASH_MONITOR_DELAY hours after submarines become ready (ensures game fully loaded)
+- **Inactivity Check**: Crashes client if no submarine processing detected for FORCE_CRASH_INACTIVITY_MINUTES
+- **When Active**: Only monitors when ENABLE_AUTO_CLOSE = True AND during (READY) status when ready_subs > 0 and CRASH_MONITOR_DELAY has elapsed
+- **When Inactive**: If ENABLE_AUTO_CLOSE = False, crash monitoring is completely disabled regardless of other settings
+- **Deactivation**: Stops monitoring when ready_subs = 0 (includes WAITING status and all accounts)
+- **Timer Reset**: When submarine processing detected (ready count decreases), resets inactivity timer to 0
+- **Countdown Reset**: When subs become ready again (ready_subs > 0), creates new timestamp and starts new CRASH_MONITOR_DELAY countdown
+- **Enhanced Debug Output**: Shows ready subs, voyaging subs, and newly sent subs per scan when DEBUG=True
+- **Handles Multiple Scenarios**:
+  - Frozen game client (no response)
+  - Lost network connection (disconnected but process running)
+  - Stuck in character select menu
+  - Any scenario preventing AutoRetainer from processing submarines
+- **Recovery**: After crash, script automatically relaunches game via auto-launch logic
 
 ### Auto-Launch Settings
 ```python
@@ -483,6 +505,7 @@ ENABLE_AUTO_LAUNCH = True       # Enable automatic game launching
 AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if next sub <= 0.15 hours (9 minutes)
 OPEN_DELAY_THRESHOLD = 60       # Minimum 60 seconds between game launches
 WINDOW_TITLE_RESCAN = 5         # Seconds between window title update checks (waits for plugin to load)
+MAX_WINDOW_TITLE_RESCAN = 20    # Maximum title check attempts before killing stuck process (20 × 5s = 100s timeout)
 MAX_CLIENTS = 0                 # Maximum concurrent running clients (0 = unlimited, N = limit to N clients)
 ```
 
@@ -495,12 +518,20 @@ MAX_CLIENTS = 0                 # Maximum concurrent running clients (0 = unlimi
 - **Terminal Display**: Shows "Max Clients: N" in the terminal output when set to 1 or above (hidden when 0)
 - **Use Case**: Ideal for hardware-limited setups that can only run a set number of game instances due to RAM/CPU constraints
 
+**MAX_WINDOW_TITLE_RESCAN Behavior:**
+- **Purpose**: Prevents infinite loops when game crashes during startup
+- **How it works**: Limits window title checks to MAX_WINDOW_TITLE_RESCAN attempts (default: 20 checks × 5s = 100s timeout)
+- **Timeout Action**: If max attempts reached without title update, kills stuck ffxiv_dx11.exe process and retries launch
+- **Recovery**: Resets launch time to 0 to allow immediate retry after killing stuck process
+- **Multi-Client Mode Only**: Only applies when USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = False
+- **Benefit**: Prevents "[WINDOW-TITLE] Check #X" message spam and ensures script recovers from startup failures
+
 **WINDOW_TITLE_RESCAN Behavior:**
 - **Purpose**: Ensures plugins have loaded before moving windows or launching next game
 - **How it works**: After OPEN_DELAY_THRESHOLD, checks if window title is still "FINAL FANTASY XIV" (default)
 - **Multi-Client Mode Only**: Skipped in single client mode since it always uses default title
 - **Polling**: Rechecks every WINDOW_TITLE_RESCAN seconds until title updates to "ProcessID - nickname"
-- **No Timeout**: Waits indefinitely until window title updates (never skips to next account)
+- **Timeout Protection**: MAX_WINDOW_TITLE_RESCAN prevents infinite waiting if game crashes during startup
 - **Benefit**: Ensures plugins have fully loaded and window can be properly identified before proceeding
 
 ### Window Layout Settings
@@ -834,6 +865,7 @@ The script will automatically load `window_layout_{name}.json` based on the `WIN
 
 ## Version History
 
+**v1.15** (2025-12-15) - Enhanced submarine processing detection and added FORCE_CRASH_INACTIVITY_MINUTES for frozen client detection. Submarine processing now accurately tracks subs sent per scan by counting decrease in ready submarines. Processing count = (previous ready count - current ready count) - eliminates false positives from total-ready calculations. Added detailed debug output showing ready subs, voyaging subs, and newly sent subs per scan. FORCE_CRASH_INACTIVITY_MINUTES (default: 10 minutes, configurable) crashes client if no submarine processing detected. Monitoring activates CRASH_MONITOR_DELAY hours after submarines become ready (ensures game has fully loaded). Automatically stops monitoring during (WAITING) status and restarts timer when subs become ready again. Deactivates monitoring when force247uptime=True and all subs processed (no ready subs). Resets timer and starts new countdown when subs become ready again. Handles frozen clients, lost connections, stuck in character select, and other stuck scenarios. Added get_file_modification_time() helper function for AR file staleness detection. **Important:** FORCE_CRASH_INACTIVITY_MINUTES and CRASH_MONITOR_DELAY are now conditional on ENABLE_AUTO_CLOSE = True. When ENABLE_AUTO_CLOSE = False, crash monitoring is completely disabled.  
 **v1.14** (2025-12-11) - Updated Daily Supply Cost Basis calculation and added to the display. Calculates total supply costs per day based on submarine consumption rates. Displays "Total Supply Cost Per Day" in terminal output (Ceruleum Tank = 350 gil, Repair Kit = 2,000 gil). Added version number display to terminal header for better tracking. Supply costs calculated using build_consumption_rates with default fallback (9 tanks/day, 1.33 kits/day).  
 **v1.13** (2025-12-08) - Added window title update checking after game launch to ensure plugins have loaded before proceeding. After OPEN_DELAY_THRESHOLD, checks if window still has default "FINAL FANTASY XIV" title and waits indefinitely for plugin to update to "ProcessID - nickname" format. Uses WINDOW_TITLE_RESCAN (5s) polling interval. Only applies in multi-client mode. Removed timeout - will keep waiting until window title updates (never skips). Ensures reliable window detection before moving windows or launching next game.  
 **v1.12** (2025-12-05) - Enhanced auto-launch visual feedback with real-time client status display after each game launch, reducing console spam and improving visibility during sequential launches  
