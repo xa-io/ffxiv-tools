@@ -7,6 +7,8 @@
 
 # If this doesn't work, open command prompt as admin and run the following command: pip install requests
 
+# Updated to work on 7.4
+
 import json
 import os
 import requests
