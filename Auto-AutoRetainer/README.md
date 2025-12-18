@@ -1,6 +1,7 @@
 # Auto-AutoRetainer v1.15 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
+<img width="773" height="676" alt="image" src="https://github.com/user-attachments/assets/af75a1c2-10aa-4776-8ef2-c8a6fe499c78" />
 
 A comprehensive automation script that monitors submarine return times across multiple FFXIV accounts and automatically manages game instances for optimal submarine collection. Integrates with AutoRetainer plugin data to track submarine voyages and calculates daily gil earnings.
 
@@ -322,7 +323,7 @@ public unsafe sealed class RenameWindow : SplatoonScript
         {
             fixed(char* ptr = name)
             {
-                TerraFX.Interop.Windows.Windows.SetWindowText(hwnd, (ushort*)ptr);
+                TerraFX.Interop.Windows.Windows.SetWindowText(hwnd, ptr);
             }
         }
         else
