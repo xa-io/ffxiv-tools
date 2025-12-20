@@ -27,13 +27,25 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.15
+# Auto-AutoRetainer v1.16
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-12-15 15:25:00
+# Last Updated: 2025-12-19 21:00:00
 #
 # ## Release Notes ##
 #
+# v1.16 - Added launcher detection with automatic retry and system bootup delay features
+#         FORCE_LAUNCHER_RETRY = 3 attempts when XIVLauncher.exe opens as ACTIVE APP instead of game client
+#         Detects XIVLauncher with visible windows (stuck at login screen) during game startup monitoring
+#         Ignores XIVLauncher as background process (normal state when game running) to prevent false positives
+#         Uses win32gui window enumeration to distinguish active launcher UI from background process
+#         Kills launcher and retries game launch up to FORCE_LAUNCHER_RETRY times before marking account as [LAUNCHER]
+#         Single client mode: stops monitoring account after max retries (script continues but won't launch)
+#         Multi-client mode: marks failed account as [LAUNCHER] and continues processing other accounts
+#         SYSTEM_BOOTUP_DELAY (configurable delay before script starts monitoring)
+#         Shows countdown "ARR Processing Delay {x}s Set. Please Wait..." when delay is configured
+#         Useful for auto-starting script on system boot (e.g., set to 20 for 20 second delay)
+#         Enhanced wait_for_window_title_update() to detect launcher during both single and multi-client modes
 # v1.15 - Enhanced submarine processing detection and added FORCE_CRASH_TIMER for frozen client detection
 #         Submarine processing now accurately tracks subs sent per scan by counting decrease in ready submarines
 #         Processing count = (previous ready count - current ready count) - eliminates false positives from total-ready calculations
@@ -133,6 +145,7 @@ import getpass
 import time
 from pathlib import Path
 import win32gui
+import win32process
 import subprocess
 import ctypes
 from ctypes import wintypes
@@ -151,7 +164,7 @@ except ImportError:
 # ===============================================
 # Configuration Parameters
 # ===============================================
-VERSION = "v1.15"       # Current script version
+VERSION = "v1.16"       # Current script version
 
 # Display settings
 NICKNAME_WIDTH = 5      # Display column width for account nicknames in terminal output
@@ -177,6 +190,7 @@ AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if soonest submarine return time i
 OPEN_DELAY_THRESHOLD = 60       # Minimum seconds to wait between launching the same account (rate limiting per account, prevents launch spam)
 WINDOW_TITLE_RESCAN = 5         # Seconds to wait between each window title check after launch (polling interval for plugin to rename window)
 MAX_WINDOW_TITLE_RESCAN = 20    # Maximum number of title check attempts before giving up (20 checks × 5s = 100s timeout, then kills stuck process and retries)
+FORCE_LAUNCHER_RETRY = 3        # Maximum number of launcher retry attempts when XIVLauncher.exe opens instead of game (prevents stuck accounts)
 MAX_CLIENTS = 0                 # Maximum concurrent running game clients allowed (0 = unlimited, N = caps at N clients for hardware-limited systems)
                                 # When limit reached, prioritizes force247uptime accounts first, then submarine-ready accounts
 
@@ -187,6 +201,9 @@ WINDOW_MOVER_DIR = Path(__file__).parent     # Directory containing window layou
 
 # Debug settings
 DEBUG = False                   # Show verbose debug output (auto-launch eligibility checks, window detection, process tracking, etc.)
+
+# System settings
+SYSTEM_BOOTUP_DELAY = 0         # Seconds to delay before starting script monitoring (useful for auto-start on system boot, 0 = no delay)
 
 # Single client mode settings
 USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = True    # If True: uses default "FINAL FANTASY XIV" window title (single account mode, no Dalamud renaming needed)
@@ -601,6 +618,118 @@ def kill_ffxiv_process():
         print(f"[ERROR] Failed to kill ffxiv_dx11.exe: {e}")
         return False
 
+def is_xivlauncher_running():
+    """
+    Check if XIVLauncher.exe is running as an ACTIVE APP (with visible windows).
+    This is a problem state - indicates launcher UI is stuck/waiting for input.
+    Background XIVLauncher process (no visible windows) is normal and ignored.
+    Returns True if launcher has visible windows, False otherwise.
+    """
+    if not PSUTIL_AVAILABLE:
+        return False
+    
+    try:
+        # Find XIVLauncher.exe processes and check for visible windows
+        launcher_pids = []
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                if proc.info['name'].lower() == 'xivlauncher.exe':
+                    launcher_pids.append(proc.info['pid'])
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        if not launcher_pids:
+            return False  # No launcher process at all
+        
+        # Check if any launcher process has visible windows (is an active app)
+        for pid in launcher_pids:
+            if has_visible_windows(pid):
+                if DEBUG:
+                    print(f"[DEBUG] XIVLauncher.exe (PID {pid}) detected as ACTIVE APP with visible windows")
+                return True
+        
+        # Launcher exists but only as background process - this is normal
+        if DEBUG:
+            print(f"[DEBUG] XIVLauncher.exe found as BACKGROUND PROCESS (no visible windows) - normal state")
+        return False
+        
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Error checking for XIVLauncher.exe: {e}")
+        return False
+
+def has_visible_windows(pid):
+    """
+    Check if a process has any visible windows.
+    Returns True if process has visible windows (is an active app), False if background only.
+    """
+    visible_windows = []
+    all_windows_for_pid = []
+    
+    def enum_callback(hwnd, results):
+        try:
+            # Get window's process ID
+            _, window_pid = win32process.GetWindowThreadProcessId(hwnd)
+            
+            # Check if this window belongs to our target process
+            if window_pid == pid:
+                # Get window info
+                is_visible = win32gui.IsWindowVisible(hwnd)
+                title = win32gui.GetWindowText(hwnd)
+                class_name = win32gui.GetClassName(hwnd)
+                
+                # Track all windows for this PID (for debug)
+                all_windows_for_pid.append({
+                    'hwnd': hwnd,
+                    'visible': is_visible,
+                    'title': title,
+                    'class': class_name
+                })
+                
+                # Check if window is visible (don't require title - some windows may not have titles yet)
+                if is_visible:
+                    results.append({
+                        'title': title if title else '<no title>',
+                        'class': class_name,
+                        'hwnd': hwnd
+                    })
+        except Exception as e:
+            if DEBUG:
+                print(f"[DEBUG] Error enumerating window: {e}")
+    
+    try:
+        win32gui.EnumWindows(enum_callback, visible_windows)
+        
+        if DEBUG and len(all_windows_for_pid) > 0:
+            print(f"[DEBUG] Found {len(all_windows_for_pid)} total windows for PID {pid}")
+            print(f"[DEBUG] Found {len(visible_windows)} visible windows for PID {pid}")
+            for w in visible_windows:
+                print(f"[DEBUG]   - Title: '{w['title']}', Class: {w['class']}, HWND: {w['hwnd']}")
+        
+        return len(visible_windows) > 0
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Error in has_visible_windows: {e}")
+        return False
+
+def kill_xivlauncher_process():
+    """
+    Kill XIVLauncher.exe process.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        # Use taskkill /F /IM to force terminate the launcher by image name
+        result = subprocess.run(
+            ["taskkill", "/F", "/IM", "XIVLauncher.exe"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return result.returncode == 0
+    except Exception as e:
+        print(f"[ERROR] Failed to kill XIVLauncher.exe: {e}")
+        return False
+
 def launch_game(nickname):
     """
     Launch the game for a specific account using the configured launcher path.
@@ -757,23 +886,63 @@ def check_for_default_ffxiv_window():
             print(f"[DEBUG] Error checking for default FFXIV window: {e}")
         return False
 
-def wait_for_window_title_update(nickname):
+def wait_for_window_title_update(nickname, launcher_retry_count):
     """
     Wait for a launched game's window title to update from "FINAL FANTASY XIV" to "ProcessID - nickname".
     This ensures plugins have loaded and the window can be properly identified.
+    Also monitors for XIVLauncher.exe opening instead of the game.
     
     Args:
         nickname: The account nickname to wait for
+        launcher_retry_count: Current launcher retry attempt count
     
-    Returns True when title successfully updates, False if max attempts reached
+    Returns: Tuple (success, needs_launcher_retry)
+        - success: True when title successfully updates, False if max attempts reached
+        - needs_launcher_retry: True if launcher detected and retry is needed
     """
     if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
-        # Skip check in single client mode (always uses default title)
-        return True
+        # Single client mode: still check for launcher even though we use default title
+        check_count = 0
+        while check_count < MAX_WINDOW_TITLE_RESCAN:
+            # Check if launcher opened instead of game
+            if is_xivlauncher_running():
+                print(f"[LAUNCHER-CHECK] XIVLauncher.exe detected instead of game for {nickname}")
+                return (False, True)  # Needs launcher retry
+            
+            # Check if game window exists (default title in single mode)
+            has_default_title = check_for_default_ffxiv_window()
+            if has_default_title:
+                if DEBUG:
+                    print(f"[WINDOW-TITLE] {nickname} game window detected (single client mode)")
+                return (True, False)
+            
+            # Check if game process is running
+            is_running, _ = is_ffxiv_running_for_account(nickname)
+            if is_running:
+                if DEBUG:
+                    print(f"[WINDOW-TITLE] {nickname} game process detected")
+                return (True, False)
+            
+            time.sleep(WINDOW_TITLE_RESCAN)
+            check_count += 1
+        
+        # Max attempts reached - check one more time for launcher
+        if is_xivlauncher_running():
+            print(f"[LAUNCHER-CHECK] XIVLauncher.exe detected instead of game for {nickname}")
+            return (False, True)
+        
+        print(f"[WINDOW-TITLE] Max attempts ({MAX_WINDOW_TITLE_RESCAN}) reached for {nickname}, will restart launch")
+        return (False, False)
     
+    # Multi-client mode
     check_count = 0
     
     while check_count < MAX_WINDOW_TITLE_RESCAN:
+        # Check if launcher opened instead of game
+        if is_xivlauncher_running():
+            print(f"[LAUNCHER-CHECK] XIVLauncher.exe detected instead of game for {nickname}")
+            return (False, True)  # Needs launcher retry
+        
         # Check if default window exists
         has_default_title = check_for_default_ffxiv_window()
         
@@ -783,7 +952,7 @@ def wait_for_window_title_update(nickname):
             if is_running and process_id:
                 if DEBUG:
                     print(f"[WINDOW-TITLE] {nickname} window title updated to: {process_id} - {nickname}")
-                return True
+                return (True, False)
             elif DEBUG:
                 print(f"[WINDOW-TITLE] Check #{check_count + 1}: Default title gone but custom title not found yet for {nickname}")
         else:
@@ -794,9 +963,14 @@ def wait_for_window_title_update(nickname):
         time.sleep(WINDOW_TITLE_RESCAN)
         check_count += 1
     
+    # Max attempts reached - check one more time for launcher
+    if is_xivlauncher_running():
+        print(f"[LAUNCHER-CHECK] XIVLauncher.exe detected instead of game for {nickname}")
+        return (False, True)
+    
     # Max attempts reached without successful title update
     print(f"[WINDOW-TITLE] Max attempts ({MAX_WINDOW_TITLE_RESCAN}) reached for {nickname}, will restart launch")
-    return False
+    return (False, False)
 
 def get_submarine_timers_for_account(account_entry):
     """
@@ -1002,16 +1176,18 @@ def format_hours(hours, ready_count=0, is_running=False):
         # Negative means already returned
         return f"{hours:.1f} hours ({ready_count} READY)"
 
-def display_submarine_timers(game_status_dict=None, client_start_times=None):
+def display_submarine_timers(game_status_dict=None, client_start_times=None, launcher_failed_accounts=None):
     """Display submarine timers for all accounts"""
     # Clear screen
     os.system('cls' if os.name == 'nt' else 'clear')
     
-    # Use empty dict if none provided
+    # Use empty dict/set if none provided
     if game_status_dict is None:
         game_status_dict = {}
     if client_start_times is None:
         client_start_times = {}
+    if launcher_failed_accounts is None:
+        launcher_failed_accounts = set()
     
     print("=" * 85)
     print(f"Auto-Autoretainer {VERSION}\nFFXIV Game Instance Manager")
@@ -1045,6 +1221,12 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None):
         if not data["include_submarines"]:
             # Show game status even with submarines disabled (for force247uptime monitoring)
             subs_disabled_str = "Disabled"
+            
+            # Check if account has launcher failures
+            if nickname in launcher_failed_accounts:
+                status_str = f"{'[LAUNCHER]':{STATUS_WIDTH}s}"
+                print(f"{nickname:{NICKNAME_WIDTH}s} {subs_disabled_str:{SUBS_COUNT_WIDTH}s}:{'':{HOURS_WIDTH+1}s}{status_str}")
+                continue
             
             # Get game status and force247uptime flag
             force247 = account_locations[[i for i, acc in enumerate(account_locations) if acc["nickname"] == nickname][0]].get("force247uptime", False)
@@ -1113,6 +1295,14 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None):
             no_subs_str = "No submarines found"
             print(f"{nickname:{NICKNAME_WIDTH}s} {no_subs_str:{SUBS_COUNT_WIDTH}s}  {'':{HOURS_WIDTH}s}")
         else:
+            # Check if account has launcher failures
+            if nickname in launcher_failed_accounts:
+                hours_str = format_hours(soonest_hours, ready_subs, is_running=False)
+                subs_str = f"({total_subs} subs)"
+                status_str = f"{'[LAUNCHER]':{STATUS_WIDTH}s}"
+                print(f"{nickname:{NICKNAME_WIDTH}s} {subs_str:{SUBS_COUNT_WIDTH}s}: {hours_str:{HOURS_WIDTH}s}{status_str}")
+                continue
+            
             # Get game status for this account (only show for enabled submarines)
             # Check force247uptime flag to determine status display
             force247 = account_locations[[i for i, acc in enumerate(account_locations) if acc["nickname"] == nickname][0]].get("force247uptime", False)
@@ -1229,6 +1419,14 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None):
 def main():
     """Main loop - continuously update display with dual refresh rates"""
     try:
+        # System bootup delay (if configured)
+        if SYSTEM_BOOTUP_DELAY > 0:
+            print(f"ARR Processing Delay {SYSTEM_BOOTUP_DELAY}s Set. Please Wait...")
+            for remaining in range(SYSTEM_BOOTUP_DELAY, 0, -1):
+                print(f"  Starting in {remaining} second{'s' if remaining != 1 else ''}...", end='\r')
+                time.sleep(1)
+            print("\n")  # Clear the countdown line
+        
         # Validate configuration: single client mode requires only 1 account
         if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
             if len(account_locations) > 1:
@@ -1250,6 +1448,8 @@ def main():
         subs_ready_timestamp = {}  # Track when subs first became ready for each account (for force crash monitoring)
         submarine_state_cache = {}  # Cache submarine return times by nickname to detect processing (negative → positive transitions)
         last_sub_processed = {}  # Track timestamp of last detected submarine processing by nickname
+        launcher_retry_count = {}  # Track launcher retry attempts per account
+        launcher_failed_accounts = set()  # Track accounts that have exceeded launcher retry limit
         
         # Initialize client_start_times with actual process start times for already-running games
         if PSUTIL_AVAILABLE:
@@ -1325,7 +1525,7 @@ def main():
                 last_window_check = current_time
             
             # Display submarine timers with current game status FIRST
-            display_submarine_timers(game_status_dict, client_start_times)
+            display_submarine_timers(game_status_dict, client_start_times, launcher_failed_accounts)
             
             # Initial window arrangement check (only on first run)
             if not initial_arrangement_done and ENABLE_WINDOW_LAYOUT:
@@ -1369,6 +1569,12 @@ def main():
                         nickname = account_entry["nickname"]
                         include_subs = account_entry.get("include_submarines", True)
                         rotating_retainers = account_entry.get("force247uptime", False)
+                        
+                        # Skip if account has exceeded launcher retry limit
+                        if nickname in launcher_failed_accounts:
+                            if DEBUG:
+                                print(f"[DEBUG] {nickname}: Launcher failed, skipping")
+                            continue
                         
                         # Skip if submarines are disabled for this account and not force247uptime
                         if not include_subs and not rotating_retainers:
@@ -1444,30 +1650,71 @@ def main():
                             break
                         
                         nickname = account_entry["nickname"]
-                        print(f"\n[AUTO-LAUNCH] Launching {nickname} - {reason}")
                         
-                        if launch_game(nickname):
-                            last_launch_time[nickname] = current_time
-                            print(f"[AUTO-LAUNCH] Successfully launched {nickname}, waiting {OPEN_DELAY_THRESHOLD} seconds for game startup...")
+                        # Initialize launcher retry count if not exists
+                        if nickname not in launcher_retry_count:
+                            launcher_retry_count[nickname] = 0
+                        
+                        # Track if this launch succeeded
+                        launch_success = False
+                        
+                        while not launch_success and launcher_retry_count[nickname] < FORCE_LAUNCHER_RETRY:
+                            print(f"\n[AUTO-LAUNCH] Launching {nickname} - {reason}")
+                            if launcher_retry_count[nickname] > 0:
+                                print(f"[AUTO-LAUNCH] Launcher retry attempt {launcher_retry_count[nickname]}/{FORCE_LAUNCHER_RETRY}")
                             
-                            # Wait OPEN_DELAY_THRESHOLD before checking window title
-                            time.sleep(OPEN_DELAY_THRESHOLD)
-                            
-                            # Wait for window title to update (multi-client mode only)
-                            title_updated = True
-                            if not USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
-                                print(f"[AUTO-LAUNCH] Checking window title for {nickname}...")
-                                title_updated = wait_for_window_title_update(nickname)
+                            if launch_game(nickname):
+                                last_launch_time[nickname] = current_time
+                                print(f"[AUTO-LAUNCH] Successfully launched {nickname}, waiting {OPEN_DELAY_THRESHOLD} seconds for game startup...")
+                                
+                                # Wait OPEN_DELAY_THRESHOLD before checking window title
+                                time.sleep(OPEN_DELAY_THRESHOLD)
+                                
+                                # Wait for window title to update and check for launcher
+                                print(f"[AUTO-LAUNCH] Checking window/launcher status for {nickname}...")
+                                title_updated, needs_launcher_retry = wait_for_window_title_update(nickname, launcher_retry_count[nickname])
+                                
                                 if title_updated:
-                                    print(f"[AUTO-LAUNCH] Window title confirmed for {nickname}")
+                                    print(f"[AUTO-LAUNCH] Game successfully started for {nickname}")
+                                    launch_success = True
+                                    # Reset launcher retry count on success
+                                    launcher_retry_count[nickname] = 0
+                                elif needs_launcher_retry:
+                                    # Launcher detected - kill it and retry
+                                    launcher_retry_count[nickname] += 1
+                                    print(f"[AUTO-LAUNCH] Killing XIVLauncher.exe for {nickname}...")
+                                    kill_xivlauncher_process()
+                                    time.sleep(2)  # Brief wait after killing launcher
+                                    
+                                    if launcher_retry_count[nickname] >= FORCE_LAUNCHER_RETRY:
+                                        # Max retries reached
+                                        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                                            print(f"[AUTO-LAUNCH] Max launcher retries ({FORCE_LAUNCHER_RETRY}) reached for {nickname}")
+                                            print(f"[AUTO-LAUNCH] Stopping script - single client mode cannot continue")
+                                            launcher_failed_accounts.add(nickname)
+                                        else:
+                                            print(f"[AUTO-LAUNCH] Max launcher retries ({FORCE_LAUNCHER_RETRY}) reached for {nickname}")
+                                            print(f"[AUTO-LAUNCH] Marking {nickname} as [LAUNCHER] - will skip this account")
+                                            launcher_failed_accounts.add(nickname)
+                                        break
+                                    else:
+                                        print(f"[AUTO-LAUNCH] Retrying {nickname} (attempt {launcher_retry_count[nickname] + 1}/{FORCE_LAUNCHER_RETRY})...")
+                                        last_launch_time[nickname] = 0  # Allow immediate retry
                                 else:
+                                    # Title check failed without launcher detection
                                     print(f"[AUTO-LAUNCH] Window title check failed for {nickname}, killing process and will retry...")
                                     # Kill any ffxiv_dx11.exe process that may be stuck
                                     kill_ffxiv_process()
                                     # Reset launch time to allow immediate retry
                                     last_launch_time[nickname] = 0
-                                    continue
-                            
+                                    break  # Exit retry loop, will try again on next cycle
+                            else:
+                                print(f"[AUTO-LAUNCH] Failed to launch {nickname}")
+                                last_launch_time[nickname] = current_time  # Record failed attempt to enforce rate limit
+                                break  # Exit retry loop
+                        
+                        # Only proceed with post-launch actions if successful
+                        if launch_success:
                             # Refresh window status for all accounts
                             if DEBUG:
                                 print(f"[AUTO-LAUNCH] Refreshing window status...")
@@ -1496,11 +1743,8 @@ def main():
                             
                             # Redisplay submarine timers to show newly opened client status
                             print("")  # Empty line for spacing
-                            display_submarine_timers(game_status_dict, client_start_times)
+                            display_submarine_timers(game_status_dict, client_start_times, launcher_failed_accounts)
                             print("")  # Empty line for spacing
-                        else:
-                            print(f"[AUTO-LAUNCH] Failed to launch {nickname}")
-                            last_launch_time[nickname] = current_time  # Record failed attempt to enforce rate limit
             
             # Auto-close games if enabled and conditions are met
             if ENABLE_AUTO_CLOSE:
