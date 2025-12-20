@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.15 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.16 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -46,8 +46,10 @@ A comprehensive automation script that monitors submarine return times across mu
 
 ### Intelligent Automation
 - **Auto-Launch Games**: Automatically opens games when submarines are nearly ready (9 minutes by default)
+- **Launcher Detection & Retry**: Detects when XIVLauncher gets stuck at login screen and automatically retries up to 3 times
 - **Auto-Close Games**: Closes idle games when submarines won't be ready soon (30 minutes by default)
 - **Smart Rate Limiting**: Prevents rapid game launches with configurable delays
+- **System Bootup Delay**: Configurable delay before script starts monitoring (useful for auto-start on system boot)
 - **Window Arrangement**: Automatically arranges game windows using customizable layouts
 
 ### Submarine Build Analysis
@@ -70,7 +72,7 @@ A comprehensive automation script that monitors submarine return times across mu
 - Python 3.12.4+
 - FFXIV with XIVLauncher (Dalamud)
 - AutoRetainer plugin (installed and configured)
-- pywin32 package: `pip install pywin32`
+- pywin32 package: `pip install pywin32` - Provides Windows API access for window management, process control, and GUI automation
 - psutil package (recommended): `pip install psutil` - Enables accurate process uptime tracking. Optional but recommended for proper MAX_RUNTIME enforcement.
 
 **Required Plugin Configuration:**
@@ -507,7 +509,9 @@ AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if next sub <= 0.15 hours (9 minut
 OPEN_DELAY_THRESHOLD = 60       # Minimum 60 seconds between game launches
 WINDOW_TITLE_RESCAN = 5         # Seconds between window title update checks (waits for plugin to load)
 MAX_WINDOW_TITLE_RESCAN = 20    # Maximum title check attempts before killing stuck process (20 × 5s = 100s timeout)
+FORCE_LAUNCHER_RETRY = 3        # Maximum launcher retry attempts when XIVLauncher opens as active app instead of game
 MAX_CLIENTS = 0                 # Maximum concurrent running clients (0 = unlimited, N = limit to N clients)
+SYSTEM_BOOTUP_DELAY = 0         # Seconds to delay before starting monitoring (0 = no delay, useful for auto-start on boot)
 ```
 
 **MAX_CLIENTS Behavior:**
@@ -526,6 +530,23 @@ MAX_CLIENTS = 0                 # Maximum concurrent running clients (0 = unlimi
 - **Recovery**: Resets launch time to 0 to allow immediate retry after killing stuck process
 - **Multi-Client Mode Only**: Only applies when USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = False
 - **Benefit**: Prevents "[WINDOW-TITLE] Check #X" message spam and ensures script recovers from startup failures
+
+**FORCE_LAUNCHER_RETRY Behavior:**
+- **Purpose**: Handles rare cases where XIVLauncher gets stuck at login screen instead of launching game
+- **Detection Method**: Uses win32gui window enumeration to detect XIVLauncher with visible windows (active app)
+- **Smart Detection**: Ignores XIVLauncher as background process (normal state when game is running)
+- **Retry Logic**: Kills launcher and retries game launch up to FORCE_LAUNCHER_RETRY times (default: 3 attempts)
+- **Single Client Mode**: Stops monitoring account after max retries (script continues but won't launch)
+- **Multi-Client Mode**: Marks failed account as [LAUNCHER] and continues processing other accounts
+- **Benefit**: Prevents accounts from getting stuck due to launcher issues, enables unattended operation
+
+**SYSTEM_BOOTUP_DELAY Behavior:**
+- **Purpose**: Delays script monitoring when auto-starting on system boot
+- **How it works**: Pauses for specified seconds before starting main monitoring loop
+- **Countdown Display**: Shows "ARR Processing Delay {x}s Set. Please Wait..." with live countdown
+- **When to Use**: Set to 20-30 seconds when script auto-starts with Windows to ensure system is ready
+- **Default**: 0 (no delay, script starts immediately)
+- **Benefit**: Ensures system and network are fully initialized before attempting game launches
 
 **WINDOW_TITLE_RESCAN Behavior:**
 - **Purpose**: Ensures plugins have loaded before moving windows or launching next game
@@ -655,6 +676,7 @@ Press Ctrl+C to exit
 ### Python Packages
 ```bash
 pip install pywin32
+pip install win32gui
 ```
 
 ### System Requirements
@@ -866,6 +888,7 @@ The script will automatically load `window_layout_{name}.json` based on the `WIN
 
 ## Version History
 
+**v1.16** (2025-12-19) - Added launcher detection with automatic retry and system bootup delay features. FORCE_LAUNCHER_RETRY = 3 attempts when XIVLauncher.exe opens as ACTIVE APP instead of game client. Detects XIVLauncher with visible windows (stuck at login screen) during game startup monitoring. Ignores XIVLauncher as background process (normal state when game running) to prevent false positives. Uses win32gui window enumeration to distinguish active launcher UI from background process. Kills launcher and retries game launch up to FORCE_LAUNCHER_RETRY times before marking account as [LAUNCHER]. Single client mode: stops monitoring account after max retries. Multi-client mode: marks failed account as [LAUNCHER] and continues processing other accounts. SYSTEM_BOOTUP_DELAY (configurable delay before script starts monitoring). Shows countdown "ARR Processing Delay {x}s Set. Please Wait..." when delay is configured. Useful for auto-starting script on system boot (e.g., set to 20 for 20 second delay). Enhanced wait_for_window_title_update() to detect launcher during both single and multi-client modes.  
 **v1.15** (2025-12-15) - Enhanced submarine processing detection and added FORCE_CRASH_INACTIVITY_MINUTES for frozen client detection. Submarine processing now accurately tracks subs sent per scan by counting decrease in ready submarines. Processing count = (previous ready count - current ready count) - eliminates false positives from total-ready calculations. Added detailed debug output showing ready subs, voyaging subs, and newly sent subs per scan. FORCE_CRASH_INACTIVITY_MINUTES (default: 10 minutes, configurable) crashes client if no submarine processing detected. Monitoring activates CRASH_MONITOR_DELAY hours after submarines become ready (ensures game has fully loaded). Automatically stops monitoring during (WAITING) status and restarts timer when subs become ready again. Deactivates monitoring when force247uptime=True and all subs processed (no ready subs). Resets timer and starts new countdown when subs become ready again. Handles frozen clients, lost connections, stuck in character select, and other stuck scenarios. **Important:** FORCE_CRASH_INACTIVITY_MINUTES and CRASH_MONITOR_DELAY are now conditional on ENABLE_AUTO_CLOSE = True. When ENABLE_AUTO_CLOSE = False, crash monitoring is completely disabled.  
 **v1.14** (2025-12-11) - Updated Daily Supply Cost Basis calculation and added to the display. Calculates total supply costs per day based on submarine consumption rates. Displays "Total Supply Cost Per Day" in terminal output (Ceruleum Tank = 350 gil, Repair Kit = 2,000 gil). Added version number display to terminal header for better tracking. Supply costs calculated using build_consumption_rates with default fallback (9 tanks/day, 1.33 kits/day).  
 **v1.13** (2025-12-08) - Added window title update checking after game launch to ensure plugins have loaded before proceeding. After OPEN_DELAY_THRESHOLD, checks if window still has default "FINAL FANTASY XIV" title and waits indefinitely for plugin to update to "ProcessID - nickname" format. Uses WINDOW_TITLE_RESCAN (5s) polling interval. Only applies in multi-client mode. Removed timeout - will keep waiting until window title updates (never skips). Ensures reliable window detection before moving windows or launching next game.  
