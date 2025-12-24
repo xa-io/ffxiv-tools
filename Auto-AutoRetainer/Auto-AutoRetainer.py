@@ -27,13 +27,19 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.16
+# Auto-AutoRetainer v1.17
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-12-19 21:00:00
+# Last Updated: 2025-12-24 14:02:00
 #
 # ## Release Notes ##
 #
+# v1.17 - Added DalamudCrashHandler.exe detection and automatic closing
+#         Monitors for active DalamudCrashHandler.exe windows (indicates game crash) every WINDOW_REFRESH_INTERVAL
+#         Distinguishes between active crash handler windows (problem state) and background processes (normal state)
+#         Automatically closes crash handler windows when detected to prevent user intervention requirement
+#         Uses same detection methodology as XIVLauncher.exe check (has_visible_windows function)
+#         Logs crash handler detection and closure status for visibility
 # v1.16 - Added launcher detection with automatic retry and system bootup delay features
 #         FORCE_LAUNCHER_RETRY = 3 attempts when XIVLauncher.exe opens as ACTIVE APP instead of game client
 #         Detects XIVLauncher with visible windows (stuck at login screen) during game startup monitoring
@@ -164,7 +170,7 @@ except ImportError:
 # ===============================================
 # Configuration Parameters
 # ===============================================
-VERSION = "v1.16"       # Current script version
+VERSION = "v1.17"       # Current script version
 
 # Display settings
 NICKNAME_WIDTH = 5      # Display column width for account nicknames in terminal output
@@ -728,6 +734,65 @@ def kill_xivlauncher_process():
         return result.returncode == 0
     except Exception as e:
         print(f"[ERROR] Failed to kill XIVLauncher.exe: {e}")
+        return False
+
+def is_dalamud_crash_handler_running():
+    """
+    Check if DalamudCrashHandler.exe is running as an ACTIVE APP (with visible windows).
+    This is a problem state - indicates a game crash occurred with crash handler UI open.
+    Background DalamudCrashHandler processes (no visible windows) are normal and ignored.
+    Returns PID of crash handler with visible windows, or None if no active window found.
+    """
+    if not PSUTIL_AVAILABLE:
+        return None
+    
+    try:
+        # Find DalamudCrashHandler.exe processes and check for visible windows
+        crash_handler_pids = []
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                if proc.info['name'].lower() == 'dalamudcrashhandler.exe':
+                    crash_handler_pids.append(proc.info['pid'])
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        if not crash_handler_pids:
+            return None  # No crash handler process at all
+        
+        # Check if any crash handler process has visible windows (is an active app)
+        for pid in crash_handler_pids:
+            if has_visible_windows(pid):
+                if DEBUG:
+                    print(f"[DEBUG] DalamudCrashHandler.exe (PID {pid}) detected as ACTIVE APP with visible windows")
+                return pid  # Return the PID of the active crash handler
+        
+        # Crash handler exists but only as background process - this is normal
+        if DEBUG:
+            print(f"[DEBUG] DalamudCrashHandler.exe found as BACKGROUND PROCESS (no visible windows) - normal state")
+        return None
+        
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Error checking for DalamudCrashHandler.exe: {e}")
+        return None
+
+def kill_dalamud_crash_handler_process(pid):
+    """
+    Kill a specific DalamudCrashHandler.exe process by PID.
+    Only kills the crash handler with visible window, not background processes.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        # Use taskkill /F /PID to force terminate only the specific crash handler process
+        result = subprocess.run(
+            ["taskkill", "/F", "/PID", str(pid)],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return result.returncode == 0
+    except Exception as e:
+        print(f"[ERROR] Failed to kill DalamudCrashHandler.exe (PID {pid}): {e}")
         return False
 
 def launch_game(nickname):
@@ -1522,6 +1587,16 @@ def main():
                     for pid in list(client_start_times.keys()):
                         if pid not in running_pids:
                             del client_start_times[pid]
+                
+                # Check for active DalamudCrashHandler.exe windows (indicates a game crash)
+                crash_handler_pid = is_dalamud_crash_handler_running()
+                if crash_handler_pid:
+                    print(f"\n[CRASH-HANDLER] DalamudCrashHandler.exe (PID {crash_handler_pid}) detected as ACTIVE APP - closing crash handler window...")
+                    if kill_dalamud_crash_handler_process(crash_handler_pid):
+                        print(f"[CRASH-HANDLER] Successfully closed DalamudCrashHandler.exe (PID {crash_handler_pid})")
+                    else:
+                        print(f"[CRASH-HANDLER] Failed to close DalamudCrashHandler.exe (PID {crash_handler_pid})")
+                
                 last_window_check = current_time
             
             # Display submarine timers with current game status FIRST
