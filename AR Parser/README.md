@@ -337,7 +337,7 @@ The **Inverse Supplier Formatting** column (v1.13+) integrates seamlessly with X
 
 ## Version History
 
-**v1.14** (2025-12-25) - Added Last Online column from Altoholic database shows days since character last logged in
+**v1.14** (2025-12-25) - Added Last Online column from Altoholic database shows days since character last logged in  
 **v1.13** (2025-11-26) - Added Inverse Supplier Formatting column with smart inventory-based distribution  
 **v1.12** (2025-11-26) - Added Restocking Days calculation and improved data sources  
 **v1.11** (2025-11-18) - Added Inventory Spaces, Ventures, and VentureCoffers columns  
