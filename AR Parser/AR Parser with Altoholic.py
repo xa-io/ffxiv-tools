@@ -20,12 +20,13 @@
 # • Automatic FC detection via FC name or housing data from Lifestream plugin
 # • Restocking days calculation based on submarine build consumption rates
 #
-# AR Parser with Altoholic v1.13
+# AR Parser with Altoholic v1.14
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-12-04 17:15:00
+# Last Updated: 2025-12-25 10:00:00
 #
 # ## Release Notes ##
 #
+# v1.14 - Added Last Online column from Altoholic database, shows days since character last logged in
 # v1.13 - Added Inverse Supplier Formatting column with smart inventory-based distribution
 #         New "Inverse Supplier Formatting" column generates format for XA Inverse Supplier v2.11 smart distribution
 #         Format: {"Toon@World", fuel_needed, kits_needed}, where amounts show (threshold - current_inventory)
@@ -137,45 +138,45 @@ TREASURE_IDS = set(TREASURE_VALUES.keys())
 # Based on Routes.xlsx - Tanks (Ceruleum) and Repair Kits per day for each route
 # ===============================================
 build_consumption_rates = {
-    # OJ Route (24h) - 9 tanks/day, 1.33 kits/day
+    # OJ Route (24h) - Unmod: 9/1.33, Mod: 9/3.43
     "WSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
     "SSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
-    "W+S+U+C+": {"tanks_per_day": 9.0, "kits_per_day": 1.33},  # WSUC++
-    "S+S+S+C+": {"tanks_per_day": 9.0, "kits_per_day": 1.33},  # SSSC++ (for OJ route)
+    "W+S+U+C+": {"tanks_per_day": 9.0, "kits_per_day": 3.43},  # WSUC++ (modified)
+    "S+S+S+C+": {"tanks_per_day": 9.0, "kits_per_day": 3.43},  # SSSC++ (modified for OJ route)
     
-    # MOJ Route (36h) - 10 tanks/day, 1.6 kits/day
-    "YUUW": {"tanks_per_day": 10.0, "kits_per_day": 1.6},
-    "Y+U+U+W+": {"tanks_per_day": 10.0, "kits_per_day": 1.6},  # YU+U+W+
+    # MOJ Route (36h) - Unmod: 7.5/1.40, Mod: 10/3.07
+    "YUUW": {"tanks_per_day": 7.5, "kits_per_day": 1.40},
+    "Y+U+U+W+": {"tanks_per_day": 10.0, "kits_per_day": 3.07},  # YU+U+W+ (modified)
     
-    # ROJ Route (36h) - 10 tanks/day, 1.67 kits/day
+    # ROJ Route (36h) - Unmod: 10/1.67, Mod: 10/3.20
     "WCSU": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
     "WUSS": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
-    "W+U+S+S+": {"tanks_per_day": 10.0, "kits_per_day": 1.67},  # WUSS++
+    "W+U+S+S+": {"tanks_per_day": 10.0, "kits_per_day": 3.20},  # WUSS++ (modified)
     
-    # JOZ Route (36h) - 10 tanks/day, 2.5 kits/day
-    "YSYC": {"tanks_per_day": 10.0, "kits_per_day": 2.5},
-    "Y+S+Y+C+": {"tanks_per_day": 10.0, "kits_per_day": 2.5},  # YS+YC+
+    # JOZ Route (36h) - Unmod: 10/2.50, Mod: 10/3.20
+    "YSYC": {"tanks_per_day": 10.0, "kits_per_day": 2.50},
+    "Y+S+Y+C+": {"tanks_per_day": 10.0, "kits_per_day": 3.20},  # YS+YC+ (modified)
     
-    # WCYC builds (JORZ 48h) - 10.5 tanks/day, 3 kits/day
-    "WCYC": {"tanks_per_day": 10.5, "kits_per_day": 3.0},
-    "WUWC": {"tanks_per_day": 10.5, "kits_per_day": 3.0},
-    "W+U+W+C+": {"tanks_per_day": 10.5, "kits_per_day": 3.0},  # WUWC++
+    # MROJ Route (36h) - Unmod: 14/1.78, Mod: 14/4.00
+    # SSUC appears on MROJ at rank 99 (unmodified)
+    # SSSC++/SSUC++ are modified builds for MROJ
     
-    # YSCU/SCUS builds (MROJZ 48h) - 13.5 tanks/day, 4 kits/day
-    "YSCU": {"tanks_per_day": 13.5, "kits_per_day": 4.0},
-    "SCUS": {"tanks_per_day": 13.5, "kits_per_day": 4.0},
-    "S+C+U+S+": {"tanks_per_day": 13.5, "kits_per_day": 4.0},  # SCUS++
+    # JORZ Route (36h) - Unmod: 14/1.78, Mod: 14/3.67
+    "S+S+U+C": {"tanks_per_day": 14.0, "kits_per_day": 3.67},  # SSUC modified for JORZ
+    
+    # JORZ 48h Route - Unmod: 10.5/2.00, Mod: 10.5/3.00
+    "WCYC": {"tanks_per_day": 10.5, "kits_per_day": 2.00},
+    "WUWC": {"tanks_per_day": 10.5, "kits_per_day": 2.00},
+    "W+U+W+C+": {"tanks_per_day": 10.5, "kits_per_day": 3.00},  # WUWC++ (modified)
+    
+    # MOJZ Route (36h) - Unmod: 14/1.78, Mod: 14/4.00
+    "S+S+U+C+": {"tanks_per_day": 14.0, "kits_per_day": 4.0},  # SSUC++ (modified for MOJZ/MROJ)
+    
+    # MROJZ Route (48h) - Unmod: 9/1.67, Mod: 13.5/4.00
+    "YSCU": {"tanks_per_day": 9.0, "kits_per_day": 1.67},
+    "SCUS": {"tanks_per_day": 9.0, "kits_per_day": 1.67},
+    "S+C+U+S+": {"tanks_per_day": 13.5, "kits_per_day": 4.0},  # SCUS++ (modified)
 }
-
-# For builds that can be on multiple routes, use the highest consumption rate
-# SSSC++ and SSUC++ appear in multiple routes - use MROJ/JORZ rates (14 tanks, 1.78-4 kits)
-if "S+S+S+C+" not in build_consumption_rates or build_consumption_rates["S+S+S+C+"]["tanks_per_day"] < 14:
-    build_consumption_rates["S+S+S+C+"] = {"tanks_per_day": 14.0, "kits_per_day": 1.78}  # MROJ rate
-if "S+S+U+C+" not in build_consumption_rates or build_consumption_rates["S+S+U+C+"]["tanks_per_day"] < 14:
-    build_consumption_rates["S+S+U+C+"] = {"tanks_per_day": 14.0, "kits_per_day": 4.0}  # MOJZ rate (highest kit usage)
-
-# SSUC unmodified appears in multiple routes - use JORZ rate (14 tanks, 1.78 kits)
-build_consumption_rates["S+S+U+C"] = {"tanks_per_day": 14.0, "kits_per_day": 1.78}
 
 # ===============================================
 # Region mapping by world
@@ -399,7 +400,7 @@ def load_lifestream_data(lifestream_path):
 def scan_altoholic_db(db_path):
     """
     Scan a single Altoholic DB and return a mapping:
-      { CharacterId: {"treasure_value": int, "parts": {"S BOW": qty, ...}} }
+      { CharacterId: {"treasure_value": int, "parts": {"S BOW": qty, ...}, "last_online": int} }
     Note: Tanks and Kits are now sourced from DefaultConfig.json, not Altoholic.
     """
     result = {}
@@ -409,8 +410,8 @@ def scan_altoholic_db(db_path):
     try:
         con = sqlite3.connect(db_path)
         cur = con.cursor()
-        rows = cur.execute("SELECT CharacterId, Inventory, Saddle FROM characters").fetchall()
-        for char_id, inv_json, saddle_json in rows:
+        rows = cur.execute("SELECT CharacterId, Inventory, Saddle, LastOnline FROM characters").fetchall()
+        for char_id, inv_json, saddle_json, last_online_timestamp in rows:
             treasure_value = 0
             parts_count = {col: 0 for col in PART_COLUMNS}  # Initialize all 40 part columns to 0
 
@@ -443,12 +444,20 @@ def scan_altoholic_db(db_path):
             sad = _safe_json_load(saddle_json)
             if isinstance(sad, list):
                 consume(sad)
+            
+            # Calculate last online in days (rounded down)
+            last_online_days = None
+            if last_online_timestamp and last_online_timestamp > 0:
+                current_timestamp = datetime.datetime.now().timestamp()
+                days_ago = (current_timestamp - last_online_timestamp) / 86400  # 86400 seconds in a day
+                last_online_days = int(days_ago)  # Round down to solid number
 
             # Only add to result if there's any data
-            if treasure_value or any(parts_count.values()):
+            if treasure_value or any(parts_count.values()) or last_online_days is not None:
                 result[int(char_id)] = {
                     "treasure_value": int(treasure_value),
-                    "parts": parts_count
+                    "parts": parts_count,
+                    "last_online_days": last_online_days
                 }
         con.close()
     except Exception as e:
@@ -606,12 +615,14 @@ def build_char_summaries(all_characters, fc_data, alto_map, account_configs, hou
         tank = char.get("Ceruleum", 0)
         kits = char.get("RepairKits", 0)
         
-        # Altoholic fields (treasure value and submarine parts)
+        # Altoholic fields (treasure value, submarine parts, last online)
         treasure_value = 0
         parts_inventory = {col: 0 for col in PART_COLUMNS}  # Initialize all 40 part columns
+        last_online_days = None
         if isinstance(cid, int) and cid in alto_map:
             treasure_value = alto_map[cid].get("treasure_value", 0)
             parts_inventory = alto_map[cid].get("parts", {col: 0 for col in PART_COLUMNS})
+            last_online_days = alto_map[cid].get("last_online_days", None)
         
         # Calculate restocking days based on submarine builds
         restocking_days = None
@@ -696,6 +707,7 @@ def build_char_summaries(all_characters, fc_data, alto_map, account_configs, hou
             "venture_coffers": char.get("VentureCoffers", 0),
             "treasure_value": treasure_value,
             "region": region,
+            "last_online_days": last_online_days,
             "private_ward": private_ward,
             "private_plot": private_plot,
             "private_zone": private_zone,
@@ -739,6 +751,7 @@ def write_excel(char_summaries, excel_output_path):
             "Character Name",
             "World",
             "Region",
+            "Last Online",
             "Private Ward",
             "Private Plot",
             "Private Zone",
@@ -804,6 +817,7 @@ def write_excel(char_summaries, excel_output_path):
             char_name = summary["char_name"]
             world = summary["world"]
             region = summary.get("region", "")
+            last_online_days = summary.get("last_online_days")
             private_ward = summary.get("private_ward")
             private_plot = summary.get("private_plot")
             private_zone = summary.get("private_zone")
@@ -865,33 +879,34 @@ def write_excel(char_summaries, excel_output_path):
                 worksheet.write(row, 2, char_name)
                 worksheet.write(row, 3, world)
                 worksheet.write(row, 4, region)
-                worksheet.write(row, 5, private_ward if private_ward is not None else "")
-                worksheet.write(row, 6, private_plot if private_plot is not None else "")
-                worksheet.write(row, 7, private_zone if private_zone else "")
-                worksheet.write(row, 8, fc_ward if fc_ward is not None else "")
-                worksheet.write(row, 9, fc_plot if fc_plot is not None else "")
-                worksheet.write(row, 10, fc_zone if fc_zone else "")
-                worksheet.write_number(row, 11, char_gil, money_format)
-                worksheet.write(row, 12, "")
-                worksheet.write_number(row, 13, 0, money_format)
-                worksheet.write_number(row, 14, 0, money_format)
-                worksheet.write_number(row, 15, 0, money_format)
-                worksheet.write_number(row, 16, 0, money_format)
-                worksheet.write_number(row, 17, total_gil, total_format)
-                worksheet.write(row, 18, fc_name)
-                worksheet.write_number(row, 19, fc_points, money_format)
-                worksheet.write_number(row, 20, sub1lvl)
-                worksheet.write(row, 21, sub1parts)
-                worksheet.write_number(row, 22, sub1return, money_format)
-                worksheet.write_number(row, 23, sub2lvl)
-                worksheet.write(row, 24, sub2parts)
-                worksheet.write_number(row, 25, sub2return, money_format)
-                worksheet.write_number(row, 26, sub3lvl)
-                worksheet.write(row, 27, sub3parts)
-                worksheet.write_number(row, 28, sub3return, money_format)
-                worksheet.write_number(row, 29, sub4lvl)
-                worksheet.write(row, 30, sub4parts)
-                worksheet.write_number(row, 31, sub4return, money_format)
+                worksheet.write(row, 5, last_online_days if last_online_days is not None else "")
+                worksheet.write(row, 6, private_ward if private_ward is not None else "")
+                worksheet.write(row, 7, private_plot if private_plot is not None else "")
+                worksheet.write(row, 8, private_zone if private_zone else "")
+                worksheet.write(row, 9, fc_ward if fc_ward is not None else "")
+                worksheet.write(row, 10, fc_plot if fc_plot is not None else "")
+                worksheet.write(row, 11, fc_zone if fc_zone else "")
+                worksheet.write_number(row, 12, char_gil, money_format)
+                worksheet.write(row, 13, "")
+                worksheet.write(row, 14, "")
+                worksheet.write(row, 15, "")
+                worksheet.write(row, 16, "")
+                worksheet.write_number(row, 17, 0, money_format)
+                worksheet.write_number(row, 18, total_gil, total_format)
+                worksheet.write(row, 19, fc_name)
+                worksheet.write_number(row, 20, fc_points, money_format)
+                worksheet.write_number(row, 21, sub1lvl)
+                worksheet.write(row, 22, sub1parts)
+                worksheet.write_number(row, 23, sub1return, money_format)
+                worksheet.write_number(row, 24, sub2lvl)
+                worksheet.write(row, 25, sub2parts)
+                worksheet.write_number(row, 26, sub2return, money_format)
+                worksheet.write_number(row, 27, sub3lvl)
+                worksheet.write(row, 28, sub3parts)
+                worksheet.write_number(row, 29, sub3return, money_format)
+                worksheet.write_number(row, 30, sub4lvl)
+                worksheet.write(row, 31, sub4parts)
+                worksheet.write_number(row, 32, sub4return, money_format)
                 worksheet.write_number(row, TANK_COL, tank, money_format)
                 worksheet.write_number(row, KITS_COL, kits, money_format)
                 if restocking_days is not None:
@@ -899,16 +914,28 @@ def write_excel(char_summaries, excel_output_path):
                 else:
                     worksheet.write(row, RESTOCK_COL, "")
                 worksheet.write_number(row, INV_SPACE_COL, inventory_space, money_format)
-                worksheet.write_number(row, VENTURES_COL, ventures, money_format)
-                worksheet.write_number(row, VENTURE_COFFERS_COL, venture_coffers, money_format)
+                if ventures > 0:
+                    worksheet.write_number(row, VENTURES_COL, ventures, money_format)
+                else:
+                    worksheet.write(row, VENTURES_COL, "")
+                if venture_coffers > 0:
+                    worksheet.write_number(row, VENTURE_COFFERS_COL, venture_coffers, money_format)
+                else:
+                    worksheet.write(row, VENTURE_COFFERS_COL, "")
                 worksheet.write_number(row, TREAS_COL, treasure_value, total_format if treasure_value else money_format)
-                worksheet.write(row, 39, plain_nameworld)
-                worksheet.write(row, 40, list_nameworld)
-                worksheet.write(row, 41, snd_nameworld)
-                worksheet.write(row, 42, bagman_nameworld_tony)
-                worksheet.write(row, 43, inverse_supplier_formatting)
-                worksheet.write_number(row, TANKS_NEEDED_COL, fuel_needed, money_format)
-                worksheet.write_number(row, KITS_NEEDED_COL, kits_needed, money_format)
+                worksheet.write(row, 40, plain_nameworld)
+                worksheet.write(row, 41, list_nameworld)
+                worksheet.write(row, 42, snd_nameworld)
+                worksheet.write(row, 43, bagman_nameworld_tony)
+                worksheet.write(row, 44, inverse_supplier_formatting)
+                if fuel_needed > 0:
+                    worksheet.write_number(row, TANKS_NEEDED_COL, fuel_needed, money_format)
+                else:
+                    worksheet.write(row, TANKS_NEEDED_COL, "")
+                if kits_needed > 0:
+                    worksheet.write_number(row, KITS_NEEDED_COL, kits_needed, money_format)
+                else:
+                    worksheet.write(row, KITS_NEEDED_COL, "")
                 # Write submarine parts data (40 columns)
                 for i, part_col in enumerate(PART_COLUMNS):
                     part_qty = parts_inventory.get(part_col, 0)
@@ -933,13 +960,14 @@ def write_excel(char_summaries, excel_output_path):
                         worksheet.write(row, 2, char_name, char_format)
                         worksheet.write(row, 3, world)
                         worksheet.write(row, 4, region)
-                        worksheet.write(row, 5, private_ward if private_ward is not None else "")
-                        worksheet.write(row, 6, private_plot if private_plot is not None else "")
-                        worksheet.write(row, 7, private_zone if private_zone else "")
-                        worksheet.write(row, 8, fc_ward if fc_ward is not None else "")
-                        worksheet.write(row, 9, fc_plot if fc_plot is not None else "")
-                        worksheet.write(row, 10, fc_zone if fc_zone else "")
-                        worksheet.write_number(row, 11, char_gil, money_format)
+                        worksheet.write(row, 5, last_online_days if last_online_days is not None else "")
+                        worksheet.write(row, 6, private_ward if private_ward is not None else "")
+                        worksheet.write(row, 7, private_plot if private_plot is not None else "")
+                        worksheet.write(row, 8, private_zone if private_zone else "")
+                        worksheet.write(row, 9, fc_ward if fc_ward is not None else "")
+                        worksheet.write(row, 10, fc_plot if fc_plot is not None else "")
+                        worksheet.write(row, 11, fc_zone if fc_zone else "")
+                        worksheet.write_number(row, 12, char_gil, money_format)
                     else:
                         worksheet.write(row, 0, "")
                         worksheet.write(row, 1, "")
@@ -953,29 +981,39 @@ def write_excel(char_summaries, excel_output_path):
                         worksheet.write(row, 9, "")
                         worksheet.write(row, 10, "")
                         worksheet.write(row, 11, "")
+                        worksheet.write(row, 12, "")
 
-                    worksheet.write(row, 12, ret_name)
-                    worksheet.write_number(row, 13, mb_items, money_format)
-                    worksheet.write_number(row, 14, has_venture, money_format)
-                    worksheet.write_number(row, 15, ret_level, money_format)
-                    worksheet.write_number(row, 16, ret_gil, money_format)
+                    worksheet.write(row, 13, ret_name)
+                    if mb_items > 0:
+                        worksheet.write_number(row, 14, mb_items, money_format)
+                    else:
+                        worksheet.write(row, 14, "")
+                    if has_venture > 0:
+                        worksheet.write_number(row, 15, has_venture, money_format)
+                    else:
+                        worksheet.write(row, 15, "")
+                    if ret_level > 0:
+                        worksheet.write_number(row, 16, ret_level, money_format)
+                    else:
+                        worksheet.write(row, 16, "")
+                    worksheet.write_number(row, 17, ret_gil, money_format)
 
                     if i == 0:
-                        worksheet.write_number(row, 17, total_gil, total_format)
-                        worksheet.write(row, 18, fc_name)
-                        worksheet.write_number(row, 19, fc_points, money_format)
-                        worksheet.write_number(row, 20, sub1lvl)
-                        worksheet.write(row, 21, sub1parts)
-                        worksheet.write_number(row, 22, sub1return, money_format)
-                        worksheet.write_number(row, 23, sub2lvl)
-                        worksheet.write(row, 24, sub2parts)
-                        worksheet.write_number(row, 25, sub2return, money_format)
-                        worksheet.write_number(row, 26, sub3lvl)
-                        worksheet.write(row, 27, sub3parts)
-                        worksheet.write_number(row, 28, sub3return, money_format)
-                        worksheet.write_number(row, 29, sub4lvl)
-                        worksheet.write(row, 30, sub4parts)
-                        worksheet.write_number(row, 31, sub4return, money_format)
+                        worksheet.write_number(row, 18, total_gil, total_format)
+                        worksheet.write(row, 19, fc_name)
+                        worksheet.write_number(row, 20, fc_points, money_format)
+                        worksheet.write_number(row, 21, sub1lvl)
+                        worksheet.write(row, 22, sub1parts)
+                        worksheet.write_number(row, 23, sub1return, money_format)
+                        worksheet.write_number(row, 24, sub2lvl)
+                        worksheet.write(row, 25, sub2parts)
+                        worksheet.write_number(row, 26, sub2return, money_format)
+                        worksheet.write_number(row, 27, sub3lvl)
+                        worksheet.write(row, 28, sub3parts)
+                        worksheet.write_number(row, 29, sub3return, money_format)
+                        worksheet.write_number(row, 30, sub4lvl)
+                        worksheet.write(row, 31, sub4parts)
+                        worksheet.write_number(row, 32, sub4return, money_format)
                         worksheet.write_number(row, TANK_COL, tank, money_format)
                         worksheet.write_number(row, KITS_COL, kits, money_format)
                         if restocking_days is not None:
@@ -983,16 +1021,28 @@ def write_excel(char_summaries, excel_output_path):
                         else:
                             worksheet.write(row, RESTOCK_COL, "")
                         worksheet.write_number(row, INV_SPACE_COL, inventory_space, money_format)
-                        worksheet.write_number(row, VENTURES_COL, ventures, money_format)
-                        worksheet.write_number(row, VENTURE_COFFERS_COL, venture_coffers, money_format)
+                        if ventures > 0:
+                            worksheet.write_number(row, VENTURES_COL, ventures, money_format)
+                        else:
+                            worksheet.write(row, VENTURES_COL, "")
+                        if venture_coffers > 0:
+                            worksheet.write_number(row, VENTURE_COFFERS_COL, venture_coffers, money_format)
+                        else:
+                            worksheet.write(row, VENTURE_COFFERS_COL, "")
                         worksheet.write_number(row, TREAS_COL, treasure_value, total_format if treasure_value else money_format)
-                        worksheet.write(row, 39, plain_nameworld)
-                        worksheet.write(row, 40, list_nameworld)
-                        worksheet.write(row, 41, snd_nameworld)
-                        worksheet.write(row, 42, bagman_nameworld_tony)
-                        worksheet.write(row, 43, inverse_supplier_formatting)
-                        worksheet.write_number(row, TANKS_NEEDED_COL, fuel_needed, money_format)
-                        worksheet.write_number(row, KITS_NEEDED_COL, kits_needed, money_format)
+                        worksheet.write(row, 40, plain_nameworld)
+                        worksheet.write(row, 41, list_nameworld)
+                        worksheet.write(row, 42, snd_nameworld)
+                        worksheet.write(row, 43, bagman_nameworld_tony)
+                        worksheet.write(row, 44, inverse_supplier_formatting)
+                        if fuel_needed > 0:
+                            worksheet.write_number(row, TANKS_NEEDED_COL, fuel_needed, money_format)
+                        else:
+                            worksheet.write(row, TANKS_NEEDED_COL, "")
+                        if kits_needed > 0:
+                            worksheet.write_number(row, KITS_NEEDED_COL, kits_needed, money_format)
+                        else:
+                            worksheet.write(row, KITS_NEEDED_COL, "")
                         # Write submarine parts data (40 columns)
                         for j, part_col in enumerate(PART_COLUMNS):
                             part_qty = parts_inventory.get(part_col, 0)
@@ -1004,7 +1054,7 @@ def write_excel(char_summaries, excel_output_path):
                         worksheet.write_number(row, TOTAL_PARTS_COL, total_parts, money_format)
                     else:
                         # Blank out all non-retainer columns for subsequent retainer rows
-                        for c in (17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, TANK_COL, KITS_COL, RESTOCK_COL, INV_SPACE_COL, VENTURES_COL, VENTURE_COFFERS_COL, TREAS_COL, 39, 40, 41, 42, 43, TANKS_NEEDED_COL, KITS_NEEDED_COL):
+                        for c in (18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, TANK_COL, KITS_COL, RESTOCK_COL, INV_SPACE_COL, VENTURES_COL, VENTURE_COFFERS_COL, TREAS_COL, 40, 41, 42, 43, 44, TANKS_NEEDED_COL, KITS_NEEDED_COL):
                             worksheet.write(row, c, "")
                         # Blank out parts columns for subsequent retainer rows
                         for j in range(len(PART_COLUMNS)):
@@ -1018,33 +1068,34 @@ def write_excel(char_summaries, excel_output_path):
         worksheet.set_column("C:C", 25)  # Character Name
         worksheet.set_column("D:D", 15)  # World
         worksheet.set_column("E:E", 5)   # Region
-        worksheet.set_column("F:F", 3)  # Private Ward
-        worksheet.set_column("G:G", 3)  # Private Plot
-        worksheet.set_column("H:H", 3)  # Private Zone
-        worksheet.set_column("I:I", 3)  # FC Ward
-        worksheet.set_column("J:J", 3)  # FC Plot
-        worksheet.set_column("K:K", 3)  # FC Zone
-        worksheet.set_column("L:L", 15)  # Character Gil
-        worksheet.set_column("M:M", 25)  # Retainer Name
-        worksheet.set_column("N:N", 6)  # MBItems
-        worksheet.set_column("O:O", 4)  # HasVenture
-        worksheet.set_column("P:P", 7)  # Retainer Level
-        worksheet.set_column("Q:Q", 15)  # Retainer Gil
-        worksheet.set_column("R:R", 15)  # Total Gil
-        worksheet.set_column("S:S", 25)  # FC Name
-        worksheet.set_column("T:T", 13)  # FC Points
-        worksheet.set_column("U:U", 7)   # Lvl #1
-        worksheet.set_column("V:V", 9)   # #1
-        worksheet.set_column("W:W", 3)   # #1 Return
-        worksheet.set_column("X:X", 7)   # Lvl #2
-        worksheet.set_column("Y:Y", 9)   # #2
-        worksheet.set_column("Z:Z", 3)   # #2 Return
-        worksheet.set_column("AA:AA", 7)   # Lvl #3
-        worksheet.set_column("AB:AB", 9)   # #3
-        worksheet.set_column("AC:AC", 3)   # #3 Return
-        worksheet.set_column("AD:AD", 7)   # Lvl #4
-        worksheet.set_column("AE:AE", 9)   # #4
-        worksheet.set_column("AF:AF", 3)   # #4 Return
+        worksheet.set_column("F:F", 4)  # Last Online
+        worksheet.set_column("G:G", 3)  # Private Ward
+        worksheet.set_column("H:H", 3)  # Private Plot
+        worksheet.set_column("I:I", 3)  # Private Zone
+        worksheet.set_column("J:J", 3)  # FC Ward
+        worksheet.set_column("K:K", 3)  # FC Plot
+        worksheet.set_column("L:L", 3)  # FC Zone
+        worksheet.set_column("M:M", 15)  # Character Gil
+        worksheet.set_column("N:N", 25)  # Retainer Name
+        worksheet.set_column("O:O", 6)  # MBItems
+        worksheet.set_column("P:P", 4)  # HasVenture
+        worksheet.set_column("Q:Q", 7)  # Retainer Level
+        worksheet.set_column("R:R", 15)  # Retainer Gil
+        worksheet.set_column("S:S", 15)  # Total Gil
+        worksheet.set_column("T:T", 25)  # FC Name
+        worksheet.set_column("U:U", 13)  # FC Points
+        worksheet.set_column("V:V", 7)   # Lvl #1
+        worksheet.set_column("W:W", 9)   # #1
+        worksheet.set_column("X:X", 3)   # #1 Return
+        worksheet.set_column("Y:Y", 7)   # Lvl #2
+        worksheet.set_column("Z:Z", 9)   # #2
+        worksheet.set_column("AA:AA", 3)   # #2 Return
+        worksheet.set_column("AB:AB", 7)   # Lvl #3
+        worksheet.set_column("AC:AC", 9)   # #3
+        worksheet.set_column("AD:AD", 3)   # #3 Return
+        worksheet.set_column("AE:AE", 7)   # Lvl #4
+        worksheet.set_column("AF:AF", 9)   # #4
+        worksheet.set_column("AG:AG", 3)   # #4 Return
         worksheet.set_column(TANK_COL, TANK_COL, 9)   # Tanks
         worksheet.set_column(KITS_COL, KITS_COL, 9)   # Kits
         worksheet.set_column(RESTOCK_COL, RESTOCK_COL, 6)  # Restocking Days
@@ -1052,11 +1103,11 @@ def write_excel(char_summaries, excel_output_path):
         worksheet.set_column(VENTURES_COL, VENTURES_COL, 7)   # Ventures
         worksheet.set_column(VENTURE_COFFERS_COL, VENTURE_COFFERS_COL, 5)   # VentureCoffers
         worksheet.set_column(TREAS_COL, TREAS_COL, 15) # Treasure Value
-        worksheet.set_column(39, 39, 30)  # Plain Name
-        worksheet.set_column(40, 40, 38)  # List Formatting
-        worksheet.set_column(41, 41, 40)  # SND Formatting
-        worksheet.set_column(42, 42, 55)  # Bagman Formatting
-        worksheet.set_column(43, 43, 45)  # Inverse Supplier Formatting (10 spaces less than Bagman)
+        worksheet.set_column(40, 40, 30)  # Plain Name
+        worksheet.set_column(41, 41, 38)  # List Formatting
+        worksheet.set_column(42, 42, 40)  # SND Formatting
+        worksheet.set_column(43, 43, 55)  # Bagman Formatting
+        worksheet.set_column(44, 44, 45)  # Inverse Supplier Formatting (10 spaces less than Bagman)
         worksheet.set_column(TANKS_NEEDED_COL, TANKS_NEEDED_COL, 9)  # Tanks Needed (same width as Tanks)
         worksheet.set_column(KITS_NEEDED_COL, KITS_NEEDED_COL, 9)  # Kits Needed (same width as Kits)
         # Set widths for all 40 submarine part columns (width 7)
