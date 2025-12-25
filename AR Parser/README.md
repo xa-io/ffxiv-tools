@@ -157,6 +157,7 @@ The script generates an Excel file with the following sheets:
 
 ### Main Sheet: FFXIV Gil Summary
 - Character details (name, world, region, CID)
+- **Last Online** Days since character last logged in (from Altoholic database)
 - Housing information (separate private and FC housing)
   - Private Ward, Private Plot, Private Zone
   - FC Ward, FC Plot, FC Zone
@@ -336,6 +337,7 @@ The **Inverse Supplier Formatting** column (v1.13+) integrates seamlessly with X
 
 ## Version History
 
+**v1.14** (2025-12-25) - Added Last Online column from Altoholic database shows days since character last logged in
 **v1.13** (2025-11-26) - Added Inverse Supplier Formatting column with smart inventory-based distribution  
 **v1.12** (2025-11-26) - Added Restocking Days calculation and improved data sources  
 **v1.11** (2025-11-18) - Added Inventory Spaces, Ventures, and VentureCoffers columns  
@@ -353,4 +355,4 @@ The **Inverse Supplier Formatting** column (v1.13+) integrates seamlessly with X
 
 https://github.com/xa-io
 
-Last Updated: 2025-12-04 17:15:00
+Last Updated: 2025-12-25 10:09:00
