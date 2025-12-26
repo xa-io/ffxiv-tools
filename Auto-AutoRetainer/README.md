@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.17 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.18 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -479,24 +479,23 @@ WINDOW_REFRESH_INTERVAL = 60   # Check game window status every 60 seconds
 ENABLE_AUTO_CLOSE = True        # Enable automatic game closing and crash monitoring
 AUTO_CLOSE_THRESHOLD = 0.5      # Close game if next sub > 0.5 hours (30 minutes)
 MAX_RUNTIME = 71                # Maximum allowed client uptime in hours before a forced restart
-FORCE_CRASH_INACTIVITY_MINUTES = 10  # Force crash client if no submarine processing detected for this many minutes (only works when ENABLE_AUTO_CLOSE = True)
-CRASH_MONITOR_DELAY = 0.2       # Hours to wait after subs become ready before activating force-crash monitoring (only works when ENABLE_AUTO_CLOSE = True)
+FORCE_CRASH_INACTIVITY_MINUTES = 10  # Force crash client if no submarine processing detected for this many minutes (after monitoring activates)
+# Note: Monitoring activates AUTO_LAUNCH_THRESHOLD hours after game launches (not when subs become ready)
 ```
 
-**FORCE_CRASH_INACTIVITY_MINUTES and CRASH_MONITOR_DELAY Behavior:**
-- **⚠️ Requires ENABLE_AUTO_CLOSE = True**: Both parameters are completely disabled when ENABLE_AUTO_CLOSE = False
-- **Purpose**: Detects and crashes frozen, disconnected, or stuck game clients
+**FORCE_CRASH_INACTIVITY_MINUTES Behavior (v1.18 Update):**
+- **⚠️ Requires ENABLE_AUTO_CLOSE = True**: Force-crash monitoring is completely disabled when ENABLE_AUTO_CLOSE = False
+- **Purpose**: Detects and crashes frozen, disconnected, or stuck game clients even if they boot stuck without processing any submarines
+- **Monitoring Activation**: Starts AUTO_LAUNCH_THRESHOLD hours after game launches (matches game launch threshold, typically 9 minutes)
+- **Key Improvement**: Monitoring begins when game opens, not when subs are processed - resolves stuck-at-boot issue
 - **Detection Method**: Tracks submarine processing by counting decrease in ready submarines per scan (ready-count-based detection)
 - **Processing Count**: `processed = (previous ready count - current ready count)` - accurately reflects actual subs sent per scan
-- **Monitoring Activation**: Starts CRASH_MONITOR_DELAY hours after submarines become ready (ensures game fully loaded)
-- **Inactivity Check**: Crashes client if no submarine processing detected for FORCE_CRASH_INACTIVITY_MINUTES
-- **When Active**: Only monitors when ENABLE_AUTO_CLOSE = True AND during (READY) status when ready_subs > 0 and CRASH_MONITOR_DELAY has elapsed
-- **When Inactive**: If ENABLE_AUTO_CLOSE = False, crash monitoring is completely disabled regardless of other settings
-- **Deactivation**: Stops monitoring when ready_subs = 0 (includes WAITING status and all accounts)
+- **Inactivity Check**: After monitoring activates, crashes client if no submarine processing detected for FORCE_CRASH_INACTIVITY_MINUTES
 - **Timer Reset**: When submarine processing detected (ready count decreases), resets inactivity timer to 0
-- **Countdown Reset**: When subs become ready again (ready_subs > 0), creates new timestamp and starts new CRASH_MONITOR_DELAY countdown
+- **Grace Period**: AUTO_LAUNCH_THRESHOLD delay ensures game has time to fully load before monitoring begins
 - **Enhanced Debug Output**: Shows ready subs, voyaging subs, and newly sent subs per scan when DEBUG=True
 - **Handles Multiple Scenarios**:
+  - Game boots but gets stuck without processing any submarines (NEW in v1.18)
   - Frozen game client (no response)
   - Lost network connection (disconnected but process running)
   - Stuck in character select menu
@@ -889,6 +888,7 @@ The script will automatically load `window_layout_{name}.json` based on the `WIN
 
 ## Version History
 
+**v1.18** (2025-12-26) - Improved Force-Close timer to start when game launches instead of when subs are processed. Force-Close monitoring now starts AUTO_LAUNCH_THRESHOLD hours after game opens (typically 9 minutes). Crash timer begins even if game boots stuck without processing any submarines - resolves stuck-at-boot issue. Changed from subs-ready-based monitoring to game-launch-based monitoring for earlier detection. After AUTO_LAUNCH_THRESHOLD delay, FORCE_CRASH_INACTIVITY_MINUTES timer activates (default: 10 minutes). Timer still resets whenever submarines are processed (preserves existing behavior during active play). Tracks game_launch_timestamp per account instead of subs_ready_timestamp. Eliminates issue where frozen games at boot would never trigger force-close because no subs were processed. Removed CRASH_MONITOR_DELAY parameter (now uses AUTO_LAUNCH_THRESHOLD instead for consistency).  
 **v1.17** (2025-12-24) - Added DalamudCrashHandler.exe detection and automatic closing for game crash scenarios. New function is_dalamud_crash_handler_running() detects active crash handler windows and returns PID. New function kill_dalamud_crash_handler_process(pid) closes specific crash handler process by PID using taskkill /F /PID. Monitors for active DalamudCrashHandler.exe windows every WINDOW_REFRESH_INTERVAL (60 seconds). Distinguishes between active crash handler windows (problem state - visible UI open) and background processes (normal state). Background DalamudCrashHandler.exe processes are normal and ignored (one per client) - only kills the specific process with visible window. Uses same has_visible_windows() methodology as XIVLauncher.exe detection. Automatically closes crash handler windows when detected to prevent manual intervention requirement. Works for both single-client and multi-client modes. Prevents crash handler popup windows from blocking automation workflow.  
 **v1.16** (2025-12-19) - Added launcher detection with automatic retry and system bootup delay features. FORCE_LAUNCHER_RETRY = 3 attempts when XIVLauncher.exe opens as ACTIVE APP instead of game client. Detects XIVLauncher with visible windows (stuck at login screen) during game startup monitoring. Ignores XIVLauncher as background process (normal state when game running) to prevent false positives. Uses win32gui window enumeration to distinguish active launcher UI from background process. Kills launcher and retries game launch up to FORCE_LAUNCHER_RETRY times before marking account as [LAUNCHER]. Single client mode: stops monitoring account after max retries. Multi-client mode: marks failed account as [LAUNCHER] and continues processing other accounts. SYSTEM_BOOTUP_DELAY (configurable delay before script starts monitoring). Shows countdown "ARR Processing Delay {x}s Set. Please Wait..." when delay is configured. Useful for auto-starting script on system boot (e.g., set to 20 for 20 second delay). Enhanced wait_for_window_title_update() to detect launcher during both single and multi-client modes.  
 **v1.15** (2025-12-15) - Enhanced submarine processing detection and added FORCE_CRASH_INACTIVITY_MINUTES for frozen client detection. Submarine processing now accurately tracks subs sent per scan by counting decrease in ready submarines. Processing count = (previous ready count - current ready count) - eliminates false positives from total-ready calculations. Added detailed debug output showing ready subs, voyaging subs, and newly sent subs per scan. FORCE_CRASH_INACTIVITY_MINUTES (default: 10 minutes, configurable) crashes client if no submarine processing detected. Monitoring activates CRASH_MONITOR_DELAY hours after submarines become ready (ensures game has fully loaded). Automatically stops monitoring during (WAITING) status and restarts timer when subs become ready again. Deactivates monitoring when force247uptime=True and all subs processed (no ready subs). Resets timer and starts new countdown when subs become ready again. Handles frozen clients, lost connections, stuck in character select, and other stuck scenarios. **Important:** FORCE_CRASH_INACTIVITY_MINUTES and CRASH_MONITOR_DELAY are now conditional on ENABLE_AUTO_CLOSE = True. When ENABLE_AUTO_CLOSE = False, crash monitoring is completely disabled.  
