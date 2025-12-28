@@ -27,13 +27,18 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.18
+# Auto-AutoRetainer v1.19
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2025-12-26 08:00:00
+# Last Updated: 2025-12-28 11:30:00
 #
 # ## Release Notes ##
 #
+# v1.19 - Fixed force-crash monitoring to respect ENABLE_AUTO_CLOSE setting
+#         Force-crash inactivity monitoring now only runs when ENABLE_AUTO_CLOSE = True
+#         When ENABLE_AUTO_CLOSE = False, clients will never be force-closed due to inactivity
+#         Resolves issue where frozen client detection would crash clients even when auto-close was disabled
+#         Ensures user control over client lifecycle when auto-close features are not desired
 # v1.18 - Improved Force-Close timer to start when game launches instead of when subs are processed
 #         Force-Close monitoring now starts AUTO_LAUNCH_THRESHOLD minutes after game opens (matches game launch threshold)
 #         Crash timer begins even if game boots stuck without processing any submarines (resolves stuck-at-boot issue)
@@ -177,7 +182,7 @@ except ImportError:
 # ===============================================
 # Configuration Parameters
 # ===============================================
-VERSION = "v1.18"       # Current script version
+VERSION = "v1.19"       # Current script version
 
 # Display settings
 NICKNAME_WIDTH = 5      # Display column width for account nicknames in terminal output
@@ -265,25 +270,25 @@ build_gil_rates = {
     # OJ Route (24h) - 118,661 gil/day
     "WSUC": 118661,
     "SSUC": 118661,
-    "W+S+U+C+": 118661,  # WSUC++
-    "S+S+S+C+": 118661,  # SSSC++
+    "W+S+U+C+": 118661,  # WSUC++ (modified)
+    "S+S+S+C+": 118661,  # SSSC++ (modified for OJ route)
     
     # MOJ Route (36h) - 93,165 gil/day
     "YUUW": 93165,
-    "Y+U+U+W+": 93165,  # YU+U+W+
+    "Y+U+U+W+": 93165,  # YU+U+W+ (modified)
     
     # ROJ Route (36h) - 106,191 gil/day
     "WCSU": 106191,
     "WUSS": 106191,
-    "W+U+S+S+": 106191,  # WUSS++
+    "W+U+S+S+": 106191,  # WUSS++ (modified)
     
     # JOZ Route (36h) - 113,321 gil/day
     "YSYC": 113321,
-    "Y+S+Y+C+": 113321,  # YS+YC+
+    "Y+S+Y+C+": 113321,  # YS+YC+ (modified)
     
     # MROJ Route (36h) - 120,728 gil/day
-    "S+S+S+C+": 120728,  # SSSC++
-    "S+S+U+C+": 120728,  # SSUC++
+    "S+S+S+C+": 120728,  # SSSC++ (modified)
+    "S+S+U+C+": 120728,  # SSUC++ (modified)
     
     # JORZ Route (36h) - 140,404 gil/day (highest gil/day)
     "S+S+U+C": 140404,
@@ -292,7 +297,7 @@ build_gil_rates = {
     # JORZ 48h Route - 105,303 gil/day
     "WCYC": 105303,
     "WUWC": 105303,
-    "W+U+W+C+": 105303,  # WUWC++
+    "W+U+W+C+": 105303,  # WUWC++ (modified)
     
     # MOJZ Route (36h) - 127,857 gil/day
     # MOJZ uses SSUC++ at rank 110
@@ -300,7 +305,7 @@ build_gil_rates = {
     # MROJZ Route (48h) - 116,206 gil/day
     "YSCU": 116206,
     "SCUS": 116206,
-    "S+C+U+S+": 116206,  # SCUS++
+    "S+C+U+S+": 116206,  # SCUS++ (modified)
 }
 
 # ===============================================
@@ -1980,118 +1985,120 @@ def main():
                             print(f"[AUTO-CLOSE] Failed to close {nickname}")
             
             # Force crash timer - check for frozen/stuck clients
-            for account_entry in account_locations:
-                nickname = account_entry["nickname"]
-                include_subs = account_entry.get("include_submarines", True)
-                force247 = account_entry.get("force247uptime", False)
-                auto_path = account_entry["auto_path"]
-                
-                # Skip if submarines disabled
-                if not include_subs:
-                    continue
-                
-                # Get game status
-                game_info = game_status_dict.get(nickname, (None, None))
-                is_running = game_info[0]
-                process_id = game_info[1]
-                
-                # Only check if game is running
-                if not is_running:
-                    # Clean up tracking if game not running
-                    if nickname in game_launch_timestamp:
-                        del game_launch_timestamp[nickname]
-                    if nickname in last_sub_processed:
-                        del last_sub_processed[nickname]
-                    continue
-                
-                # Check if we have a game launch timestamp for this account
-                if nickname not in game_launch_timestamp:
-                    # Game is running but we don't have launch timestamp (e.g., script restarted while game was running)
-                    # Check actual uptime to determine appropriate launch timestamp
-                    actual_uptime_hours = 0
-                    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
-                        if 'ffxiv_single' in client_start_times:
-                            actual_uptime_hours = (current_time - client_start_times['ffxiv_single']) / 3600
-                    elif process_id and process_id in client_start_times:
-                        actual_uptime_hours = (current_time - client_start_times[process_id]) / 3600
+            # Only run force-crash monitoring if ENABLE_AUTO_CLOSE is True
+            if ENABLE_AUTO_CLOSE:
+                for account_entry in account_locations:
+                    nickname = account_entry["nickname"]
+                    include_subs = account_entry.get("include_submarines", True)
+                    force247 = account_entry.get("force247uptime", False)
+                    auto_path = account_entry["auto_path"]
                     
-                    # If uptime exceeds AUTO_LAUNCH_THRESHOLD, activate monitoring immediately
-                    if actual_uptime_hours >= AUTO_LAUNCH_THRESHOLD:
-                        # Set launch timestamp in the past so monitoring activates now
-                        game_launch_timestamp[nickname] = current_time - (AUTO_LAUNCH_THRESHOLD * 3600)
-                        if DEBUG:
-                            print(f"[FORCE-CRASH] {nickname}: Game running {actual_uptime_hours:.2f}h (>{AUTO_LAUNCH_THRESHOLD * 60:.0f}min threshold), activating monitoring immediately")
-                    else:
-                        # Set launch timestamp to current time, monitoring will activate after AUTO_LAUNCH_THRESHOLD
-                        game_launch_timestamp[nickname] = current_time
-                        if DEBUG:
-                            print(f"[FORCE-CRASH] {nickname}: Game running {actual_uptime_hours:.2f}h (<{AUTO_LAUNCH_THRESHOLD * 60:.0f}min threshold), monitoring will activate in {(AUTO_LAUNCH_THRESHOLD - actual_uptime_hours) * 60:.1f} minutes")
-                    continue
-                
-                # Calculate when monitoring should activate (AUTO_LAUNCH_THRESHOLD hours after game launched)
-                launch_time = game_launch_timestamp[nickname]
-                monitoring_start_time = launch_time + (AUTO_LAUNCH_THRESHOLD * 3600)  # Convert hours to seconds
-                
-                # Check if monitoring should be active yet
-                if current_time < monitoring_start_time:
-                    # Not time to monitor yet - still within grace period
-                    if DEBUG:
-                        minutes_until_monitoring = (monitoring_start_time - current_time) / 60
-                        print(f"[FORCE-CRASH] {nickname}: Monitoring will activate in {minutes_until_monitoring:.1f} minutes")
-                    continue
-                
-                # Monitoring is now active - check for submarine processing activity
-                processed_count = detect_submarine_processing(account_entry, submarine_state_cache, datetime.datetime.now().timestamp())
-                
-                if processed_count > 0:
-                    # Submarine processing detected - reset inactivity timer
-                    last_sub_processed[nickname] = current_time
-                    if DEBUG:
-                        print(f"[FORCE-CRASH] {nickname}: {processed_count} sub(s) processed, resetting inactivity timer")
-                
-                # Initialize last_sub_processed if not set (first check after monitoring activates)
-                if nickname not in last_sub_processed:
-                    # No processing detected yet, use monitoring start time as baseline
-                    last_sub_processed[nickname] = monitoring_start_time
-                    if DEBUG:
-                        print(f"[FORCE-CRASH] {nickname}: Monitoring activated, starting inactivity timer")
-                
-                # Check inactivity timer
-                minutes_since_processing = (current_time - last_sub_processed[nickname]) / 60
-                
-                # Force crash if no processing detected for FORCE_CRASH_INACTIVITY_MINUTES
-                if minutes_since_processing > FORCE_CRASH_INACTIVITY_MINUTES:
-                    time_since_launch = (current_time - launch_time) / 3600
-                    print(f"\n[FORCE-CRASH] Crashing {nickname} (PID: {process_id}) - No submarine processing for {minutes_since_processing:.1f}m (game running for {time_since_launch:.1f}h)")
+                    # Skip if submarines disabled
+                    if not include_subs:
+                        continue
                     
-                    # Use appropriate kill method
-                    kill_success = False
-                    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
-                        kill_success = kill_ffxiv_process()
-                    else:
-                        kill_success = kill_process_by_pid(process_id)
+                    # Get game status
+                    game_info = game_status_dict.get(nickname, (None, None))
+                    is_running = game_info[0]
+                    process_id = game_info[1]
                     
-                    if kill_success:
-                        closed_pids.add(process_id) if process_id else None
-                        print(f"[FORCE-CRASH] Successfully crashed {nickname} - likely frozen/stuck, waiting {TIMER_REFRESH_INTERVAL} seconds before relaunch")
-                        # Update game status immediately
-                        game_status_dict[nickname] = (False, None)
-                        # Clear tracking
+                    # Only check if game is running
+                    if not is_running:
+                        # Clean up tracking if game not running
                         if nickname in game_launch_timestamp:
                             del game_launch_timestamp[nickname]
                         if nickname in last_sub_processed:
                             del last_sub_processed[nickname]
-                        # Reset launch time to allow immediate relaunch
-                        if nickname in last_launch_time:
-                            del last_launch_time[nickname]
-                        # Clean up start time tracking
+                        continue
+                    
+                    # Check if we have a game launch timestamp for this account
+                    if nickname not in game_launch_timestamp:
+                        # Game is running but we don't have launch timestamp (e.g., script restarted while game was running)
+                        # Check actual uptime to determine appropriate launch timestamp
+                        actual_uptime_hours = 0
                         if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
                             if 'ffxiv_single' in client_start_times:
-                                del client_start_times['ffxiv_single']
+                                actual_uptime_hours = (current_time - client_start_times['ffxiv_single']) / 3600
                         elif process_id and process_id in client_start_times:
-                            del client_start_times[process_id]
-                    else:
-                        print(f"[FORCE-CRASH] Failed to crash {nickname}")
+                            actual_uptime_hours = (current_time - client_start_times[process_id]) / 3600
+                        
+                        # If uptime exceeds AUTO_LAUNCH_THRESHOLD, activate monitoring immediately
+                        if actual_uptime_hours >= AUTO_LAUNCH_THRESHOLD:
+                            # Set launch timestamp in the past so monitoring activates now
+                            game_launch_timestamp[nickname] = current_time - (AUTO_LAUNCH_THRESHOLD * 3600)
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: Game running {actual_uptime_hours:.2f}h (>{AUTO_LAUNCH_THRESHOLD * 60:.0f}min threshold), activating monitoring immediately")
+                        else:
+                            # Set launch timestamp to current time, monitoring will activate after AUTO_LAUNCH_THRESHOLD
+                            game_launch_timestamp[nickname] = current_time
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: Game running {actual_uptime_hours:.2f}h (<{AUTO_LAUNCH_THRESHOLD * 60:.0f}min threshold), monitoring will activate in {(AUTO_LAUNCH_THRESHOLD - actual_uptime_hours) * 60:.1f} minutes")
+                        continue
+                    
+                    # Calculate when monitoring should activate (AUTO_LAUNCH_THRESHOLD hours after game launched)
+                    launch_time = game_launch_timestamp[nickname]
+                    monitoring_start_time = launch_time + (AUTO_LAUNCH_THRESHOLD * 3600)  # Convert hours to seconds
+                    
+                    # Check if monitoring should be active yet
+                    if current_time < monitoring_start_time:
+                        # Not time to monitor yet - still within grace period
+                        if DEBUG:
+                            minutes_until_monitoring = (monitoring_start_time - current_time) / 60
+                            print(f"[FORCE-CRASH] {nickname}: Monitoring will activate in {minutes_until_monitoring:.1f} minutes")
+                        continue
+                    
+                    # Monitoring is now active - check for submarine processing activity
+                    processed_count = detect_submarine_processing(account_entry, submarine_state_cache, datetime.datetime.now().timestamp())
+                    
+                    if processed_count > 0:
+                        # Submarine processing detected - reset inactivity timer
+                        last_sub_processed[nickname] = current_time
+                        if DEBUG:
+                            print(f"[FORCE-CRASH] {nickname}: {processed_count} sub(s) processed, resetting inactivity timer")
+                    
+                    # Initialize last_sub_processed if not set (first check after monitoring activates)
+                    if nickname not in last_sub_processed:
+                        # No processing detected yet, use monitoring start time as baseline
+                        last_sub_processed[nickname] = monitoring_start_time
+                        if DEBUG:
+                            print(f"[FORCE-CRASH] {nickname}: Monitoring activated, starting inactivity timer")
+                    
+                    # Check inactivity timer
+                    minutes_since_processing = (current_time - last_sub_processed[nickname]) / 60
+                    
+                    # Force crash if no processing detected for FORCE_CRASH_INACTIVITY_MINUTES
+                    if minutes_since_processing > FORCE_CRASH_INACTIVITY_MINUTES:
+                        time_since_launch = (current_time - launch_time) / 3600
+                        print(f"\n[FORCE-CRASH] Crashing {nickname} (PID: {process_id}) - No submarine processing for {minutes_since_processing:.1f}m (game running for {time_since_launch:.1f}h)")
+                        
+                        # Use appropriate kill method
+                        kill_success = False
+                        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                            kill_success = kill_ffxiv_process()
+                        else:
+                            kill_success = kill_process_by_pid(process_id)
+                        
+                        if kill_success:
+                            closed_pids.add(process_id) if process_id else None
+                            print(f"[FORCE-CRASH] Successfully crashed {nickname} - likely frozen/stuck, waiting {TIMER_REFRESH_INTERVAL} seconds before relaunch")
+                            # Update game status immediately
+                            game_status_dict[nickname] = (False, None)
+                            # Clear tracking
+                            if nickname in game_launch_timestamp:
+                                del game_launch_timestamp[nickname]
+                            if nickname in last_sub_processed:
+                                del last_sub_processed[nickname]
+                            # Reset launch time to allow immediate relaunch
+                            if nickname in last_launch_time:
+                                del last_launch_time[nickname]
+                            # Clean up start time tracking
+                            if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                                if 'ffxiv_single' in client_start_times:
+                                    del client_start_times['ffxiv_single']
+                            elif process_id and process_id in client_start_times:
+                                del client_start_times[process_id]
+                        else:
+                            print(f"[FORCE-CRASH] Failed to crash {nickname}")
             
             # Wait for TIMER_REFRESH_INTERVAL seconds before next timer update
             time.sleep(TIMER_REFRESH_INTERVAL)
