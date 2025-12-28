@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.18 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.19 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -483,7 +483,7 @@ FORCE_CRASH_INACTIVITY_MINUTES = 10  # Force crash client if no submarine proces
 # Note: Monitoring activates AUTO_LAUNCH_THRESHOLD hours after game launches (not when subs become ready)
 ```
 
-**FORCE_CRASH_INACTIVITY_MINUTES Behavior (v1.18 Update):**
+**FORCE_CRASH_INACTIVITY_MINUTES Behavior:**
 - **⚠️ Requires ENABLE_AUTO_CLOSE = True**: Force-crash monitoring is completely disabled when ENABLE_AUTO_CLOSE = False
 - **Purpose**: Detects and crashes frozen, disconnected, or stuck game clients even if they boot stuck without processing any submarines
 - **Monitoring Activation**: Starts AUTO_LAUNCH_THRESHOLD hours after game launches (matches game launch threshold, typically 9 minutes)
@@ -495,7 +495,7 @@ FORCE_CRASH_INACTIVITY_MINUTES = 10  # Force crash client if no submarine proces
 - **Grace Period**: AUTO_LAUNCH_THRESHOLD delay ensures game has time to fully load before monitoring begins
 - **Enhanced Debug Output**: Shows ready subs, voyaging subs, and newly sent subs per scan when DEBUG=True
 - **Handles Multiple Scenarios**:
-  - Game boots but gets stuck without processing any submarines (NEW in v1.18)
+  - Game boots but gets stuck without processing any submarines
   - Frozen game client (no response)
   - Lost network connection (disconnected but process running)
   - Stuck in character select menu
@@ -888,6 +888,7 @@ The script will automatically load `window_layout_{name}.json` based on the `WIN
 
 ## Version History
 
+**v1.19** (2025-12-28) - Fixed force-crash monitoring to respect ENABLE_AUTO_CLOSE setting. Force-crash inactivity monitoring now only runs when ENABLE_AUTO_CLOSE = True. When ENABLE_AUTO_CLOSE = False, clients will never be force-closed due to inactivity. Resolves issue where frozen client detection would crash clients even when auto-close was disabled. Ensures user control over client lifecycle when auto-close features are not desired. Critical bug fix for users running with ENABLE_AUTO_CLOSE = False who were experiencing unexpected force-closes.  
 **v1.18** (2025-12-26) - Improved Force-Close timer to start when game launches instead of when subs are processed. Force-Close monitoring now starts AUTO_LAUNCH_THRESHOLD hours after game opens (typically 9 minutes). Crash timer begins even if game boots stuck without processing any submarines - resolves stuck-at-boot issue. Changed from subs-ready-based monitoring to game-launch-based monitoring for earlier detection. After AUTO_LAUNCH_THRESHOLD delay, FORCE_CRASH_INACTIVITY_MINUTES timer activates (default: 10 minutes). Timer still resets whenever submarines are processed (preserves existing behavior during active play). Tracks game_launch_timestamp per account instead of subs_ready_timestamp. Eliminates issue where frozen games at boot would never trigger force-close because no subs were processed. Removed CRASH_MONITOR_DELAY parameter (now uses AUTO_LAUNCH_THRESHOLD instead for consistency).  
 **v1.17** (2025-12-24) - Added DalamudCrashHandler.exe detection and automatic closing for game crash scenarios. New function is_dalamud_crash_handler_running() detects active crash handler windows and returns PID. New function kill_dalamud_crash_handler_process(pid) closes specific crash handler process by PID using taskkill /F /PID. Monitors for active DalamudCrashHandler.exe windows every WINDOW_REFRESH_INTERVAL (60 seconds). Distinguishes between active crash handler windows (problem state - visible UI open) and background processes (normal state). Background DalamudCrashHandler.exe processes are normal and ignored (one per client) - only kills the specific process with visible window. Uses same has_visible_windows() methodology as XIVLauncher.exe detection. Automatically closes crash handler windows when detected to prevent manual intervention requirement. Works for both single-client and multi-client modes. Prevents crash handler popup windows from blocking automation workflow.  
 **v1.16** (2025-12-19) - Added launcher detection with automatic retry and system bootup delay features. FORCE_LAUNCHER_RETRY = 3 attempts when XIVLauncher.exe opens as ACTIVE APP instead of game client. Detects XIVLauncher with visible windows (stuck at login screen) during game startup monitoring. Ignores XIVLauncher as background process (normal state when game running) to prevent false positives. Uses win32gui window enumeration to distinguish active launcher UI from background process. Kills launcher and retries game launch up to FORCE_LAUNCHER_RETRY times before marking account as [LAUNCHER]. Single client mode: stops monitoring account after max retries. Multi-client mode: marks failed account as [LAUNCHER] and continues processing other accounts. SYSTEM_BOOTUP_DELAY (configurable delay before script starts monitoring). Shows countdown "ARR Processing Delay {x}s Set. Please Wait..." when delay is configured. Useful for auto-starting script on system boot (e.g., set to 20 for 20 second delay). Enhanced wait_for_window_title_update() to detect launcher during both single and multi-client modes.  
