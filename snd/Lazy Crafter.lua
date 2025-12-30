@@ -32,11 +32,12 @@
 -- |   - Two setup processes, 1) SND > Add script, name dfunc and another xafunc paste the code.
 -- |   - 2) SND > Add script name the same as before, add github url and save, can update through SND
 -- | 
--- | XA Lazy Crafter v7.35.1
+-- | XA Lazy Crafter v7.35.2
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-10-14 22:30
+-- | Last Updated: 2025-12-30 08:00
 -- | 
 -- | ## Release Notes ##
+-- | v7.35.2 - Imported EquipRecommendedGearXA() to be used instead of Send C, misc.
 -- | v7.35.1 - Added CharacterSafeWaitXA() after speaking to each Randwulf and Brithael
 -- | v7.35 - Revamped codebase using new xafunc functions for better readability and maintainability
 -- └-----------------------------------------------------------------------------------------------------------------------
@@ -668,21 +669,15 @@ local function LazyCrafterXA()
 
     SleepXA(1)
     yield("/equip 2340")
-    EchoXA("Attempting to equip hammer. #1")
+    EchoXA("Attempting to equip hammer. CBT #1")
     SleepXA(1)
     yield("/equip 2340")
-    EchoXA("Attempting to equip hammer. #2")
+    EchoXA("Attempting to equip hammer. CBT #2")
     SleepXA(1)
     yield("/equip 2340")
-    EchoXA("Attempting to equip hammer. #3")
+    EchoXA("Attempting to equip hammer. CBT #3")
     SleepXA(1)
-    yield("/send C")
-    SleepXA(1)
-    callbackXA("Character True 12")
-    SleepXA(1)
-    callbackXA("RecommendEquip True 0")
-    SleepXA(1)
-    callbackXA("CharacterStatus True -2")
+    EquipRecommendedGearXA()
     EchoXA("All items checked, ready to craft!")
 
     EchoXA("Starting crafting 1-12")
@@ -692,15 +687,7 @@ local function LazyCrafterXA()
     MonitorJobLevel(12, function()
         yield("/send ESCAPE")
         SleepXA(0.5)
-        yield("/send C")
-        SleepXA(1)
-        callbackXA("Character True 12")
-        SleepXA(1)
-        callbackXA("RecommendEquip True 0")
-        SleepXA(1)
-        callbackXA("CharacterStatus True -2")
-        SleepXA(1)
-        callbackXA("SystemMenu true -1")
+        EquipRecommendedGearXA()
         SleepXA(0.5)
         EchoXA("Starting crafting 12-25")
         list_id = get_crafting_list("levels_12_25")
