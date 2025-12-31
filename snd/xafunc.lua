@@ -104,10 +104,10 @@
 -- | QSTReloadXA()                  -- Reload Questionable
 -- | EnableTextAdvanceXA()          -- Enable TextAdvance
 -- | DisableTextAdvanceXA()         -- Disable TextAdvance
--- | EnablePluginXA(name)           -- Enable a specific plugin - Usage: EnablePluginXA("Artisan")
--- | DisablePluginXA(name)          -- Disable a specific plugin - Usage: DisablePluginXA("Artisan")
--- | EnablePluginCollectionXA(name) -- Enable a specific plugin collection - Usage: EnablePluginCollectionXA("Artisan")
--- | DisablePluginCollectionXA(name) -- Disable a specific plugin collection - Usage: DisablePluginCollectionXA("Artisan")
+-- | EnablePluginXA()               -- Enable a specific plugin - Usage: EnablePluginXA("Artisan")
+-- | DisablePluginXA()              -- Disable a specific plugin - Usage: DisablePluginXA("Artisan")
+-- | EnablePluginCollectionXA()     -- Enable a specific plugin collection - Usage: EnablePluginCollectionXA("Artisan")
+-- | DisablePluginCollectionXA()    -- Disable a specific plugin collection - Usage: DisablePluginCollectionXA("Artisan")
 -- | 
 -- | World Info
 -- |---------------------------------------------------------------------------
@@ -1215,12 +1215,15 @@ function IsPlayerCastingXA()
     return Player.IsCasting
 end
 
---- Get party member name by index (0-7)
-function GetPartyMemberNameXA(index)
-    if Party == nil then return nil end
-    local member = Party[index]
-    if member == nil then return nil end
-    return member.Name
+function IsPlayerDeadXA()
+    if Svc and Svc.Condition then
+        if type(Svc.Condition.IsDeath) == "function" then
+            local ok, res = pcall(Svc.Condition.IsDeath, Svc.Condition)
+            if ok then return res end
+        end
+        return Svc.Condition[2] == true
+    end
+    return false
 end
 
 function IsPlayerAvailableXA()
@@ -1259,7 +1262,7 @@ function CharacterSafeWaitXA() -- Use this call for safewaits
         local ready, vis = np and np.Ready or false, np and np.Exists or false
         local avail = IsPlayerAvailableXA()
 
-        EchoXA(string.format("[NP %s/%s] [PLR %s] %s", tostring(ready), tostring(vis), tostring(avail), zoning and "(zoning)" or ""))
+        -- EchoXA(string.format("[NP %s/%s] [PLR %s] %s", tostring(ready), tostring(vis), tostring(avail), zoning and "(zoning)" or ""))
 
         if ready and vis and avail then
             EchoXA("All ready — stopping loop")
