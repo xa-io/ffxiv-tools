@@ -16,11 +16,12 @@
 -- | Important Note: This library requires dfunc.lua to be loaded first in your scripts. Many functions build upon
 -- | dfunc's base functionality. Always use require("dfunc") and require("xafunc") in your automation scripts.
 -- |
--- | XA Func Library v2.2
+-- | XA Func Library v2.3
 -- | Created by: https://github.com/xa-io
--- | Last Updated: 2025-12-25 15:50:00
+-- | Last Updated: 2025-12-30 20:20:00
 -- |
 -- | ## Release Notes ##
+-- | v2.3 - Added EnablePluginXA(), DisablePluginXA(), EnablePluginCollectionXA(), DisablePluginCollectionXA()
 -- | v2.2 - Fixed EnterHousingWardFromMenu(), added FreshGridaniaToBentbranch(), FreshGridaniaToBeds(), 
 -- |        BentbranchToBeds()
 -- | v2.1 - Added DebugXA(), TradeDebugXA(), ListDebugXA(), CheckPluginInstalledXA(), CheckPluginEnabledXA(),
@@ -103,6 +104,10 @@
 -- | QSTReloadXA()                  -- Reload Questionable
 -- | EnableTextAdvanceXA()          -- Enable TextAdvance
 -- | DisableTextAdvanceXA()         -- Disable TextAdvance
+-- | EnablePluginXA(name)           -- Enable a specific plugin - Usage: EnablePluginXA("Artisan")
+-- | DisablePluginXA(name)          -- Disable a specific plugin - Usage: DisablePluginXA("Artisan")
+-- | EnablePluginCollectionXA(name) -- Enable a specific plugin collection - Usage: EnablePluginCollectionXA("Artisan")
+-- | DisablePluginCollectionXA(name) -- Disable a specific plugin collection - Usage: DisablePluginCollectionXA("Artisan")
 -- | 
 -- | World Info
 -- |---------------------------------------------------------------------------
@@ -632,6 +637,34 @@ function DisableTextAdvanceXA()
     end
 end
 
+-- Usage: EnablePluginXA("Artisan")
+function EnablePluginXA(plugin_name)
+    yield("/xlenableplugin " .. plugin_name)
+    EchoXA("Enabled Plugin " .. plugin_name)
+    SleepXA(3)
+end
+
+-- Usage: DisablePluginXA("Artisan")
+function DisablePluginXA(plugin_name)
+    yield("/xldisableplugin " .. plugin_name)
+    EchoXA("Disabled Plugin " .. plugin_name)
+    SleepXA(3)
+end
+
+-- Usage: EnablePluginCollectionXA("Artisan")
+function EnablePluginCollectionXA(collection_name)
+    yield("/xlenableprofile " .. collection_name)
+    EchoXA("Enabled Collection " .. collection_name)
+    SleepXA(3)
+end
+
+-- Usage: DisablePluginCollectionXA("Artisan")
+function DisablePluginCollectionXA(collection_name)
+    yield("/xldisableprofile " .. collection_name)
+    EchoXA("Disabled Collection " .. collection_name)
+    SleepXA(3)
+end
+
 -- ------------------------
 -- World Info
 -- ------------------------
@@ -860,12 +893,12 @@ function LeaveFreeCompanyXA()
     SleepXA(2)
 
     -- Navigate to the Info tab
-    yield("/callback FreeCompany false 0 5u")
+    callbackXA("FreeCompany false 0 5u")
     SleepXA(2)
 
     -- Click Leave FC button
     EchoXA("Leaving Free Company...")
-    yield("/callback FreeCompanyStatus true 3")
+    callbackXA("FreeCompanyStatus true 3")
     SleepXA(2)
 
     -- Confirm the leave action with SelectYesno
@@ -1015,21 +1048,21 @@ function PartyInviteMenuXA(party_invite_menu_first, party_invite_menu_full)
 
         repeat
             if IsAddonReady("SocialList") then
-                yield('/callback SocialList true 1 0 "' .. party_invite_menu_full .. '"')
+                callbackXA("SocialList true 1 0 '" .. party_invite_menu_full .. "'")
             end
             SleepXA(0.5)
         until IsAddonVisible("ContextMenu")
 
         repeat
             if IsAddonReady("ContextMenu") then
-                yield("/callback ContextMenu true 0 3 0")
+                callbackXA("ContextMenu true 0 3 0")
             end
             SleepXA(0.1)
         until not IsAddonVisible("ContextMenu")
 
         repeat
             if IsAddonReady("Social") then
-                yield("/callback Social true -1")
+                callbackXA("Social true -1")
             end
             SleepXA(0.1)
         until not IsAddonVisible("Social")
@@ -1066,9 +1099,7 @@ function PartyDisbandXA()
             end
         end
         repeat
-            if IsAddonReady("SelectYesno") then
-                yield("/callback SelectYesno true 0")
-            end
+            if IsAddonReady("SelectYesno") then callbackXA("SelectYesno true 0") end
             SleepXA(0.1)
         until not IsAddonVisible("SelectYesno")
     end
@@ -1092,7 +1123,7 @@ function PartyAcceptXA()
         SleepXA(0.1)
 
         -- Accept the party invite
-        yield("/callback SelectYesno true 0")
+        callbackXA("SelectYesno true 0")
 
         -- Wait until the player is in a party
         repeat
@@ -1122,9 +1153,7 @@ function PartyLeaveXA()
         SleepXA(0.1)
 
         repeat
-            if IsAddonReady("SelectYesno") then
-                yield("/callback SelectYesno true 0")
-            end
+            if IsAddonReady("SelectYesno") then callbackXA("SelectYesno true 0") end
             SleepXA(0.1)
         until not IsAddonVisible("SelectYesno")
 
@@ -1161,7 +1190,7 @@ function FullStopMovementXA()
     end
     SleepXA(1.02)
     yield("/visland stop")
-    yield("/vnavmesh stop")
+    vnavXA("stop")
     yield("/automove off")
     SleepXA(1.03)
 end
@@ -1263,9 +1292,9 @@ function DoNavFlySequenceXA()
     if NavIsReady() then
         -- Choose flyflag vs moveflag based on Player.CanFly
         if Player and Player.CanFly then
-            yield("/vnav flyflag")
+            vnavXA("flyflag")
         else
-            yield("/vnav moveflag")
+            vnavXA("moveflag")
         end
 
         -- Stay paused while the path is active
@@ -1292,7 +1321,7 @@ function MountUpXA()
         if Svc.Condition[27] then
             SleepXA(2)
         else
-            yield('/gaction "mount roulette"')
+            gaXA("mount roulette")
             SleepXA(0.1)
         end
     end
@@ -1513,7 +1542,7 @@ function WalkToTargetXA(target_x, target_y, target_z, stop_dist)
 
         -- Stop when within desired distance (with buffer for momentum)
         if current_dist <= (stop_dist + stop_buffer) then
-            yield("/vnav stop")
+            vnavXA("stop")
             SleepXA(0.3)
             local final_dist = GetCurrentDistance()
             EchoXA(string.format("[Walk] Stopped at %.1f yalms from target", final_dist))
@@ -1522,7 +1551,7 @@ function WalkToTargetXA(target_x, target_y, target_z, stop_dist)
 
         -- Check if pathfinding stopped (arrived or failed)
         if not PathfindInProgress() and not PathIsRunning() then
-            yield("/vnav stop")
+            vnavXA("stop")
             SleepXA(0.3)
             EchoXA(string.format("[Walk] Pathfinding completed at %.1f yalms", current_dist))
             return
@@ -1533,7 +1562,7 @@ function WalkToTargetXA(target_x, target_y, target_z, stop_dist)
     end
 
     -- Timeout - stop movement
-    yield("/vnav stop")
+    vnavXA("stop")
     SleepXA(0.3)
     EchoXA("[Walk] Movement timeout - stopped")
 end
@@ -1555,7 +1584,7 @@ function MoveToXA(valuex, valuey, valuez, stopdistance, FlyOrWalk)
         SleepXA(0.507)
         countee = countee + 1
         if gachi_jumpy == 1 and countee == 10 and Svc.ClientState.TerritoryType ~= 129 then
-            yield("/gaction jump")
+            gaXA("jump")
             countee = 0
             EchoXA("We are REALLY still pathfinding apparently.")
         end
