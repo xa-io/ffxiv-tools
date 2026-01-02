@@ -27,13 +27,19 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.20
+# Auto-AutoRetainer v1.21
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-02 11:15:00
+# Last Updated: 2026-01-02 12:00:00
 #
 # ## Release Notes ##
 #
+# v1.21 - Disabled force-close monitoring when all submarines are voyaging (idle state)
+#         Force-close monitoring now only runs when ready_subs > 0 or account is in (WAITING) state
+#         When all subs are voyaging with 0 ready (showing +hours without status), monitoring is disabled
+#         Prevents false-positive crashes for force247uptime accounts idle between voyage completions
+#         Monitoring activates when subs become ready, deactivates when all subs sent out
+#         Ensures force-close only monitors accounts with actual work to process
 # v1.20 - Enhanced force-close timer to extend when accounts are in (WAITING) state
 #         Force-close inactivity timer now resets when game is in (WAITING) status
 #         (WAITING) occurs when game is running with 0 ready subs and hours <= AUTO_CLOSE_THRESHOLD
@@ -188,7 +194,7 @@ except ImportError:
 # ===============================================
 # Configuration Parameters
 # ===============================================
-VERSION = "v1.20"       # Current script version
+VERSION = "v1.21"       # Current script version
 
 # Display settings
 NICKNAME_WIDTH = 5      # Display column width for account nicknames in terminal output
@@ -2062,12 +2068,23 @@ def main():
                         if DEBUG:
                             print(f"[FORCE-CRASH] {nickname}: {processed_count} sub(s) processed, resetting inactivity timer")
                     
-                    # Check if account is in (WAITING) state - extend timer to prevent force-close during legitimate waiting
+                    # Get submarine status to determine monitoring applicability
                     timer_data = get_submarine_timers_for_account(account_entry)
                     ready_subs = timer_data.get("ready_subs", 0)
                     soonest_hours = timer_data.get("soonest_hours")
                     is_waiting = (ready_subs == 0 and soonest_hours is not None and 0 < soonest_hours <= AUTO_CLOSE_THRESHOLD)
                     
+                    # Skip monitoring if all subs are voyaging (0 ready, not in WAITING)
+                    # This is an idle state - no subs to process, just waiting for returns
+                    if ready_subs == 0 and not is_waiting:
+                        # All submarines voyaging, no ready subs - disable monitoring for idle state
+                        if nickname in last_sub_processed:
+                            del last_sub_processed[nickname]  # Clear timer when entering idle
+                        if DEBUG:
+                            print(f"[FORCE-CRASH] {nickname}: All subs voyaging (0 ready), monitoring disabled")
+                        continue
+                    
+                    # Check if account is in (WAITING) state - extend timer to prevent force-close during legitimate waiting
                     if is_waiting:
                         # Account is in (WAITING) state - reset inactivity timer to prevent force-close
                         last_sub_processed[nickname] = current_time
