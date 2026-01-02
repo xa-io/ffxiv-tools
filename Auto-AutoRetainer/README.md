@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.19 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.20 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -491,7 +491,10 @@ FORCE_CRASH_INACTIVITY_MINUTES = 10  # Force crash client if no submarine proces
 - **Detection Method**: Tracks submarine processing by counting decrease in ready submarines per scan (ready-count-based detection)
 - **Processing Count**: `processed = (previous ready count - current ready count)` - accurately reflects actual subs sent per scan
 - **Inactivity Check**: After monitoring activates, crashes client if no submarine processing detected for FORCE_CRASH_INACTIVITY_MINUTES
-- **Timer Reset**: When submarine processing detected (ready count decreases), resets inactivity timer to 0
+- **Timer Reset**: Resets inactivity timer to 0 in two scenarios:
+  1. When submarine processing detected (ready count decreases)
+  2. When account is in (WAITING) state - resets every scan to prevent force-close during legitimate wait periods
+- **(WAITING) State Protection**: When game is running with 0 ready subs and soonest return time ≤ AUTO_CLOSE_THRESHOLD (30 min), timer continuously resets each scan, ensuring force-crash never triggers during the wait period
 - **Grace Period**: AUTO_LAUNCH_THRESHOLD delay ensures game has time to fully load before monitoring begins
 - **Enhanced Debug Output**: Shows ready subs, voyaging subs, and newly sent subs per scan when DEBUG=True
 - **Handles Multiple Scenarios**:
@@ -888,6 +891,7 @@ The script will automatically load `window_layout_{name}.json` based on the `WIN
 
 ## Version History
 
+**v1.20** (2026-01-02) - Enhanced force-close timer to extend when accounts are in (WAITING) state. Force-close inactivity timer now resets when game is in (WAITING) status - occurs when game is running with 0 ready subs and soonest return time ≤ AUTO_CLOSE_THRESHOLD (30 minutes). Timer continuously resets on each scan during (WAITING) to prevent force-close during legitimate wait periods. Ensures force-close only triggers for frozen/stuck clients, not idle waiting states. When subs transition from (WAITING) to ready, timer is reset with full FORCE_CRASH_INACTIVITY_MINUTES buffer (10 minutes default). Prevents premature crashes when submarines are nearly ready but not yet processed.  
 **v1.19** (2025-12-28) - Fixed force-crash monitoring to respect ENABLE_AUTO_CLOSE setting. Force-crash inactivity monitoring now only runs when ENABLE_AUTO_CLOSE = True. When ENABLE_AUTO_CLOSE = False, clients will never be force-closed due to inactivity. Resolves issue where frozen client detection would crash clients even when auto-close was disabled. Ensures user control over client lifecycle when auto-close features are not desired. Critical bug fix for users running with ENABLE_AUTO_CLOSE = False who were experiencing unexpected force-closes.  
 **v1.18** (2025-12-26) - Improved Force-Close timer to start when game launches instead of when subs are processed. Force-Close monitoring now starts AUTO_LAUNCH_THRESHOLD hours after game opens (typically 9 minutes). Crash timer begins even if game boots stuck without processing any submarines - resolves stuck-at-boot issue. Changed from subs-ready-based monitoring to game-launch-based monitoring for earlier detection. After AUTO_LAUNCH_THRESHOLD delay, FORCE_CRASH_INACTIVITY_MINUTES timer activates (default: 10 minutes). Timer still resets whenever submarines are processed (preserves existing behavior during active play). Tracks game_launch_timestamp per account instead of subs_ready_timestamp. Eliminates issue where frozen games at boot would never trigger force-close because no subs were processed. Removed CRASH_MONITOR_DELAY parameter (now uses AUTO_LAUNCH_THRESHOLD instead for consistency).  
 **v1.17** (2025-12-24) - Added DalamudCrashHandler.exe detection and automatic closing for game crash scenarios. New function is_dalamud_crash_handler_running() detects active crash handler windows and returns PID. New function kill_dalamud_crash_handler_process(pid) closes specific crash handler process by PID using taskkill /F /PID. Monitors for active DalamudCrashHandler.exe windows every WINDOW_REFRESH_INTERVAL (60 seconds). Distinguishes between active crash handler windows (problem state - visible UI open) and background processes (normal state). Background DalamudCrashHandler.exe processes are normal and ignored (one per client) - only kills the specific process with visible window. Uses same has_visible_windows() methodology as XIVLauncher.exe detection. Automatically closes crash handler windows when detected to prevent manual intervention requirement. Works for both single-client and multi-client modes. Prevents crash handler popup windows from blocking automation workflow.  
