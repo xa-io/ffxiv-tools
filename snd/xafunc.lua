@@ -16,11 +16,13 @@
 -- | Important Note: This library requires dfunc.lua to be loaded first in your scripts. Many functions build upon
 -- | dfunc's base functionality. Always use require("dfunc") and require("xafunc") in your automation scripts.
 -- |
--- | XA Func Library v2.3
+-- | XA Func Library v2.4
 -- | Created by: https://github.com/xa-io
 -- | Last Updated: 2025-12-30 20:20:00
 -- |
 -- | ## Release Notes ##
+-- | v2.4 - Added GetPartyMemberNameXA(), GetPartyMemberRawX/Y/ZPosXA(), PvpMoveToXA()
+-- |        Fixed pathing in FreshLimsaToSummer() after Niniya as vnav gets stucks on the table after a recent update
 -- | v2.3 - Added EnablePluginXA(), DisablePluginXA(), EnablePluginCollectionXA(), DisablePluginCollectionXA()
 -- | v2.2 - Fixed EnterHousingWardFromMenu(), added FreshGridaniaToBentbranch(), FreshGridaniaToBeds(), 
 -- |        BentbranchToBeds()
@@ -138,6 +140,9 @@
 -- | PartyDisbandXA()               -- Disband current party
 -- | PartyAcceptXA()                -- Accept party invitation
 -- | PartyLeaveXA()                 -- Leave current party
+-- | GetPartyMemberRawXPosXA(index) -- Get party member raw X position by index (0-7) - Usage: GetPartyMemberRawXPosXA(0)
+-- | GetPartyMemberRawYPosXA(index) -- Get party member raw Y position by index (0-7) - Usage: GetPartyMemberRawYPosXA(0)
+-- | GetPartyMemberRawZPosXA(index) -- Get party member raw Z position by index (0-7) - Usage: GetPartyMemberRawZPosXA(0)
 -- | OpenInventoryXA()              -- Opens Inventory
 -- | OpenArmouryChestXA()           -- Opens Armoury Chest
 -- | OpenDropboxXA()                -- Opens Dropbox, then opens Item Trade Queue tab
@@ -169,6 +174,7 @@
 -- | LifestreamCmdXA(name)          -- Replacement for yield("/li Limsa") - Usage: LifestreamCmdXA("Limsa")
 -- | GetDistanceToPoint(x,y,z)      -- Calculate distance to target coordinates - Usage: GetDistanceToPoint(-12.123, 45.454, -18.5456)
 -- | MoveToXA(x,y,z)                -- Fly/Run to coordinates with pathing - Usage: MoveToXA(-12.123, 45.454, -18.5456)
+-- | PvpMoveToXA(x,y,z)             -- PvP-safe movement that waits for casting to finish - Usage: PvpMoveToXA(-12.123, 45.454, -18.5456)
 -- | WalkToTargetXA(x,y,z,dist)     -- Walk (no mount) to coordinates, stop at distance - Usage: WalkToTargetXA(-12.123, 45.454, -18.5456, 3.0)
 -- | get_coordinates(coords)        -- Helper: Extract coordinates from table
 -- | log_coordinates(coords)        -- Helper: Log coordinates to echo chat
@@ -1226,6 +1232,42 @@ function IsPlayerDeadXA()
     return false
 end
 
+-- Get party member name by index (0-7)
+function GetPartyMemberNameXA(index)
+    if Entity == nil or Entity.GetPartyMember == nil then return nil end
+    local member = Entity.GetPartyMember(index)
+    if member == nil then return nil end
+    return member.Name
+end
+
+--- Get party member position functions using two-step lookup: GetPartyMember for name, GetEntityByName for position
+function GetPartyMemberRawXPosXA(index)
+    if Entity == nil or Entity.GetPartyMember == nil then return nil end
+    local member = Entity.GetPartyMember(index)
+    if member == nil or member.Name == nil then return nil end
+    local entity = Entity.GetEntityByName(member.Name)
+    if entity == nil or entity.Position == nil then return nil end
+    return entity.Position.X
+end
+
+function GetPartyMemberRawYPosXA(index)
+    if Entity == nil or Entity.GetPartyMember == nil then return nil end
+    local member = Entity.GetPartyMember(index)
+    if member == nil or member.Name == nil then return nil end
+    local entity = Entity.GetEntityByName(member.Name)
+    if entity == nil or entity.Position == nil then return nil end
+    return entity.Position.Y
+end
+
+function GetPartyMemberRawZPosXA(index)
+    if Entity == nil or Entity.GetPartyMember == nil then return nil end
+    local member = Entity.GetPartyMember(index)
+    if member == nil or member.Name == nil then return nil end
+    local entity = Entity.GetEntityByName(member.Name)
+    if entity == nil or entity.Position == nil then return nil end
+    return entity.Position.Z
+end
+
 function IsPlayerAvailableXA()
     if not Player or not Player.Available then return false end
     if Entity and Entity.Player and Entity.Player.IsCasting then return false end
@@ -1615,6 +1657,16 @@ function move_to(coords)
     end
 end
 
+function PvpMoveToXA(x, y, z)
+    -- Wait until player finishes casting before moving
+    while GetCharacterCondition(27) do
+        yield("/vnav stop")
+        yield("/wait 0.1")
+    end
+    -- Execute vnavmesh moveto command with provided coordinates
+    yield("/vnavmesh moveto "..x.." "..y.." "..z)
+end
+
 -- ------------------------
 -- Player Commands
 -- ------------------------
@@ -1827,6 +1879,8 @@ function FreshLimsaToSummer()
     TargetXA("Niniya")
     InteractXA()
     CharacterSafeWaitXA()
+    MoveToXA(5.2157278060913, 39.517566680908, 0.48788833618164)
+    MoveToXA(3.6472775936127, 39.517570495605, 3.6093680858612)
 
     -- Run to elevator
     MoveToXA(6.0743732452393, 39.866470336914, 12.235060691833)
