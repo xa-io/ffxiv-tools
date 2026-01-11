@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.21 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.23 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -559,11 +559,48 @@ SYSTEM_BOOTUP_DELAY = 0         # Seconds to delay before starting monitoring (0
 - **Timeout Protection**: MAX_WINDOW_TITLE_RESCAN prevents infinite waiting if game crashes during startup
 - **Benefit**: Ensures plugins have fully loaded and window can be properly identified before proceeding
 
+### Logging & Autologin Settings
+
+```python
+ENABLE_LOGGING = True               # Enable logging major issues to arr.log file
+LOG_FILE = "arr.log"                # Log file name for error tracking
+ENABLE_AUTOLOGIN_UPDATER = True     # Auto-update launcherConfigV3.json when launcher opens instead of game
+```
+
+**ENABLE_LOGGING Behavior:**
+- **Purpose**: Logs critical events to arr.log file for troubleshooting and monitoring
+- **Logged Events** (17 total):
+  - **Process Management**: PROCESS_KILL_FAILED, FFXIV_KILL_FAILED, LAUNCHER_KILL_FAILED, CRASH_HANDLER_KILL_FAILED
+  - **Game Launch**: LAUNCH_FAILED_NO_PATH, LAUNCH_FAILED_NOT_FOUND, LAUNCH_FAILED_EXCEPTION
+  - **Configuration**: CONFIG_VALIDATION_FAILED
+  - **Window Management**: WINDOW_FORCE_CRASH, WINDOW_FORCE_CRASH_FAILED, WINDOW_FORCE_CRASH_ERROR
+  - **Autologin**: AUTOLOGIN_FILE_NOT_FOUND, AUTOLOGIN_UPDATED, AUTOLOGIN_JSON_ERROR, AUTOLOGIN_ERROR
+  - **Launch Failures**: LAUNCHER_FAILED, WINDOW_TITLE_FAILED
+- **File Location**: Creates arr.log in script directory with timestamps
+- **Default Values**:
+  - False for Auto-AutoRetainer.py (minimal logging)
+  - True for SubTimers scripts (enhanced monitoring)
+- **Log Format**: `[YYYY-MM-DD HH:MM:SS] EVENT_TYPE: details`
+- **Benefit**: Provides persistent record of major issues for debugging automation problems
+
+**ENABLE_AUTOLOGIN_UPDATER Behavior:**
+- **Purpose**: Automatically fixes rare cases where XIVLauncher opens as active window instead of launching game
+- **Detection Method**: Detects when launcher gets stuck at login screen (visible window state)
+- **Action Taken**: Checks and updates `AutologinEnabled` setting in `launcherConfigV3.json` from "false" to "true"
+- **Retry Integration**: Runs after launcher fail 1/3 and 2/3 before retrying launch
+- **File Path**: `{pluginConfigs parent directory}/launcherConfigV3.json`
+- **Logging**: All autologin updates logged to arr.log when ENABLE_LOGGING is enabled
+- **Final Attempt**: If launcher fails 3/3, reverts to previous behavior (marks account as 'launcher failed skipping')
+- **Benefit**: Enables automatic recovery from launcher autologin configuration issues without manual intervention
+
 ### Window Layout Settings
 ```python
-ENABLE_WINDOW_LAYOUT = True     # Enable automatic window arrangement
-WINDOW_LAYOUT = "main"          # Layout to use: "main" or "left"
-WINDOW_MOVER_DIR = Path(__file__).parent  # Folder containing layout JSON files
+ENABLE_WINDOW_LAYOUT = True                 # Enable automatic window arrangement
+WINDOW_LAYOUT = "main"                      # Layout to use: "main" or "left"
+WINDOW_MOVER_DIR = Path(__file__).parent    # Folder containing layout JSON files
+MAX_WINDOW_MOVE_ATTEMPTS = 3                # Maximum retry attempts per window (prevents freeze on unresponsive windows)
+WINDOW_MOVE_VERIFICATION_DELAY = 1          # Seconds to wait after move before verifying position
+MAX_FAILED_FORCE_CRASH = True               # Force crash clients after MAX_WINDOW_MOVE_ATTEMPTS failures (auto-relaunches on next cycle)
 ```
 
 ### Debug Settings
@@ -891,6 +928,8 @@ The script will automatically load `window_layout_{name}.json` based on the `WIN
 
 ## Version History
 
+**v1.23** (2026-01-11) - Critical bug fix: Window title failure no longer kills all running game clients in multi-client mode. Added ENABLE_AUTOLOGIN_UPDATER feature that automatically checks and updates AutologinEnabled in launcherConfigV3.json when launcher opens instead of game. After launcher fail 1/3 or 2/3, checks if AutologinEnabled is "false" and updates to "true" before retry - fixes rare cases where launcher opens because autologin was disabled. Added comprehensive error logging system with ENABLE_LOGGING parameter and arr.log file for tracking major issues (WINDOW_TITLE_FAILED, LAUNCHER_FAILED, AUTOLOGIN_UPDATED events). Multi-client mode now continues normal rotation when window title check fails instead of killing all processes. Logging defaults: False for Auto-AutoRetainer, True for SubTimers scripts.  
+**v1.22** (2026-01-08) - Added robust window movement with retry logic and responsiveness checking. Implemented is_window_responding() to detect frozen windows before move attempts using Windows SendMessageTimeout API. Added MAX_WINDOW_MOVE_ATTEMPTS = 3 configuration for retry logic per window. Window position verification now only checks x,y coordinates since FFXIV controls own window size via in-game graphics settings. Up to 3 move attempts per window with 1-second verification delay between attempts (WINDOW_MOVE_VERIFICATION_DELAY reduced from 3 to 1). Script skips unresponsive windows instead of freezing, continues processing remaining windows. Failed windows tracked separately with detailed failure reasons in debug output. Enhanced move_window_to_position() with MoveWindow API and window style modifications for reliable positioning. Added MAX_FAILED_FORCE_CRASH = True to automatically crash clients after MAX_WINDOW_MOVE_ATTEMPTS failures. Failed clients will be relaunched on next cycle if they should be running (similar to inactivity timer). Extracts PID from window title and force crashes using kill_process_by_pid(). Prevents script freeze when game clients become unresponsive during window arrangement. Window movement now succeeds on first attempt in most cases with proper responsiveness and position verification.  
 **v1.21** (2026-01-02) - Disabled force-close monitoring when all submarines are voyaging (idle state). Force-close monitoring now only runs when ready_subs > 0 or account is in (WAITING) state. When all subs are voyaging with 0 ready (showing +hours without status), monitoring is disabled. Prevents false-positive crashes for force247uptime accounts idle between voyage completions. Monitoring activates when subs become ready, deactivates when all subs sent out. Ensures force-close only monitors accounts with actual work to process.  
 **v1.20** (2026-01-02) - Enhanced force-close timer to extend when accounts are in (WAITING) state. Force-close inactivity timer now resets when game is in (WAITING) status - occurs when game is running with 0 ready subs and soonest return time ≤ AUTO_CLOSE_THRESHOLD (30 minutes). Timer continuously resets on each scan during (WAITING) to prevent force-close during legitimate wait periods. Ensures force-close only triggers for frozen/stuck clients, not idle waiting states. When subs transition from (WAITING) to ready, timer is reset with full FORCE_CRASH_INACTIVITY_MINUTES buffer (10 minutes default). Prevents premature crashes when submarines are nearly ready but not yet processed.  
 **v1.19** (2025-12-28) - Fixed force-crash monitoring to respect ENABLE_AUTO_CLOSE setting. Force-crash inactivity monitoring now only runs when ENABLE_AUTO_CLOSE = True. When ENABLE_AUTO_CLOSE = False, clients will never be force-closed due to inactivity. Resolves issue where frozen client detection would crash clients even when auto-close was disabled. Ensures user control over client lifecycle when auto-close features are not desired. Critical bug fix for users running with ENABLE_AUTO_CLOSE = False who were experiencing unexpected force-closes.  
