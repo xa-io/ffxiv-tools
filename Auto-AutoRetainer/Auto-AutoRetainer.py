@@ -27,13 +27,35 @@
 # labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
 # for full automation. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.21
+# Auto-AutoRetainer v1.23
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-02 12:00:00
+# Last Updated: 2026-01-11 07:00:00
 #
 # ## Release Notes ##
 #
+# v1.23 - Critical bug fix: Window title failure no longer kills all running game clients
+#         In multi-client mode, failing to launch one account no longer closes other running games
+#         Added ENABLE_AUTOLOGIN_UPDATER to auto-fix launcher config when game fails to open
+#         Checks launcherConfigV3.json and updates AutologinEnabled from "false" to "true" before retry
+#         Runs autologin check after launcher fail 1/3 and 2/3 (two chances to fix before final failure)
+#         Added ENABLE_LOGGING and arr.log file for tracking major issues (17 logged events)
+#         Logs process kills, game launches, config errors, window crashes, autologin updates, and launcher failures
+#         Multi-client mode continues normal rotation when window title check fails
+#         Game client checker retries failed accounts in WINDOW_REFRESH_INTERVAL (60) seconds
+# v1.22 - Added robust window movement with retry logic and responsiveness checking
+#         Implemented is_window_responding() to detect frozen windows before move attempts
+#         Added MAX_WINDOW_MOVE_ATTEMPTS = 3 configuration for retry logic per window
+#         Window position verification now only checks x,y coordinates (FFXIV controls own size via graphics settings)
+#         Up to 3 move attempts per window with 1-second verification delay between attempts
+#         Script skips unresponsive windows instead of freezing, continues processing remaining windows
+#         Failed windows tracked separately with detailed failure reasons in debug output
+#         Enhanced move_window_to_position() with MoveWindow API for reliable positioning
+#         WINDOW_MOVE_VERIFICATION_DELAY = 1 second (reduced from 3 for faster processing)
+#         Added MAX_FAILED_FORCE_CRASH = True to automatically crash clients after failed window moves
+#         Failed clients will be relaunched on next cycle if they should be running (similar to inactivity timer)
+#         Extracts PID from window title and force crashes using kill_process_by_pid()
+#         Prevents script freeze when game clients become unresponsive during window arrangement
 # v1.21 - Disabled force-close monitoring when all submarines are voyaging (idle state)
 #         Force-close monitoring now only runs when ready_subs > 0 or account is in (WAITING) state
 #         When all subs are voyaging with 0 ready (showing +hours without status), monitoring is disabled
@@ -194,7 +216,7 @@ except ImportError:
 # ===============================================
 # Configuration Parameters
 # ===============================================
-VERSION = "v1.21"       # Current script version
+VERSION = "v1.23"       # Current script version
 
 # Display settings
 NICKNAME_WIDTH = 5      # Display column width for account nicknames in terminal output
@@ -222,6 +244,9 @@ OPEN_DELAY_THRESHOLD = 60       # Minimum seconds to wait between launching the 
 WINDOW_TITLE_RESCAN = 5         # Seconds to wait between each window title check after launch (polling interval for plugin to rename window)
 MAX_WINDOW_TITLE_RESCAN = 20    # Maximum number of title check attempts before giving up (20 checks × 5s = 100s timeout, then kills stuck process and retries)
 FORCE_LAUNCHER_RETRY = 3        # Maximum number of launcher retry attempts when XIVLauncher.exe opens instead of game (prevents stuck accounts)
+ENABLE_AUTOLOGIN_UPDATER = True # Enable automatic updating of AutologinEnabled in launcherConfigV3.json when launcher opens instead of game
+                                # When True: After launcher fail 1/3 or 2/3, checks and updates AutologinEnabled to "true" before retry
+                                # This fixes rare cases where launcher opens because autologin was disabled in the config
 MAX_CLIENTS = 0                 # Maximum concurrent running game clients allowed (0 = unlimited, N = caps at N clients for hardware-limited systems)
                                 # When limit reached, prioritizes force247uptime accounts first, then submarine-ready accounts
 
@@ -229,9 +254,16 @@ MAX_CLIENTS = 0                 # Maximum concurrent running game clients allowe
 ENABLE_WINDOW_LAYOUT = False                 # Enable automatic positioning/sizing of game windows after launch (requires window layout JSON files)
 WINDOW_LAYOUT = "main"                       # Which layout configuration to use: "left" (SubTimers_left) or "main" (SubTimers_main)
 WINDOW_MOVER_DIR = Path(__file__).parent     # Directory containing window layout JSON files (windows_layout_left.json / windows_layout_main.json)
+MAX_WINDOW_MOVE_ATTEMPTS = 3                 # Maximum number of window move attempts per client (1-3 recommended, prevents script freeze on unresponsive windows)
+WINDOW_MOVE_VERIFICATION_DELAY = 1           # Seconds to wait after window move before verifying position (allows window to settle)
+MAX_FAILED_FORCE_CRASH = False               # Force crash client after MAX_WINDOW_MOVE_ATTEMPTS failures (script will relaunch on next cycle if game should be running)
 
 # Debug settings
 DEBUG = False                   # Show verbose debug output (auto-launch eligibility checks, window detection, process tracking, etc.)
+
+# Logging settings
+ENABLE_LOGGING = True          # Enable logging major issues to arr.log file (default: False for Auto-AutoRetainer, True for SubTimers scripts)
+LOG_FILE = "arr.log"           # Log file name for major issues (created in script directory)
 
 # System settings
 SYSTEM_BOOTUP_DELAY = 0         # Seconds to delay before starting script monitoring (useful for auto-start on system boot, 0 = no delay)
@@ -273,6 +305,103 @@ GAME_LAUNCHERS = {
     # "Acc2":   rf"C:\Users\{user}\AltData\Acc2.bat",
     # "Acc3":   rf"C:\Users\{user}\AltData\Acc3.bat",
 }
+
+# ===============================================
+# Logging Functions
+# ===============================================
+def log_error(message):
+    """
+    Log major issues to arr.log file with timestamp.
+    Only logs if ENABLE_LOGGING is True.
+    """
+    if not ENABLE_LOGGING:
+        return
+    try:
+        log_path = Path(__file__).parent / LOG_FILE
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(f"[{timestamp}] {message}\n")
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Failed to write to log file: {e}")
+
+# ===============================================
+# Autologin Updater Functions
+# ===============================================
+def get_launcher_config_path(nickname):
+    """
+    Get the launcherConfigV3.json path for a given account nickname.
+    The launcher config is in the PARENT directory of pluginConfigs.
+    Example: pluginConfigs = C:\\Users\\user\\AltData\\Acc1\\pluginConfigs
+             launcher config = C:\\Users\\user\\AltData\\Acc1\\launcherConfigV3.json
+    Returns None if account not found or path doesn't exist.
+    """
+    for account in account_locations:
+        if account["nickname"] == nickname:
+            # Get the pluginConfigs path from auto_path (remove AutoRetainer/DefaultConfig.json)
+            auto_path = account["auto_path"]
+            pluginconfigs_path = Path(auto_path).parent.parent  # Go up from AutoRetainer/DefaultConfig.json to pluginConfigs
+            launcher_config_path = pluginconfigs_path.parent / "launcherConfigV3.json"
+            return launcher_config_path
+    return None
+
+def check_and_update_autologin(nickname):
+    """
+    Check and update AutologinEnabled in launcherConfigV3.json for the given account.
+    If AutologinEnabled is "false", updates it to "true".
+    Returns True if update was made, False if no update needed or error occurred.
+    """
+    if not ENABLE_AUTOLOGIN_UPDATER:
+        return False
+    
+    launcher_config_path = get_launcher_config_path(nickname)
+    if launcher_config_path is None:
+        if DEBUG:
+            print(f"[AUTOLOGIN] Could not find launcher config path for {nickname}")
+        return False
+    
+    if not launcher_config_path.exists():
+        if DEBUG:
+            print(f"[AUTOLOGIN] Launcher config file not found: {launcher_config_path}")
+        log_error(f"AUTOLOGIN_FILE_NOT_FOUND: {nickname} - {launcher_config_path}")
+        return False
+    
+    try:
+        # Read the JSON file
+        with open(launcher_config_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Check current AutologinEnabled value
+        current_value = data.get("AutologinEnabled", None)
+        
+        if current_value == "false":
+            # Update to "true"
+            data["AutologinEnabled"] = "true"
+            
+            # Write back to file
+            with open(launcher_config_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4)
+            
+            print(f"[AUTOLOGIN] Updated AutologinEnabled from 'false' to 'true' for {nickname}")
+            log_error(f"AUTOLOGIN_UPDATED: {nickname} - Changed AutologinEnabled from 'false' to 'true' in {launcher_config_path}")
+            return True
+        elif current_value == "true":
+            if DEBUG:
+                print(f"[AUTOLOGIN] AutologinEnabled already 'true' for {nickname}")
+            return False
+        else:
+            if DEBUG:
+                print(f"[AUTOLOGIN] AutologinEnabled has unexpected value '{current_value}' for {nickname}")
+            return False
+            
+    except json.JSONDecodeError as e:
+        print(f"[AUTOLOGIN] Error parsing JSON for {nickname}: {e}")
+        log_error(f"AUTOLOGIN_JSON_ERROR: {nickname} - {e}")
+        return False
+    except Exception as e:
+        print(f"[AUTOLOGIN] Error updating config for {nickname}: {e}")
+        log_error(f"AUTOLOGIN_ERROR: {nickname} - {e}")
+        return False
 
 # ===============================================
 # Submarine Build Gil Rates (from AR Parser)
@@ -496,6 +625,10 @@ GWL_EXSTYLE = -20
 WS_MAXIMIZE = 0x01000000
 WS_MINIMIZE = 0x20000000
 
+# Window message constants for responsiveness checking
+SMTO_ABORTIFHUNG = 0x0002
+WM_NULL = 0x0000
+
 def read_window_layout_config():
     """Read window layout JSON config based on WINDOW_LAYOUT setting"""
     layout_file = f"window_layout_{WINDOW_LAYOUT}.json"
@@ -537,16 +670,106 @@ def find_all_windows():
     win32gui.EnumWindows(_enum, None)
     return wins
 
+def is_window_responding(hwnd):
+    """
+    Check if a window is responding using SendMessageTimeout.
+    Returns True if window is responding, False if frozen/not responding.
+    """
+    try:
+        # Use SendMessageTimeout to check if window responds within 5 seconds
+        SendMessageTimeout = ctypes.windll.user32.SendMessageTimeoutW
+        SendMessageTimeout.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM, wintypes.UINT, wintypes.UINT, ctypes.POINTER(wintypes.DWORD)]
+        
+        result = wintypes.DWORD()
+        ret = SendMessageTimeout(hwnd, WM_NULL, 0, 0, SMTO_ABORTIFHUNG, 5000, ctypes.byref(result))
+        
+        # ret == 0 means the window is not responding
+        return ret != 0
+    except Exception as e:
+        if DEBUG:
+            print(f"[WINDOW-MOVER] Error checking window responsiveness: {e}")
+        return False
+
+def get_window_position(hwnd):
+    """
+    Get the current position and size of a window.
+    Returns dict with x, y, width, height or None if failed.
+    """
+    try:
+        rect = win32gui.GetWindowRect(hwnd)
+        return {
+            'x': rect[0],
+            'y': rect[1],
+            'width': rect[2] - rect[0],
+            'height': rect[3] - rect[1]
+        }
+    except Exception as e:
+        if DEBUG:
+            print(f"[WINDOW-MOVER] Error getting window position: {e}")
+        return None
+
+def verify_window_position(hwnd, expected_x, expected_y, expected_w, expected_h, tolerance=10):
+    """
+    Verify that a window moved to the expected position.
+    Returns True if position matches within tolerance, False otherwise.
+    tolerance: pixels of acceptable difference (default 10px for window borders/decorations)
+    
+    Note: Only verifies position (x,y), not size, as FFXIV windows control their own size
+    via internal graphics settings and cannot be resized programmatically.
+    """
+    actual = get_window_position(hwnd)
+    if not actual:
+        return False
+    
+    x_match = abs(actual['x'] - expected_x) <= tolerance
+    y_match = abs(actual['y'] - expected_y) <= tolerance
+    
+    # FFXIV windows control their own size via graphics settings, so we only verify position
+    if DEBUG:
+        if not (x_match and y_match):
+            print(f"[WINDOW-MOVER] Position mismatch: Expected ({expected_x},{expected_y}), Got ({actual['x']},{actual['y']})")
+        elif actual['width'] != expected_w or actual['height'] != expected_h:
+            print(f"[WINDOW-MOVER] Note: Window size ({actual['width']}x{actual['height']}) differs from config ({expected_w}x{expected_h}) - FFXIV controls its own size via graphics settings")
+    
+    return x_match and y_match
+
 def move_window_to_position(hwnd, x, y, w, h, topmost=False, activate=False):
-    insert_after = HWND_TOPMOST if topmost else HWND_NOTOPMOST
-    flags = SWP_FRAMECHANGED | SWP_SHOWWINDOW
-    if not activate:
-        flags |= SWP_NOACTIVATE
-    SetWindowPos(hwnd, insert_after, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | flags)
-    SetWindowPos(hwnd, HWND_TOP, x, y, w, h, SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW)
+    try:
+        # Get current window style
+        style = win32gui.GetWindowLong(hwnd, GWL_STYLE)
+        
+        # Remove styles that might prevent resizing (WS_MAXIMIZEBOX = 0x00010000, WS_THICKFRAME = 0x00040000)
+        # But keep other important styles
+        new_style = style | 0x00040000  # Ensure WS_THICKFRAME (resizable border) is set
+        win32gui.SetWindowLong(hwnd, GWL_STYLE, new_style)
+        
+        # Set topmost state
+        insert_after = HWND_TOPMOST if topmost else HWND_NOTOPMOST
+        flags = SWP_FRAMECHANGED | SWP_SHOWWINDOW
+        if not activate:
+            flags |= SWP_NOACTIVATE
+        
+        SetWindowPos(hwnd, insert_after, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | flags)
+        time.sleep(0.05)
+        
+        # Use MoveWindow for more direct resize control
+        win32gui.MoveWindow(hwnd, x, y, w, h, True)  # True = repaint
+        time.sleep(0.1)  # Give more time for resize to take effect
+        
+        # Restore original style
+        win32gui.SetWindowLong(hwnd, GWL_STYLE, style)
+        
+        # Force redraw
+        win32gui.RedrawWindow(hwnd, None, None, 0x0001 | 0x0004)
+    except Exception as e:
+        if DEBUG:
+            print(f"[WINDOW-MOVER] Error in move_window_to_position: {e}")
 
 def arrange_ffxiv_windows():
-    """Arrange all FFXIV game windows according to the configured layout"""
+    """
+    Arrange all FFXIV game windows according to the configured layout.
+    Includes responsiveness checking, retry logic, and position verification.
+    """
     layout = read_window_layout_config()
     if not layout:
         return False
@@ -577,7 +800,11 @@ def arrange_ffxiv_windows():
             print(f"[WINDOW-MOVER] No FFXIV windows found to arrange")
         return False
     
-    # Apply moves with temporary topmost
+    # Track successful and failed moves
+    successful_moves = []
+    failed_moves = []
+    
+    # Apply moves with retry logic and verification
     for rule, hwnd, title in assigned:
         x = int(rule["x"])
         y = int(rule["y"])
@@ -585,32 +812,96 @@ def arrange_ffxiv_windows():
         h = int(rule["height"])
         activate = bool(rule.get("activate", False))
         
-        try:
-            restore_if_minimized(hwnd)
-            remove_maximize_state(hwnd)
-            move_window_to_position(hwnd, x, y, w, h, topmost=True, activate=activate)
-            if DEBUG:
-                print(f"[WINDOW-MOVER] Moved: '{title}' -> ({x},{y},{w},{h})")
+        move_success = False
+        
+        # Check if window is responding before attempting move
+        if not is_window_responding(hwnd):
+            print(f"[WINDOW-MOVER] WARNING: Window '{title}' is not responding, skipping move")
+            failed_moves.append((hwnd, title, "not responding"))
+            continue
+        
+        # Attempt window move with retry logic
+        for attempt in range(1, MAX_WINDOW_MOVE_ATTEMPTS + 1):
+            try:
+                if DEBUG:
+                    print(f"[WINDOW-MOVER] Attempt {attempt}/{MAX_WINDOW_MOVE_ATTEMPTS} for '{title}'")
+                
+                restore_if_minimized(hwnd)
+                remove_maximize_state(hwnd)
+                move_window_to_position(hwnd, x, y, w, h, topmost=True, activate=activate)
+                
+                # Wait for window to settle
+                time.sleep(WINDOW_MOVE_VERIFICATION_DELAY)
+                
+                # Verify window moved correctly
+                if verify_window_position(hwnd, x, y, w, h):
+                    print(f"[WINDOW-MOVER] SUCCESS: Moved '{title}' -> ({x},{y},{w},{h}) on attempt {attempt}")
+                    successful_moves.append((hwnd, title))
+                    move_success = True
+                    break
+                else:
+                    if attempt < MAX_WINDOW_MOVE_ATTEMPTS:
+                        print(f"[WINDOW-MOVER] Position verification failed for '{title}', retrying...")
+                    else:
+                        print(f"[WINDOW-MOVER] FAILED: Could not verify position for '{title}' after {MAX_WINDOW_MOVE_ATTEMPTS} attempts")
+                        failed_moves.append((hwnd, title, "position verification failed"))
+                
+            except Exception as e:
+                if attempt < MAX_WINDOW_MOVE_ATTEMPTS:
+                    print(f"[WINDOW-MOVER] Error moving '{title}' (attempt {attempt}): {e}, retrying...")
+                else:
+                    print(f"[WINDOW-MOVER] FAILED: Could not move '{title}' after {MAX_WINDOW_MOVE_ATTEMPTS} attempts: {e}")
+                    failed_moves.append((hwnd, title, str(e)))
+        
+        # Small delay between window moves
+        if move_success:
             time.sleep(0.03)
-        except Exception as e:
-            if DEBUG:
-                print(f"[WINDOW-MOVER] Failed to move '{title}': {e}")
     
-    # Remove topmost from windows that shouldn't have it
+    # Remove topmost from windows that shouldn't have it (only for successful moves)
     time.sleep(0.1)
-    for rule, hwnd, title in assigned:
-        topmost = bool(rule.get("topmost", False))
-        try:
-            if not topmost:
-                flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED
-                SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags)
-        except Exception as e:
-            if DEBUG:
-                print(f"[WINDOW-MOVER] Failed to set final topmost for '{title}': {e}")
+    for hwnd, title in successful_moves:
+        # Find the rule for this window
+        rule = None
+        for r, h, t in assigned:
+            if h == hwnd:
+                rule = r
+                break
+        
+        if rule:
+            topmost = bool(rule.get("topmost", False))
+            try:
+                if not topmost:
+                    flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED
+                    SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags)
+            except Exception as e:
+                if DEBUG:
+                    print(f"[WINDOW-MOVER] Failed to set final topmost for '{title}': {e}")
     
-    if DEBUG:
-        print(f"[WINDOW-MOVER] Window arrangement complete")
-    return True
+    # Force crash failed windows if enabled
+    if failed_moves and MAX_FAILED_FORCE_CRASH:
+        for hwnd, title, reason in failed_moves:
+            try:
+                # Extract PID from window title (format: "ProcessID - nickname")
+                pid_match = re.match(r'^(\d+)\s*-\s*.+', title)
+                if pid_match:
+                    pid = int(pid_match.group(1))
+                    print(f"[WINDOW-MOVER] Force crashing failed window '{title}' (PID: {pid}) - {reason}")
+                    log_error(f"WINDOW_FORCE_CRASH: {title} (PID: {pid}) - {reason}")
+                    kill_process_by_pid(pid)
+                else:
+                    print(f"[WINDOW-MOVER] Could not extract PID from '{title}' for force crash")
+                    log_error(f"WINDOW_FORCE_CRASH_FAILED: Could not extract PID from '{title}'")
+            except Exception as e:
+                print(f"[WINDOW-MOVER] Error force crashing '{title}': {e}")
+                log_error(f"WINDOW_FORCE_CRASH_ERROR: {title} - {e}")
+    
+    # Summary
+    print(f"[WINDOW-MOVER] Window arrangement complete: {len(successful_moves)} successful, {len(failed_moves)} failed")
+    if failed_moves and DEBUG:
+        for hwnd, title, reason in failed_moves:
+            print(f"[WINDOW-MOVER]   Failed: '{title}' - {reason}")
+    
+    return len(successful_moves) > 0
 
 def kill_process_by_pid(pid):
     """
@@ -628,6 +919,7 @@ def kill_process_by_pid(pid):
         return result.returncode == 0
     except Exception as e:
         print(f"[ERROR] Failed to kill process {pid}: {e}")
+        log_error(f"PROCESS_KILL_FAILED: PID {pid} - {e}")
         return False
 
 def kill_ffxiv_process():
@@ -647,6 +939,7 @@ def kill_ffxiv_process():
         return result.returncode == 0
     except Exception as e:
         print(f"[ERROR] Failed to kill ffxiv_dx11.exe: {e}")
+        log_error(f"FFXIV_KILL_FAILED: {e}")
         return False
 
 def is_xivlauncher_running():
@@ -759,6 +1052,7 @@ def kill_xivlauncher_process():
         return result.returncode == 0
     except Exception as e:
         print(f"[ERROR] Failed to kill XIVLauncher.exe: {e}")
+        log_error(f"LAUNCHER_KILL_FAILED: {e}")
         return False
 
 def is_dalamud_crash_handler_running():
@@ -818,6 +1112,7 @@ def kill_dalamud_crash_handler_process(pid):
         return result.returncode == 0
     except Exception as e:
         print(f"[ERROR] Failed to kill DalamudCrashHandler.exe (PID {pid}): {e}")
+        log_error(f"CRASH_HANDLER_KILL_FAILED: PID {pid} - {e}")
         return False
 
 def launch_game(nickname):
@@ -829,10 +1124,12 @@ def launch_game(nickname):
     
     if not launcher_path:
         print(f"[ERROR] No launcher path configured for {nickname}")
+        log_error(f"LAUNCH_FAILED_NO_PATH: {nickname} - No launcher path configured in GAME_LAUNCHERS")
         return False
     
     if not os.path.exists(launcher_path):
         print(f"[ERROR] Launcher not found: {launcher_path}")
+        log_error(f"LAUNCH_FAILED_NOT_FOUND: {nickname} - Launcher not found at {launcher_path}")
         return False
     
     try:
@@ -858,6 +1155,7 @@ def launch_game(nickname):
         return True
     except Exception as e:
         print(f"[ERROR] Failed to launch game for {nickname}: {e}")
+        log_error(f"LAUNCH_FAILED_EXCEPTION: {nickname} - {e}")
         return False
 
 def get_process_start_time(pid):
@@ -1535,6 +1833,7 @@ def main():
                 print("[ERROR] Single client mode only supports 1 account.")
                 print(f"[ERROR] Currently configured accounts: {len(account_locations)}")
                 print("[ERROR] Please disable USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME or configure only 1 account.")
+                log_error(f"CONFIG_VALIDATION_FAILED: Single client mode enabled but {len(account_locations)} accounts configured")
                 sys.exit(1)
             print("[INFO] Running in single client mode (USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME=True)")
             print("[INFO] Using default FFXIV window title detection\n")
@@ -1802,7 +2101,8 @@ def main():
                                     time.sleep(2)  # Brief wait after killing launcher
                                     
                                     if launcher_retry_count[nickname] >= FORCE_LAUNCHER_RETRY:
-                                        # Max retries reached
+                                        # Max retries reached - log the failure
+                                        log_error(f"LAUNCHER_FAILED: {nickname} - Max launcher retries ({FORCE_LAUNCHER_RETRY}) reached, marking as [LAUNCHER]")
                                         if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
                                             print(f"[AUTO-LAUNCH] Max launcher retries ({FORCE_LAUNCHER_RETRY}) reached for {nickname}")
                                             print(f"[AUTO-LAUNCH] Stopping script - single client mode cannot continue")
@@ -1813,16 +2113,30 @@ def main():
                                             launcher_failed_accounts.add(nickname)
                                         break
                                     else:
+                                        # Before retry, check and update AutologinEnabled if needed
+                                        if ENABLE_AUTOLOGIN_UPDATER:
+                                            print(f"[AUTOLOGIN] Checking AutologinEnabled for {nickname} before retry...")
+                                            check_and_update_autologin(nickname)
                                         print(f"[AUTO-LAUNCH] Retrying {nickname} (attempt {launcher_retry_count[nickname] + 1}/{FORCE_LAUNCHER_RETRY})...")
                                         last_launch_time[nickname] = 0  # Allow immediate retry
                                 else:
                                     # Title check failed without launcher detection
-                                    print(f"[AUTO-LAUNCH] Window title check failed for {nickname}, killing process and will retry...")
-                                    # Kill any ffxiv_dx11.exe process that may be stuck
-                                    kill_ffxiv_process()
-                                    # Reset launch time to allow immediate retry
-                                    last_launch_time[nickname] = 0
-                                    break  # Exit retry loop, will try again on next cycle
+                                    # Log the error for troubleshooting
+                                    log_error(f"WINDOW_TITLE_FAILED: {nickname} - Window title check failed after {MAX_WINDOW_TITLE_RESCAN} attempts")
+                                    
+                                    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                                        # Single client mode: safe to kill the single process
+                                        print(f"[AUTO-LAUNCH] Window title check failed for {nickname}, killing process and will retry...")
+                                        kill_ffxiv_process()
+                                        last_launch_time[nickname] = 0  # Allow immediate retry
+                                    else:
+                                        # Multi-client mode: DO NOT kill all processes!
+                                        # Just mark as failed and let normal rotation continue
+                                        # The game client checker will retry in WINDOW_REFRESH_INTERVAL seconds
+                                        print(f"[AUTO-LAUNCH] Window title check failed for {nickname}, continuing normal rotation...")
+                                        print(f"[AUTO-LAUNCH] Game client checker will retry {nickname} in {WINDOW_REFRESH_INTERVAL} seconds")
+                                        last_launch_time[nickname] = current_time  # Prevent immediate retry spam
+                                    break  # Exit retry loop, continue normal operation
                             else:
                                 print(f"[AUTO-LAUNCH] Failed to launch {nickname}")
                                 last_launch_time[nickname] = current_time  # Record failed attempt to enforce rate limit
