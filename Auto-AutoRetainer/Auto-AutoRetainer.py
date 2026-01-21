@@ -9,31 +9,60 @@
 #
 # Automated FFXIV Submarine Management System
 #
-# A comprehensive automation script that monitors submarine return times across multiple FFXIV accounts and automatically
-# manages game instances for optimal submarine collection. Integrates with AutoRetainer plugin data to track submarine
-# voyages and calculates daily gil earnings from submarine builds.
+# A comprehensive automation script that monitors submarine return times across multiple FFXIV accounts and intelligently
+# manages game instances for hands-off submarine and retainer farming. Automatically launches games when submarines are ready,
+# handles 2FA login, recovers from crashes and frozen clients, enforces stability restarts, tracks daily gil earnings and supply 
+# levels, and closes games when idle, all without manual intervention.
 #
 # Core Features:
 # • Real-time submarine timer monitoring across all configured accounts
 # • Automatic game launching when submarines are nearly ready (configurable threshold)
 # • Automatic game closing when submarines won't be ready soon (prevents idle instances)
-# • Intelligent window arrangement with customizable layouts (main/left configurations)
-# • Process ID tracking and management for reliable game instance control
-# • Gil earnings calculation based on submarine builds and voyage routes
-# • Rate limiting to prevent rapid game launches and API throttling
-# • Dual refresh rate system (30s timers, 60s window status) for optimal performance
+# • Two-factor authentication (2FA/OTP) support with automatic code submission
+# • Crash recovery with automatic game relaunch when clients close unexpectedly
+# • Frozen client detection and force-crash after configurable inactivity period
+# • 72-hour stability protection with automatic restart at MAX_RUNTIME (71 hours)
+# • Supply level monitoring with restocking alerts for Ceruleum tanks and Repair Kits
+# • Gil earnings and supply cost calculations based on submarine builds and routes
+# • Multi-account support with flexible modes (submarine-only, 24/7 uptime, or both)
+# • Intelligent window arrangement with customizable layouts
+# • External configuration via config.json with notification support (Pushover/Discord)
 #
 # Important Note: This script requires properly configured game launchers (XIVLauncher.exe or batch files), game windows
-# labeled with "ProcessID - nickname" format, autologging enabled without 2FA, and AutoRetainer multi-mode auto-enabled
-# for full automation. See README.md for complete setup instructions.
+# labeled with "ProcessID - nickname" format, autologin enabled, and AutoRetainer multi-mode auto-enabled
+# for full automation. 2FA is supported via keyring integration. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.23
+# Auto-AutoRetainer v1.26
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-11 07:00:00
+# Last Updated: 2026-01-19 17:10:00
 #
 # ## Release Notes ##
 #
+# v1.26 - Added initial startup launcher check to close any stuck XIVLauncher on bootup
+#         Code consolidation: Created generic helper functions to reduce redundant code
+#         New helpers: kill_process_by_image_name(), is_process_running_with_visible_windows(),
+#                      kill_game_client_and_cleanup(), get_process_start_time_by_name()
+#         Refactored 11 process functions to use generic helpers for consistency
+# v1.25 - Added pre-launch config validation for AutologinEnabled and OtpServerEnabled
+#         Checks launcherConfigV3.json BEFORE launching game (not just after failures)
+#         Automatically fixes AutologinEnabled to "true" if not set correctly
+#         Automatically fixes OtpServerEnabled to "true" when account has enable_2fa=True
+#         Prevents launcher from opening with login prompt instead of auto-logging in
+#         Added validate_launcher_config_before_launch() function for pre-launch checks
+#         Existing launcher stuck detection continues to close XIVLauncher if it gets stuck
+# v1.24 - Added external configuration file support (config.json)
+#         Settings can now be configured via config.json instead of editing the Python script
+#         Any setting not in config.json falls back to built-in script defaults
+#         Added 2FA/OTP support for accounts with two-factor authentication enabled
+#         Automatically generates and sends OTP codes when launching games via XIVLauncher API
+#         OTP secrets stored securely in Windows Credential Manager via keyring
+#         Added OtpServerEnabled auto-fix: checks launcherConfigV3.json when 2FA enabled and launcher fails
+#         Added Pushover notification support for logged issues (sends push to phone)
+#         Added Discord webhook notification support for logged issues (sends to Discord channel)
+#         Notification validation: halts script if enabled but credentials missing
+#         Added OTP_LAUNCH_DELAY setting to control timing of OTP code submission
+#         Added config.json.example with all settings documented
 # v1.23 - Critical bug fix: Window title failure no longer kills all running game clients
 #         In multi-client mode, failing to launch one account no longer closes other running games
 #         Added ENABLE_AUTOLOGIN_UPDATER to auto-fix launcher config when game fails to open
@@ -203,6 +232,7 @@ import ctypes
 from ctypes import wintypes
 import re
 import win32con
+import requests
 
 # Try to import psutil for process information
 try:
@@ -213,10 +243,21 @@ except ImportError:
     print("[WARNING] psutil not installed. Install with: pip install psutil")
     print("[WARNING] Uptime will only be tracked from script start time.")
 
+# Try to import pyotp and keyring for 2FA support
+try:
+    import pyotp
+    import keyring
+    PYOTP_AVAILABLE = True
+except ImportError:
+    PYOTP_AVAILABLE = False
+    print("[WARNING] pyotp/keyring not installed. Install with: pip install pyotp keyring")
+    print("[WARNING] 2FA features will be disabled.")
+
 # ===============================================
 # Configuration Parameters
 # ===============================================
-VERSION = "v1.23"       # Current script version
+VERSION = "v1.26"       # Current script version
+VERSION_SUFFIX = ""     # Custom text appended to version display (set via config.json, e.g., " - Main")
 
 # Display settings
 NICKNAME_WIDTH = 5      # Display column width for account nicknames in terminal output
@@ -239,6 +280,7 @@ FORCE_CRASH_INACTIVITY_MINUTES = 10 # Force crash client if no submarine process
 
 # Auto-launch game settings
 ENABLE_AUTO_LAUNCH = True       # Enable automatic launching of game clients when submarines are nearly ready
+OTP_LAUNCH_DELAY = 10           # For 2FA, delay in seconds between launching and sending OTP code (not recommended below 10)
 AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if soonest submarine return time is at or below this many hours (0.15h = 9 minutes)
 OPEN_DELAY_THRESHOLD = 60       # Minimum seconds to wait between launching the same account (rate limiting per account, prevents launch spam)
 WINDOW_TITLE_RESCAN = 5         # Seconds to wait between each window title check after launch (polling interval for plugin to rename window)
@@ -252,50 +294,64 @@ MAX_CLIENTS = 0                 # Maximum concurrent running game clients allowe
 
 # Window arrangement settings
 ENABLE_WINDOW_LAYOUT = False                 # Enable automatic positioning/sizing of game windows after launch (requires window layout JSON files)
-WINDOW_LAYOUT = "main"                       # Which layout configuration to use: "left" (SubTimers_left) or "main" (SubTimers_main)
+WINDOW_LAYOUT = "main"                       # Which layout configuration to use: "left" (window_layout_left) or "main" (window_layout_main)
 WINDOW_MOVER_DIR = Path(__file__).parent     # Directory containing window layout JSON files (windows_layout_left.json / windows_layout_main.json)
 MAX_WINDOW_MOVE_ATTEMPTS = 3                 # Maximum number of window move attempts per client (1-3 recommended, prevents script freeze on unresponsive windows)
 WINDOW_MOVE_VERIFICATION_DELAY = 1           # Seconds to wait after window move before verifying position (allows window to settle)
-MAX_FAILED_FORCE_CRASH = False               # Force crash client after MAX_WINDOW_MOVE_ATTEMPTS failures (script will relaunch on next cycle if game should be running)
+MAX_FAILED_FORCE_CRASH = True                # Force crash client after MAX_WINDOW_MOVE_ATTEMPTS failures (script will relaunch on next cycle if game should be running)
 
 # Debug settings
 DEBUG = False                   # Show verbose debug output (auto-launch eligibility checks, window detection, process tracking, etc.)
 
 # Logging settings
-ENABLE_LOGGING = True          # Enable logging major issues to arr.log file (default: False for Auto-AutoRetainer, True for SubTimers scripts)
+ENABLE_LOGGING = True          # Enable logging major issues to arr.log file
 LOG_FILE = "arr.log"           # Log file name for major issues (created in script directory)
 
 # System settings
 SYSTEM_BOOTUP_DELAY = 0         # Seconds to delay before starting script monitoring (useful for auto-start on system boot, 0 = no delay)
+
+# Pushover notification settings (optional)
+ENABLE_PUSHOVER = False         # Enable Pushover notifications for logged issues
+PUSHOVER_USER_KEY = ""          # Your Pushover user key (from https://pushover.net/)
+PUSHOVER_API_TOKEN = ""         # Your Pushover application API token
+
+# Discord webhook notification settings (optional)
+ENABLE_DISCORD_WEBHOOK = False  # Enable Discord webhook notifications for logged issues
+DISCORD_WEBHOOK_URL = ""        # Discord webhook URL for notifications
 
 # Single client mode settings
 USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = True    # If True: uses default "FINAL FANTASY XIV" window title (single account mode, no Dalamud renaming needed)
                                               # If False: expects "ProcessID - nickname" window titles (multi-account mode, requires Dalamud plugin for window renaming)
                                               # Single client mode is intended for single-account setups where the game window title does not need to be customized
 
+# External config file name (not required, leave as is if not using)
+CONFIG_FILE = "config.json"
+
 # ===============================================
 # Account locations
 # ===============================================
 user = getpass.getuser()
 
-def acc(nickname, pluginconfigs_path, include_submarines=True, force247uptime=False):
+def acc(nickname, pluginconfigs_path, include_submarines=True, force247uptime=False, enable_2fa=False, keyring_name=None):
     auto_path = os.path.join(pluginconfigs_path, "AutoRetainer", "DefaultConfig.json")
     return {
         "nickname": nickname,
         "auto_path": auto_path,
         "include_submarines": bool(include_submarines),
         "force247uptime": bool(force247uptime),
+        "enable_2fa": bool(enable_2fa),
+        "keyring_name": keyring_name,
     }
 
 # In the splatoon script: Rename($"{Environment.ProcessId} - nickname"
 # replace 'nickname' with "Main" of "Acc1" keep the space and dash
 
-# # Account configuration - matches AR Parser order
+# Account configuration - matches AR Parser order
+# 2FA: Set enable_2fa=True and keyring_name="your_keyring_name" for automatic OTP sending
 account_locations = [
-    acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=True, force247uptime=False),
-    # acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True, force247uptime=False),
-    # acc("Acc2",   f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs", include_submarines=True, force247uptime=False),
-    # acc("Acc3",   f"C:\\Users\\{user}\\AltData\\Acc3\\pluginConfigs", include_submarines=True, force247uptime=False),
+    acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=True, force247uptime=False, enable_2fa=False, keyring_name=None),
+    # acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True, force247uptime=False, enable_2fa=True, keyring_name="ffxiv_acc1"),
+    # acc("Acc2",   f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs", include_submarines=True, force247uptime=True, enable_2fa=True, keyring_name="ffxiv_acc2"),
 ]
 
 # # Game launcher paths for each account (update these paths to your actual game launchers)
@@ -303,8 +359,201 @@ GAME_LAUNCHERS = {
     "Main":   rf"C:\Users\{user}\AppData\Local\XIVLauncher\XIVLauncher.exe",
     # "Acc1":   rf"C:\Users\{user}\AltData\Acc1.bat",
     # "Acc2":   rf"C:\Users\{user}\AltData\Acc2.bat",
-    # "Acc3":   rf"C:\Users\{user}\AltData\Acc3.bat",
 }
+
+# ===============================================
+# External Configuration Loading
+# ===============================================
+def load_external_config():
+    """Load external config file if it exists and override settings."""
+    global VERSION_SUFFIX, NICKNAME_WIDTH, SUBS_COUNT_WIDTH, HOURS_WIDTH, STATUS_WIDTH, PID_WIDTH
+    global TIMER_REFRESH_INTERVAL, WINDOW_REFRESH_INTERVAL
+    global ENABLE_AUTO_CLOSE, AUTO_CLOSE_THRESHOLD, MAX_RUNTIME, FORCE_CRASH_INACTIVITY_MINUTES
+    global ENABLE_AUTO_LAUNCH, OTP_LAUNCH_DELAY, AUTO_LAUNCH_THRESHOLD, OPEN_DELAY_THRESHOLD
+    global WINDOW_TITLE_RESCAN, MAX_WINDOW_TITLE_RESCAN, FORCE_LAUNCHER_RETRY, ENABLE_AUTOLOGIN_UPDATER, MAX_CLIENTS
+    global ENABLE_WINDOW_LAYOUT, WINDOW_LAYOUT, WINDOW_MOVER_DIR, MAX_WINDOW_MOVE_ATTEMPTS
+    global WINDOW_MOVE_VERIFICATION_DELAY, MAX_FAILED_FORCE_CRASH
+    global DEBUG, ENABLE_LOGGING, LOG_FILE, SYSTEM_BOOTUP_DELAY, USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME
+    global ENABLE_PUSHOVER, PUSHOVER_USER_KEY, PUSHOVER_API_TOKEN
+    global ENABLE_DISCORD_WEBHOOK, DISCORD_WEBHOOK_URL
+    global account_locations, GAME_LAUNCHERS
+
+    config_path = Path(__file__).parent / CONFIG_FILE
+    if not config_path.exists():
+        return
+
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        print(f"[CONFIG] Loaded configuration from {config_path}")
+    except json.JSONDecodeError as e:
+        print(f"[CONFIG] Error parsing {CONFIG_FILE}: {e}")
+        print("[CONFIG] Please fix the JSON syntax error and try again.")
+        input("\nPress Enter to exit...")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[CONFIG] Error reading {CONFIG_FILE}: {e}")
+        input("\nPress Enter to exit...")
+        sys.exit(1)
+
+    # Helper function for compact config loading
+    cfg = config.get
+
+    # Override settings if present in config (using compact cfg() approach)
+    VERSION_SUFFIX = cfg("VERSION_SUFFIX", VERSION_SUFFIX)
+    NICKNAME_WIDTH = cfg("NICKNAME_WIDTH", NICKNAME_WIDTH)
+    SUBS_COUNT_WIDTH = cfg("SUBS_COUNT_WIDTH", SUBS_COUNT_WIDTH)
+    HOURS_WIDTH = cfg("HOURS_WIDTH", HOURS_WIDTH)
+    STATUS_WIDTH = cfg("STATUS_WIDTH", STATUS_WIDTH)
+    PID_WIDTH = cfg("PID_WIDTH", PID_WIDTH)
+    TIMER_REFRESH_INTERVAL = cfg("TIMER_REFRESH_INTERVAL", TIMER_REFRESH_INTERVAL)
+    WINDOW_REFRESH_INTERVAL = cfg("WINDOW_REFRESH_INTERVAL", WINDOW_REFRESH_INTERVAL)
+    ENABLE_AUTO_CLOSE = cfg("ENABLE_AUTO_CLOSE", ENABLE_AUTO_CLOSE)
+    AUTO_CLOSE_THRESHOLD = cfg("AUTO_CLOSE_THRESHOLD", AUTO_CLOSE_THRESHOLD)
+    MAX_RUNTIME = cfg("MAX_RUNTIME", MAX_RUNTIME)
+    FORCE_CRASH_INACTIVITY_MINUTES = cfg("FORCE_CRASH_INACTIVITY_MINUTES", FORCE_CRASH_INACTIVITY_MINUTES)
+    ENABLE_AUTO_LAUNCH = cfg("ENABLE_AUTO_LAUNCH", ENABLE_AUTO_LAUNCH)
+    OTP_LAUNCH_DELAY = cfg("OTP_LAUNCH_DELAY", OTP_LAUNCH_DELAY)
+    AUTO_LAUNCH_THRESHOLD = cfg("AUTO_LAUNCH_THRESHOLD", AUTO_LAUNCH_THRESHOLD)
+    OPEN_DELAY_THRESHOLD = cfg("OPEN_DELAY_THRESHOLD", OPEN_DELAY_THRESHOLD)
+    WINDOW_TITLE_RESCAN = cfg("WINDOW_TITLE_RESCAN", WINDOW_TITLE_RESCAN)
+    MAX_WINDOW_TITLE_RESCAN = cfg("MAX_WINDOW_TITLE_RESCAN", MAX_WINDOW_TITLE_RESCAN)
+    FORCE_LAUNCHER_RETRY = cfg("FORCE_LAUNCHER_RETRY", FORCE_LAUNCHER_RETRY)
+    ENABLE_AUTOLOGIN_UPDATER = cfg("ENABLE_AUTOLOGIN_UPDATER", ENABLE_AUTOLOGIN_UPDATER)
+    MAX_CLIENTS = cfg("MAX_CLIENTS", MAX_CLIENTS)
+    ENABLE_WINDOW_LAYOUT = cfg("ENABLE_WINDOW_LAYOUT", ENABLE_WINDOW_LAYOUT)
+    WINDOW_LAYOUT = cfg("WINDOW_LAYOUT", WINDOW_LAYOUT)
+    MAX_WINDOW_MOVE_ATTEMPTS = cfg("MAX_WINDOW_MOVE_ATTEMPTS", MAX_WINDOW_MOVE_ATTEMPTS)
+    WINDOW_MOVE_VERIFICATION_DELAY = cfg("WINDOW_MOVE_VERIFICATION_DELAY", WINDOW_MOVE_VERIFICATION_DELAY)
+    MAX_FAILED_FORCE_CRASH = cfg("MAX_FAILED_FORCE_CRASH", MAX_FAILED_FORCE_CRASH)
+    DEBUG = cfg("DEBUG", DEBUG)
+    ENABLE_LOGGING = cfg("ENABLE_LOGGING", ENABLE_LOGGING)
+    LOG_FILE = cfg("LOG_FILE", LOG_FILE)
+    ENABLE_PUSHOVER = cfg("ENABLE_PUSHOVER", ENABLE_PUSHOVER)
+    PUSHOVER_USER_KEY = cfg("PUSHOVER_USER_KEY", PUSHOVER_USER_KEY)
+    PUSHOVER_API_TOKEN = cfg("PUSHOVER_API_TOKEN", PUSHOVER_API_TOKEN)
+    ENABLE_DISCORD_WEBHOOK = cfg("ENABLE_DISCORD_WEBHOOK", ENABLE_DISCORD_WEBHOOK)
+    DISCORD_WEBHOOK_URL = cfg("DISCORD_WEBHOOK_URL", DISCORD_WEBHOOK_URL)
+    SYSTEM_BOOTUP_DELAY = cfg("SYSTEM_BOOTUP_DELAY", SYSTEM_BOOTUP_DELAY)
+    USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = cfg("USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME", USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME)
+
+    # Override account_locations if present
+    if "account_locations" in config:
+        new_locations = []
+        for acc_config in config["account_locations"]:
+            # Skip disabled accounts (enabled defaults to True if not specified)
+            if not acc_config.get("enabled", True):
+                continue
+            nickname = acc_config.get("nickname", "Unknown")
+            pluginconfigs_path = acc_config.get("pluginconfigs_path", "")
+            pluginconfigs_path = os.path.expandvars(pluginconfigs_path)
+            pluginconfigs_path = pluginconfigs_path.replace("{user}", user)
+            new_locations.append(acc(
+                nickname=nickname,
+                pluginconfigs_path=pluginconfigs_path,
+                include_submarines=acc_config.get("include_submarines", True),
+                force247uptime=acc_config.get("force247uptime", False),
+                enable_2fa=acc_config.get("enable_2fa", False),
+                keyring_name=acc_config.get("keyring_name", None)
+            ))
+        account_locations = new_locations
+
+    # Override game_launchers if present
+    if "game_launchers" in config:
+        new_launchers = {}
+        for nickname, path in config["game_launchers"].items():
+            path = os.path.expandvars(path)
+            path = path.replace("{user}", user)
+            new_launchers[nickname] = path
+        GAME_LAUNCHERS = new_launchers
+
+# Load external config if it exists
+load_external_config()
+
+# ===============================================
+# Notification Credential Validation
+# ===============================================
+def validate_notification_credentials():
+    """Validate notification credentials and halt if misconfigured."""
+    if ENABLE_PUSHOVER:
+        if not PUSHOVER_USER_KEY or not PUSHOVER_API_TOKEN:
+            print("\n" + "=" * 80)
+            print("[ERROR] Pushover is enabled but credentials are missing!")
+            print("=" * 80)
+            print("ENABLE_PUSHOVER = True requires both:")
+            print("  - PUSHOVER_USER_KEY: Your Pushover user key")
+            print("  - PUSHOVER_API_TOKEN: Your Pushover application API token")
+            print("\nPlease either:")
+            print(f"  1. Enter your Pushover credentials in the script or {CONFIG_FILE}")
+            print("  2. Set ENABLE_PUSHOVER = False to disable Pushover notifications")
+            print("=" * 80)
+            input("\nPress Enter to exit...")
+            sys.exit(1)
+    
+    if ENABLE_DISCORD_WEBHOOK:
+        if not DISCORD_WEBHOOK_URL:
+            print("\n" + "=" * 80)
+            print("[ERROR] Discord webhook is enabled but URL is missing!")
+            print("=" * 80)
+            print("ENABLE_DISCORD_WEBHOOK = True requires:")
+            print("  - DISCORD_WEBHOOK_URL: Your Discord webhook URL")
+            print("\nPlease either:")
+            print(f"  1. Enter your Discord webhook URL in the script or {CONFIG_FILE}")
+            print("  2. Set ENABLE_DISCORD_WEBHOOK = False to disable Discord notifications")
+            print("=" * 80)
+            input("\nPress Enter to exit...")
+            sys.exit(1)
+
+# Validate notification credentials
+validate_notification_credentials()
+
+# ===============================================
+# Notification Functions
+# ===============================================
+def send_pushover(message):
+    """Send a Pushover notification. Only sends if enabled and configured."""
+    if not ENABLE_PUSHOVER or not PUSHOVER_USER_KEY or not PUSHOVER_API_TOKEN:
+        return
+    try:
+        response = requests.post(
+            "https://api.pushover.net/1/messages.json",
+            data={
+                "token": PUSHOVER_API_TOKEN,
+                "user": PUSHOVER_USER_KEY,
+                "title": "Auto-AutoRetainer",
+                "message": message,
+            },
+            timeout=10
+        )
+        if DEBUG:
+            if response.status_code == 200:
+                print(f"[DEBUG] Pushover notification sent successfully")
+            else:
+                print(f"[DEBUG] Pushover notification failed: {response.status_code}")
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Failed to send Pushover notification: {e}")
+
+def send_discord_webhook(message):
+    """Send a Discord webhook notification. Only sends if enabled and configured."""
+    if not ENABLE_DISCORD_WEBHOOK or not DISCORD_WEBHOOK_URL:
+        return
+    try:
+        response = requests.post(
+            DISCORD_WEBHOOK_URL,
+            json={
+                "content": f"{message}",
+            },
+            timeout=10
+        )
+        if DEBUG:
+            if response.status_code in [200, 204]:
+                print(f"[DEBUG] Discord webhook notification sent successfully")
+            else:
+                print(f"[DEBUG] Discord webhook notification failed: {response.status_code}")
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Failed to send Discord webhook notification: {e}")
 
 # ===============================================
 # Logging Functions
@@ -313,6 +562,7 @@ def log_error(message):
     """
     Log major issues to arr.log file with timestamp.
     Only logs if ENABLE_LOGGING is True.
+    Also sends Pushover and Discord notifications if enabled.
     """
     if not ENABLE_LOGGING:
         return
@@ -324,6 +574,10 @@ def log_error(message):
     except Exception as e:
         if DEBUG:
             print(f"[DEBUG] Failed to write to log file: {e}")
+    
+    # Send notifications
+    send_pushover(message)
+    send_discord_webhook(message)
 
 # ===============================================
 # Autologin Updater Functions
@@ -401,6 +655,147 @@ def check_and_update_autologin(nickname):
     except Exception as e:
         print(f"[AUTOLOGIN] Error updating config for {nickname}: {e}")
         log_error(f"AUTOLOGIN_ERROR: {nickname} - {e}")
+        return False
+
+def check_and_update_otp_server(nickname):
+    """
+    Check and update OtpServerEnabled in launcherConfigV3.json for accounts with 2FA enabled.
+    If enable_2fa=True for the account and OtpServerEnabled is "false", updates it to "true".
+    Returns True if update was made, False if no update needed or error occurred.
+    """
+    if not ENABLE_AUTOLOGIN_UPDATER:
+        return False
+    
+    # Check if this account has 2FA enabled
+    account_config = None
+    for acc_item in account_locations:
+        if acc_item["nickname"] == nickname:
+            account_config = acc_item
+            break
+    
+    if not account_config or not account_config.get("enable_2fa", False):
+        # 2FA not enabled for this account, skip OTP server check
+        return False
+    
+    launcher_config_path = get_launcher_config_path(nickname)
+    if launcher_config_path is None:
+        if DEBUG:
+            print(f"[OTP-SERVER] Could not find launcher config path for {nickname}")
+        return False
+    
+    if not launcher_config_path.exists():
+        if DEBUG:
+            print(f"[OTP-SERVER] Launcher config file not found: {launcher_config_path}")
+        return False
+    
+    try:
+        # Read the JSON file
+        with open(launcher_config_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Check current OtpServerEnabled value
+        current_value = data.get("OtpServerEnabled", None)
+        
+        if current_value == "false":
+            # Update to "true"
+            data["OtpServerEnabled"] = "true"
+            
+            # Write back to file
+            with open(launcher_config_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4)
+            
+            print(f"[OTP-SERVER] Updated OtpServerEnabled from 'false' to 'true' for {nickname}")
+            log_error(f"OTP_SERVER_UPDATED: {nickname} - Changed OtpServerEnabled from 'false' to 'true' in {launcher_config_path}")
+            return True
+        elif current_value == "true":
+            if DEBUG:
+                print(f"[OTP-SERVER] OtpServerEnabled already 'true' for {nickname}")
+            return False
+        else:
+            if DEBUG:
+                print(f"[OTP-SERVER] OtpServerEnabled has unexpected value '{current_value}' for {nickname}")
+            return False
+            
+    except json.JSONDecodeError as e:
+        print(f"[OTP-SERVER] Error parsing JSON for {nickname}: {e}")
+        log_error(f"OTP_SERVER_JSON_ERROR: {nickname} - {e}")
+        return False
+    except Exception as e:
+        print(f"[OTP-SERVER] Error updating config for {nickname}: {e}")
+        log_error(f"OTP_SERVER_ERROR: {nickname} - {e}")
+        return False
+
+def validate_launcher_config_before_launch(nickname):
+    """
+    Validate and fix launcher configuration BEFORE launching game.
+    Checks launcherConfigV3.json and ensures:
+    1. AutologinEnabled is "true" (always)
+    2. OtpServerEnabled is "true" (only if account has enable_2fa=True)
+    
+    This prevents the launcher from opening with login prompt instead of auto-logging in.
+    Returns True if config is valid (or was fixed), False if critical error.
+    """
+    launcher_config_path = get_launcher_config_path(nickname)
+    
+    if launcher_config_path is None:
+        print(f"[CONFIG-CHECK] Could not find launcher config path for {nickname}")
+        return True  # Continue anyway, will fail at launch if path is wrong
+    
+    if not launcher_config_path.exists():
+        print(f"[CONFIG-CHECK] Launcher config not found: {launcher_config_path}")
+        return True  # Continue anyway, launcher may create it
+    
+    # Get account config to check if 2FA is enabled
+    account_config = None
+    for acc_item in account_locations:
+        if acc_item["nickname"] == nickname:
+            account_config = acc_item
+            break
+    
+    enable_2fa = account_config.get("enable_2fa", False) if account_config else False
+    
+    try:
+        with open(launcher_config_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        config_updated = False
+        
+        # Check and fix AutologinEnabled
+        autologin_value = data.get("AutologinEnabled", None)
+        if autologin_value != "true":
+            old_value = autologin_value
+            data["AutologinEnabled"] = "true"
+            config_updated = True
+            print(f"[CONFIG-CHECK] Fixed AutologinEnabled: '{old_value}' -> 'true' for {nickname}")
+            log_error(f"CONFIG_FIXED_AUTOLOGIN: {nickname} - Changed AutologinEnabled from '{old_value}' to 'true'")
+        
+        # Check and fix OtpServerEnabled (only if 2FA is enabled for this account)
+        if enable_2fa:
+            otp_value = data.get("OtpServerEnabled", None)
+            if otp_value != "true":
+                old_value = otp_value
+                data["OtpServerEnabled"] = "true"
+                config_updated = True
+                print(f"[CONFIG-CHECK] Fixed OtpServerEnabled: '{old_value}' -> 'true' for {nickname}")
+                log_error(f"CONFIG_FIXED_OTP: {nickname} - Changed OtpServerEnabled from '{old_value}' to 'true'")
+        
+        # Write back if changes were made
+        if config_updated:
+            with open(launcher_config_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4)
+            print(f"[CONFIG-CHECK] Launcher config updated for {nickname}")
+        elif DEBUG:
+            print(f"[CONFIG-CHECK] Launcher config OK for {nickname}")
+        
+        return True
+        
+    except json.JSONDecodeError as e:
+        print(f"[CONFIG-CHECK] Error parsing launcher config JSON for {nickname}: {e}")
+        log_error(f"CONFIG_CHECK_JSON_ERROR: {nickname} - {e}")
+        return False
+    except Exception as e:
+        print(f"[CONFIG-CHECK] Error checking launcher config for {nickname}: {e}")
+        log_error(f"CONFIG_CHECK_ERROR: {nickname} - {e}")
         return False
 
 # ===============================================
@@ -903,13 +1298,12 @@ def arrange_ffxiv_windows():
     
     return len(successful_moves) > 0
 
-def kill_process_by_pid(pid):
+def kill_process_by_pid(pid, error_tag="PROCESS"):
     """
     Kill a process by its Process ID using taskkill command.
     Returns True if successful, False otherwise.
     """
     try:
-        # Use taskkill /F /PID to force terminate the process
         result = subprocess.run(
             ["taskkill", "/F", "/PID", str(pid)],
             capture_output=True,
@@ -919,8 +1313,69 @@ def kill_process_by_pid(pid):
         return result.returncode == 0
     except Exception as e:
         print(f"[ERROR] Failed to kill process {pid}: {e}")
-        log_error(f"PROCESS_KILL_FAILED: PID {pid} - {e}")
+        log_error(f"{error_tag}_KILL_FAILED: PID {pid} - {e}")
         return False
+
+def kill_process_by_image_name(image_name, error_tag="PROCESS"):
+    """
+    Kill a process by its image name using taskkill command.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        result = subprocess.run(
+            ["taskkill", "/F", "/IM", image_name],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return result.returncode == 0
+    except Exception as e:
+        print(f"[ERROR] Failed to kill {image_name}: {e}")
+        log_error(f"{error_tag}_KILL_FAILED: {e}")
+        return False
+
+def is_process_running_with_visible_windows(process_name, return_pid=False):
+    """
+    Check if a process is running with visible windows (active app state).
+    Background processes (no visible windows) are ignored.
+    
+    Args:
+        process_name: Process name to check (e.g., 'XIVLauncher.exe')
+        return_pid: If True, returns PID of first match; if False, returns bool
+    
+    Returns:
+        If return_pid=False: True if process has visible windows, False otherwise
+        If return_pid=True: PID of process with visible windows, or None if not found
+    """
+    if not PSUTIL_AVAILABLE:
+        return None if return_pid else False
+    
+    try:
+        process_pids = []
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                if proc.info['name'].lower() == process_name.lower():
+                    process_pids.append(proc.info['pid'])
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        if not process_pids:
+            return None if return_pid else False
+        
+        for pid in process_pids:
+            if has_visible_windows(pid):
+                if DEBUG:
+                    print(f"[DEBUG] {process_name} (PID {pid}) detected as ACTIVE APP with visible windows")
+                return pid if return_pid else True
+        
+        if DEBUG:
+            print(f"[DEBUG] {process_name} found as BACKGROUND PROCESS (no visible windows) - normal state")
+        return None if return_pid else False
+        
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Error checking for {process_name}: {e}")
+        return None if return_pid else False
 
 def kill_ffxiv_process():
     """
@@ -928,19 +1383,69 @@ def kill_ffxiv_process():
     Used when USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME is True.
     Returns True if successful, False otherwise.
     """
-    try:
-        # Use taskkill /F /IM to force terminate the process by image name
-        result = subprocess.run(
-            ["taskkill", "/F", "/IM", "ffxiv_dx11.exe"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        return result.returncode == 0
-    except Exception as e:
-        print(f"[ERROR] Failed to kill ffxiv_dx11.exe: {e}")
-        log_error(f"FFXIV_KILL_FAILED: {e}")
-        return False
+    return kill_process_by_image_name("ffxiv_dx11.exe", "FFXIV")
+
+def kill_game_client_and_cleanup(nickname, process_id, success_msg, fail_msg,
+                                  closed_pids, game_status_dict, client_start_times,
+                                  last_launch_time=None, set_launch_time=None,
+                                  game_launch_timestamp=None, last_sub_processed=None):
+    """
+    Kill a game client and perform cleanup of tracking dictionaries.
+    Consolidates repeated kill/cleanup logic throughout main loop.
+    
+    Args:
+        nickname: Account nickname
+        process_id: Process ID (or None for single client mode)
+        success_msg: Message to print on successful kill
+        fail_msg: Message to print on failed kill
+        closed_pids: Set to add process_id to on success
+        game_status_dict: Dict to update with (False, None) on success
+        client_start_times: Dict to clean up start time tracking
+        last_launch_time: Dict to delete nickname from (if provided and not set_launch_time)
+        set_launch_time: Tuple of (dict, value) to set last_launch_time[nickname] = value
+        game_launch_timestamp: Dict to delete nickname from (if provided)
+        last_sub_processed: Dict to delete nickname from (if provided)
+    
+    Returns:
+        True if kill succeeded, False otherwise
+    """
+    # Use appropriate kill method based on mode
+    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+        kill_success = kill_ffxiv_process()
+    else:
+        kill_success = kill_process_by_pid(process_id)
+    
+    if kill_success:
+        if process_id:
+            closed_pids.add(process_id)
+        print(success_msg)
+        
+        # Update game status immediately
+        game_status_dict[nickname] = (False, None)
+        
+        # Handle last_launch_time (either set or delete)
+        if set_launch_time:
+            launch_dict, launch_value = set_launch_time
+            launch_dict[nickname] = launch_value
+        elif last_launch_time is not None and nickname in last_launch_time:
+            del last_launch_time[nickname]
+        
+        # Clear force-crash tracking if provided
+        if game_launch_timestamp is not None and nickname in game_launch_timestamp:
+            del game_launch_timestamp[nickname]
+        if last_sub_processed is not None and nickname in last_sub_processed:
+            del last_sub_processed[nickname]
+        
+        # Clean up start time tracking
+        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+            if 'ffxiv_single' in client_start_times:
+                del client_start_times['ffxiv_single']
+        elif process_id and process_id in client_start_times:
+            del client_start_times[process_id]
+    else:
+        print(fail_msg)
+    
+    return kill_success
 
 def is_xivlauncher_running():
     """
@@ -949,38 +1454,7 @@ def is_xivlauncher_running():
     Background XIVLauncher process (no visible windows) is normal and ignored.
     Returns True if launcher has visible windows, False otherwise.
     """
-    if not PSUTIL_AVAILABLE:
-        return False
-    
-    try:
-        # Find XIVLauncher.exe processes and check for visible windows
-        launcher_pids = []
-        for proc in psutil.process_iter(['pid', 'name']):
-            try:
-                if proc.info['name'].lower() == 'xivlauncher.exe':
-                    launcher_pids.append(proc.info['pid'])
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
-        
-        if not launcher_pids:
-            return False  # No launcher process at all
-        
-        # Check if any launcher process has visible windows (is an active app)
-        for pid in launcher_pids:
-            if has_visible_windows(pid):
-                if DEBUG:
-                    print(f"[DEBUG] XIVLauncher.exe (PID {pid}) detected as ACTIVE APP with visible windows")
-                return True
-        
-        # Launcher exists but only as background process - this is normal
-        if DEBUG:
-            print(f"[DEBUG] XIVLauncher.exe found as BACKGROUND PROCESS (no visible windows) - normal state")
-        return False
-        
-    except Exception as e:
-        if DEBUG:
-            print(f"[DEBUG] Error checking for XIVLauncher.exe: {e}")
-        return False
+    return is_process_running_with_visible_windows("XIVLauncher.exe", return_pid=False)
 
 def has_visible_windows(pid):
     """
@@ -1041,19 +1515,7 @@ def kill_xivlauncher_process():
     Kill XIVLauncher.exe process.
     Returns True if successful, False otherwise.
     """
-    try:
-        # Use taskkill /F /IM to force terminate the launcher by image name
-        result = subprocess.run(
-            ["taskkill", "/F", "/IM", "XIVLauncher.exe"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        return result.returncode == 0
-    except Exception as e:
-        print(f"[ERROR] Failed to kill XIVLauncher.exe: {e}")
-        log_error(f"LAUNCHER_KILL_FAILED: {e}")
-        return False
+    return kill_process_by_image_name("XIVLauncher.exe", "LAUNCHER")
 
 def is_dalamud_crash_handler_running():
     """
@@ -1062,38 +1524,7 @@ def is_dalamud_crash_handler_running():
     Background DalamudCrashHandler processes (no visible windows) are normal and ignored.
     Returns PID of crash handler with visible windows, or None if no active window found.
     """
-    if not PSUTIL_AVAILABLE:
-        return None
-    
-    try:
-        # Find DalamudCrashHandler.exe processes and check for visible windows
-        crash_handler_pids = []
-        for proc in psutil.process_iter(['pid', 'name']):
-            try:
-                if proc.info['name'].lower() == 'dalamudcrashhandler.exe':
-                    crash_handler_pids.append(proc.info['pid'])
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
-        
-        if not crash_handler_pids:
-            return None  # No crash handler process at all
-        
-        # Check if any crash handler process has visible windows (is an active app)
-        for pid in crash_handler_pids:
-            if has_visible_windows(pid):
-                if DEBUG:
-                    print(f"[DEBUG] DalamudCrashHandler.exe (PID {pid}) detected as ACTIVE APP with visible windows")
-                return pid  # Return the PID of the active crash handler
-        
-        # Crash handler exists but only as background process - this is normal
-        if DEBUG:
-            print(f"[DEBUG] DalamudCrashHandler.exe found as BACKGROUND PROCESS (no visible windows) - normal state")
-        return None
-        
-    except Exception as e:
-        if DEBUG:
-            print(f"[DEBUG] Error checking for DalamudCrashHandler.exe: {e}")
-        return None
+    return is_process_running_with_visible_windows("DalamudCrashHandler.exe", return_pid=True)
 
 def kill_dalamud_crash_handler_process(pid):
     """
@@ -1101,25 +1532,19 @@ def kill_dalamud_crash_handler_process(pid):
     Only kills the crash handler with visible window, not background processes.
     Returns True if successful, False otherwise.
     """
-    try:
-        # Use taskkill /F /PID to force terminate only the specific crash handler process
-        result = subprocess.run(
-            ["taskkill", "/F", "/PID", str(pid)],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        return result.returncode == 0
-    except Exception as e:
-        print(f"[ERROR] Failed to kill DalamudCrashHandler.exe (PID {pid}): {e}")
-        log_error(f"CRASH_HANDLER_KILL_FAILED: PID {pid} - {e}")
-        return False
+    return kill_process_by_pid(pid, "CRASH_HANDLER")
 
 def launch_game(nickname):
     """
     Launch the game for a specific account using the configured launcher path.
+    If 2FA is enabled for the account, automatically sends the OTP code after launch.
     Returns True if successfully launched, False otherwise.
     """
+    # Validate and fix launcher config BEFORE launching
+    # This ensures AutologinEnabled and OtpServerEnabled are set correctly
+    if ENABLE_AUTOLOGIN_UPDATER:
+        validate_launcher_config_before_launch(nickname)
+    
     launcher_path = GAME_LAUNCHERS.get(nickname)
     
     if not launcher_path:
@@ -1152,6 +1577,58 @@ def launch_game(nickname):
                 stderr=subprocess.DEVNULL,
                 start_new_session=True
             )
+
+        # Check if 2FA is enabled for this account
+        account_config = None
+        for acc_item in account_locations:
+            if acc_item["nickname"] == nickname:
+                account_config = acc_item
+                break
+
+        if account_config and account_config.get("enable_2fa", False):
+            if not PYOTP_AVAILABLE:
+                print(f"[WARNING] 2FA enabled for {nickname} but pyotp/keyring not installed - skipping OTP")
+                log_error(f"2FA_NOT_AVAILABLE: {nickname} - pyotp/keyring not installed")
+                return True  # Continue launch, let user manually enter OTP
+
+            keyring_name = account_config.get("keyring_name")
+            if not keyring_name:
+                print(f"[WARNING] 2FA enabled for {nickname} but no keyring_name specified - skipping OTP")
+                log_error(f"2FA_CONFIG_ERROR: {nickname} - no keyring_name specified")
+                return True  # Continue launch, let user manually enter OTP
+
+            # Wait for launcher to initialize
+            print(f"[2FA] Waiting {OTP_LAUNCH_DELAY} seconds for launcher to initialize...")
+            time.sleep(OTP_LAUNCH_DELAY)
+
+            # Get OTP secret from keyring
+            otp_secret = keyring.get_password(keyring_name, "otp_secret")
+            if not otp_secret:
+                print(f"[WARNING] OTP secret not found in keyring '{keyring_name}' for {nickname}")
+                print(f"[WARNING] Aborting launch - please run Set_2FA_Key.py to store your OTP secret")
+                log_error(f"2FA_KEYRING_ERROR: {nickname} - no OTP secret in keyring '{keyring_name}'")
+                return False
+
+            # Generate OTP code
+            totp = pyotp.TOTP(otp_secret)
+            code = totp.now()
+            url = f"http://localhost:4646/ffxivlauncher/{code}"
+
+            print(f"[2FA] Sending OTP code to XIVLauncher...")
+            try:
+                resp = requests.get(url, timeout=5)
+                resp.raise_for_status()
+
+                if resp.status_code == 200:
+                    print(f"[2FA] OTP code accepted for {nickname}")
+                else:
+                    print(f"[2FA] Unexpected response: {resp.status_code}")
+                    log_error(f"2FA_UNEXPECTED_RESPONSE: {nickname} - Status {resp.status_code}")
+            except requests.exceptions.RequestException as e:
+                print(f"[2FA] Failed to send OTP code: {e}")
+                log_error(f"2FA_SEND_FAILED: {nickname} - {e}")
+                # Don't return False - launcher may still accept manual input
+
         return True
     except Exception as e:
         print(f"[ERROR] Failed to launch game for {nickname}: {e}")
@@ -1175,28 +1652,34 @@ def get_process_start_time(pid):
             print(f"[DEBUG] Could not get start time for PID {pid}: {e}")
         return None
 
-def get_ffxiv_process_start_time():
+def get_process_start_time_by_name(process_name):
     """
-    Get the start time of the ffxiv_dx11.exe process for single client mode.
+    Get the start time of a process by its name using psutil.
     Returns the start time as a timestamp (seconds since epoch) or None if unavailable.
-    Used when USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME is True.
     """
     if not PSUTIL_AVAILABLE:
         return None
     
     try:
-        # Search for ffxiv_dx11.exe process
         for proc in psutil.process_iter(['name', 'create_time']):
             try:
-                if proc.info['name'].lower() == 'ffxiv_dx11.exe':
+                if proc.info['name'].lower() == process_name.lower():
                     return proc.info['create_time']
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
         return None
     except Exception as e:
         if DEBUG:
-            print(f"[DEBUG] Could not find ffxiv_dx11.exe process: {e}")
+            print(f"[DEBUG] Could not find {process_name} process: {e}")
         return None
+
+def get_ffxiv_process_start_time():
+    """
+    Get the start time of the ffxiv_dx11.exe process for single client mode.
+    Returns the start time as a timestamp (seconds since epoch) or None if unavailable.
+    Used when USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME is True.
+    """
+    return get_process_start_time_by_name("ffxiv_dx11.exe")
 
 
 def is_ffxiv_running_for_account(nickname):
@@ -1589,7 +2072,7 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
         launcher_failed_accounts = set()
     
     print("=" * 85)
-    print(f"Auto-Autoretainer {VERSION}\nFFXIV Game Instance Manager")
+    print(f"Auto-Autoretainer {VERSION}{VERSION_SUFFIX}\nFFXIV Game Instance Manager")
     print("=" * 85)
     print(f"Updated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 85)
@@ -1825,6 +2308,15 @@ def main():
                 print(f"  Starting in {remaining} second{'s' if remaining != 1 else ''}...", end='\r')
                 time.sleep(1)
             print("\n")  # Clear the countdown line
+        
+        # Initial launcher check - close any stuck XIVLauncher on startup
+        if is_xivlauncher_running():
+            print("[STARTUP] XIVLauncher.exe detected with visible windows - closing stuck launcher...")
+            if kill_xivlauncher_process():
+                print("[STARTUP] Successfully closed XIVLauncher.exe")
+            else:
+                print("[STARTUP] Failed to close XIVLauncher.exe - may need manual intervention")
+            time.sleep(2)  # Brief wait after killing launcher
         
         # Validate configuration: single client mode requires only 1 account
         if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
@@ -2113,10 +2605,12 @@ def main():
                                             launcher_failed_accounts.add(nickname)
                                         break
                                     else:
-                                        # Before retry, check and update AutologinEnabled if needed
+                                        # Before retry, check and update AutologinEnabled and OtpServerEnabled if needed
                                         if ENABLE_AUTOLOGIN_UPDATER:
                                             print(f"[AUTOLOGIN] Checking AutologinEnabled for {nickname} before retry...")
                                             check_and_update_autologin(nickname)
+                                            # Also check OtpServerEnabled for 2FA accounts
+                                            check_and_update_otp_server(nickname)
                                         print(f"[AUTO-LAUNCH] Retrying {nickname} (attempt {launcher_retry_count[nickname] + 1}/{FORCE_LAUNCHER_RETRY})...")
                                         last_launch_time[nickname] = 0  # Allow immediate retry
                                 else:
@@ -2215,28 +2709,13 @@ def main():
                     if uptime_hours is not None and uptime_hours >= MAX_RUNTIME:
                         print(f"\n[AUTO-CLOSE] Closing {nickname} (PID: {process_id}) - Uptime {uptime_hours:.1f}h exceeds MAX_RUNTIME {MAX_RUNTIME}h")
                         
-                        # Use appropriate kill method based on mode
-                        kill_success = False
-                        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
-                            kill_success = kill_ffxiv_process()
-                        else:
-                            kill_success = kill_process_by_pid(process_id)
-                        
-                        if kill_success:
-                            closed_pids.add(process_id) if process_id else None
-                            print(f"[AUTO-CLOSE] Successfully closed {nickname} after {uptime_hours:.1f}h, waiting {TIMER_REFRESH_INTERVAL} seconds before checking clients again.")
-                            # Update game status immediately
-                            game_status_dict[nickname] = (False, None)
-                            # Enforce launch delay after runtime-based restart
-                            last_launch_time[nickname] = current_time
-                            # Clean up start time tracking
-                            if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
-                                if 'ffxiv_single' in client_start_times:
-                                    del client_start_times['ffxiv_single']
-                            elif process_id and process_id in client_start_times:
-                                del client_start_times[process_id]
-                        else:
-                            print(f"[AUTO-CLOSE] Failed to close {nickname}")
+                        kill_game_client_and_cleanup(
+                            nickname, process_id,
+                            f"[AUTO-CLOSE] Successfully closed {nickname} after {uptime_hours:.1f}h, waiting {TIMER_REFRESH_INTERVAL} seconds before checking clients again.",
+                            f"[AUTO-CLOSE] Failed to close {nickname}",
+                            closed_pids, game_status_dict, client_start_times,
+                            set_launch_time=(last_launch_time, current_time)
+                        )
                         continue
 
                     # Do not auto-close force247uptime accounts based on submarine timers
@@ -2248,29 +2727,13 @@ def main():
                     if not include_subs and not rotating_retainers:
                         print(f"\n[AUTO-CLOSE] Closing {nickname} (PID: {process_id}) - Submarines disabled, force247uptime=False")
                         
-                        # Use appropriate kill method based on mode
-                        kill_success = False
-                        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
-                            kill_success = kill_ffxiv_process()
-                        else:
-                            kill_success = kill_process_by_pid(process_id)
-                        
-                        if kill_success:
-                            closed_pids.add(process_id) if process_id else None
-                            print(f"[AUTO-CLOSE] Successfully closed {nickname}, waiting {TIMER_REFRESH_INTERVAL} seconds before checking clients again.")
-                            # Update game status immediately
-                            game_status_dict[nickname] = (False, None)
-                            # Reset launch time
-                            if nickname in last_launch_time:
-                                del last_launch_time[nickname]
-                            # Clean up start time tracking
-                            if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
-                                if 'ffxiv_single' in client_start_times:
-                                    del client_start_times['ffxiv_single']
-                            elif process_id and process_id in client_start_times:
-                                del client_start_times[process_id]
-                        else:
-                            print(f"[AUTO-CLOSE] Failed to close {nickname}")
+                        kill_game_client_and_cleanup(
+                            nickname, process_id,
+                            f"[AUTO-CLOSE] Successfully closed {nickname}, waiting {TIMER_REFRESH_INTERVAL} seconds before checking clients again.",
+                            f"[AUTO-CLOSE] Failed to close {nickname}",
+                            closed_pids, game_status_dict, client_start_times,
+                            last_launch_time=last_launch_time
+                        )
                         continue
                     
                     # Skip timer-based auto-close for accounts without submarines (but with force247uptime)
@@ -2286,29 +2749,13 @@ def main():
                     if soonest_hours is not None and soonest_hours > AUTO_CLOSE_THRESHOLD:
                         print(f"\n[AUTO-CLOSE] Closing {nickname} (PID: {process_id}) - Next sub in {soonest_hours:.1f}h")
                         
-                        # Use appropriate kill method based on mode
-                        kill_success = False
-                        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
-                            kill_success = kill_ffxiv_process()
-                        else:
-                            kill_success = kill_process_by_pid(process_id)
-                        
-                        if kill_success:
-                            closed_pids.add(process_id) if process_id else None
-                            print(f"[AUTO-CLOSE] Successfully closed {nickname}, waiting {TIMER_REFRESH_INTERVAL} seconds before checking clients again.")
-                            # Update game status immediately
-                            game_status_dict[nickname] = (False, None)
-                            # Reset launch time so it can be relaunched if subs become ready
-                            if nickname in last_launch_time:
-                                del last_launch_time[nickname]
-                            # Clean up start time tracking
-                            if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
-                                if 'ffxiv_single' in client_start_times:
-                                    del client_start_times['ffxiv_single']
-                            elif process_id and process_id in client_start_times:
-                                del client_start_times[process_id]
-                        else:
-                            print(f"[AUTO-CLOSE] Failed to close {nickname}")
+                        kill_game_client_and_cleanup(
+                            nickname, process_id,
+                            f"[AUTO-CLOSE] Successfully closed {nickname}, waiting {TIMER_REFRESH_INTERVAL} seconds before checking clients again.",
+                            f"[AUTO-CLOSE] Failed to close {nickname}",
+                            closed_pids, game_status_dict, client_start_times,
+                            last_launch_time=last_launch_time
+                        )
             
             # Force crash timer - check for frozen/stuck clients
             # Only run force-crash monitoring if ENABLE_AUTO_CLOSE is True
@@ -2420,34 +2867,15 @@ def main():
                         time_since_launch = (current_time - launch_time) / 3600
                         print(f"\n[FORCE-CRASH] Crashing {nickname} (PID: {process_id}) - No submarine processing for {minutes_since_processing:.1f}m (game running for {time_since_launch:.1f}h)")
                         
-                        # Use appropriate kill method
-                        kill_success = False
-                        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
-                            kill_success = kill_ffxiv_process()
-                        else:
-                            kill_success = kill_process_by_pid(process_id)
-                        
-                        if kill_success:
-                            closed_pids.add(process_id) if process_id else None
-                            print(f"[FORCE-CRASH] Successfully crashed {nickname} - likely frozen/stuck, waiting {TIMER_REFRESH_INTERVAL} seconds before relaunch")
-                            # Update game status immediately
-                            game_status_dict[nickname] = (False, None)
-                            # Clear tracking
-                            if nickname in game_launch_timestamp:
-                                del game_launch_timestamp[nickname]
-                            if nickname in last_sub_processed:
-                                del last_sub_processed[nickname]
-                            # Reset launch time to allow immediate relaunch
-                            if nickname in last_launch_time:
-                                del last_launch_time[nickname]
-                            # Clean up start time tracking
-                            if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
-                                if 'ffxiv_single' in client_start_times:
-                                    del client_start_times['ffxiv_single']
-                            elif process_id and process_id in client_start_times:
-                                del client_start_times[process_id]
-                        else:
-                            print(f"[FORCE-CRASH] Failed to crash {nickname}")
+                        kill_game_client_and_cleanup(
+                            nickname, process_id,
+                            f"[FORCE-CRASH] Successfully crashed {nickname} - likely frozen/stuck, waiting {TIMER_REFRESH_INTERVAL} seconds before relaunch",
+                            f"[FORCE-CRASH] Failed to crash {nickname}",
+                            closed_pids, game_status_dict, client_start_times,
+                            last_launch_time=last_launch_time,
+                            game_launch_timestamp=game_launch_timestamp,
+                            last_sub_processed=last_sub_processed
+                        )
             
             # Wait for TIMER_REFRESH_INTERVAL seconds before next timer update
             time.sleep(TIMER_REFRESH_INTERVAL)
