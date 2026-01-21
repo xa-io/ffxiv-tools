@@ -1,0 +1,72 @@
+{
+    "VERSION_SUFFIX": "",
+    "NICKNAME_WIDTH": 5,
+    "SUBS_COUNT_WIDTH": 11,
+    "HOURS_WIDTH": 24,
+    "STATUS_WIDTH": 10,
+    "PID_WIDTH": 11,
+    "TIMER_REFRESH_INTERVAL": 30,
+    "WINDOW_REFRESH_INTERVAL": 60,
+    "ENABLE_AUTO_CLOSE": true,
+    "AUTO_CLOSE_THRESHOLD": 0.5,
+    "MAX_RUNTIME": 71,
+    "FORCE_CRASH_INACTIVITY_MINUTES": 10,
+    "ENABLE_AUTO_LAUNCH": true,
+    "OTP_LAUNCH_DELAY": 10,
+    "AUTO_LAUNCH_THRESHOLD": 0.15,
+    "OPEN_DELAY_THRESHOLD": 60,
+    "WINDOW_TITLE_RESCAN": 5,
+    "MAX_WINDOW_TITLE_RESCAN": 20,
+    "FORCE_LAUNCHER_RETRY": 3,
+    "ENABLE_AUTOLOGIN_UPDATER": true,
+    "MAX_CLIENTS": 0,
+    "ENABLE_WINDOW_LAYOUT": true,
+    "WINDOW_LAYOUT": "main",
+    "MAX_WINDOW_MOVE_ATTEMPTS": 3,
+    "WINDOW_MOVE_VERIFICATION_DELAY": 1,
+    "MAX_FAILED_FORCE_CRASH": true,
+    "DEBUG": false,
+    "ENABLE_LOGGING": true,
+    "LOG_FILE": "arr.log",
+    "ENABLE_PUSHOVER": false,
+    "PUSHOVER_USER_KEY": "",
+    "PUSHOVER_API_TOKEN": "",
+    "ENABLE_DISCORD_WEBHOOK": false,
+    "DISCORD_WEBHOOK_URL": "",
+    "SYSTEM_BOOTUP_DELAY": 0,
+    "USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME": true,
+    "account_locations": [
+        {
+            "enabled": true,
+            "nickname": "Main",
+            "pluginconfigs_path": "C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs",
+            "include_submarines": true,
+            "force247uptime": false,
+            "enable_2fa": false,
+            "keyring_name": null
+        },
+        {
+            "enabled": false,
+            "nickname": "Acc1",
+            "pluginconfigs_path": "C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs",
+            "include_submarines": true,
+            "force247uptime": false,
+            "enable_2fa": false,
+            "keyring_name": null
+        },
+        {
+            "enabled": false,
+            "nickname": "Acc2",
+            "pluginconfigs_path": "C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs",
+            "include_submarines": true,
+            "force247uptime": true,
+            "enable_2fa": true,
+            "keyring_name": "ffxiv_acc2_2fa"
+        }
+    ],
+    "game_launchers": {
+        "Main": "C:\\Users\\{user}\\AppData\\Local\\XIVLauncher\\XIVLauncher.exe",
+        "Acc1": "C:\\Users\\{user}\\AltData\\Acc1.bat",
+        "Acc2": "C:\\Users\\{user}\\AltData\\Acc2.bat"
+    }
+}
