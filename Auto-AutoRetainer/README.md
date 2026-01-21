@@ -1,8 +1,8 @@
-# Auto-AutoRetainer v1.23 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.26 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
-A comprehensive automation script that monitors submarine return times across multiple FFXIV accounts and automatically manages game instances for optimal submarine collection. Integrates with AutoRetainer plugin data to track submarine voyages and calculates daily gil earnings.
+A comprehensive automation script that monitors submarine return times across multiple FFXIV accounts and intelligently manages game instances for hands-off submarine and retainer farming. Automatically launches games when submarines are ready, handles 2FA login, recovers from crashes and frozen clients, enforces stability restarts, tracks daily gil earnings and supply levels, and closes games when idle, all without manual intervention.
 
 ## How It Works
 
@@ -10,6 +10,7 @@ A comprehensive automation script that monitors submarine return times across mu
 - **Script Starts** and initializes monitoring system
 - **Pulls AutoRetainer DefaultConfig** files for ETA and displays timers
 - **Opens game** when there's 0.15 hours (9 minutes) from sub returning (or immediately for force247uptime accounts)
+- **Automatically enters 2FA** (one-time password) if configured for your account, sending the OTP code to XIVLauncher
 - **Closes game** once all rotated and submarines won't return for 0.5 hours (30 minutes) for submarine-only accounts
 - **Keeps clients running** for accounts with `force247uptime=True` so AutoRetainer can process retainers continuously
 - **Forces client restart** after 71 hours of uptime (`MAX_RUNTIME`) to avoid FFXIV 72-hour stability issues
@@ -20,16 +21,26 @@ A comprehensive automation script that monitors submarine return times across mu
 ## Why Do I Want This
 
 - **Keeps your game closed by default** and only opens it when it actually needs to be running.
+- **Handles 2FA automatically** so you never need to manually enter one-time passwords when launching.
 - **Auto-recovers from crashes** by relaunching the game whenever it should be open but has closed unexpectedly.
 - **Avoids the 72-hour log-in issue** by restarting the client automatically at 71 hours of uptime.
 - **Detects and recovers from frozen clients** by monitoring submarine processing activity and automatically crashing/relaunching stuck game instances.
 - **Supports multiple play styles** whether you want the game open only when submarines are ready, running 24/7, or just throughout the day.
+- **Reduces wear on your hardware** by not running FFXIV 24/7 when it's not needed.
+- **Saves electricity** by minimizing unnecessary game uptime across multiple accounts.
+- **Tracks daily gil earnings** so you can see exactly how much your submarine fleet generates.
+- **Monitors supply levels** and alerts you when restocking is needed before submarines run dry.
+- **Manages multiple accounts seamlessly** with independent configurations, launchers, and plugin setups per account.
+- **Arranges game windows automatically** so multi-client setups stay organized without manual intervention.
 
 ## Core Automation Features
 
 - **Intelligent Game Launching**: Automatically opens game instances when submarines are nearly ready (9 minutes by default, configurable)
+- **Automatic 2FA Login**: Generates and submits one-time passwords automatically when launching accounts with 2FA enabled
 - **Smart Idle Management**: Closes games when submarines won't be ready for an extended period (30 minutes by default, configurable)
 - **Crash Recovery**: Automatically detects and relaunches crashed game instances
+- **Frozen Client Detection**: Monitors submarine processing activity and force-crashes stuck clients after configurable inactivity period
+- **72-Hour Stability Restart**: Automatically restarts clients at 71 hours uptime to avoid FFXIV's 72-hour stability issues
 
 ## Features
 
@@ -46,12 +57,17 @@ A comprehensive automation script that monitors submarine return times across mu
 
 ### Intelligent Automation
 - **Auto-Launch Games**: Automatically opens games when submarines are nearly ready (9 minutes by default)
+- **2FA/OTP Support**: Automatically generates and submits one-time passwords via XIVLauncher API for accounts with 2FA enabled
 - **Launcher Detection & Retry**: Detects when XIVLauncher gets stuck at login screen and automatically retries up to 3 times
+- **Config Auto-Fix**: Validates and repairs launcher settings (AutologinEnabled, OtpServerEnabled) before launch attempts
 - **Crash Handler Detection**: Automatically detects and closes DalamudCrashHandler.exe windows when game crashes occur (checks every 60 seconds)
+- **Frozen Client Force-Crash**: Monitors submarine processing and force-crashes clients with no activity for configurable minutes
+- **72-Hour Stability Restart**: Automatically restarts clients approaching 72 hours uptime (MAX_RUNTIME default: 71 hours)
 - **Auto-Close Games**: Closes idle games when submarines won't be ready soon (30 minutes by default)
 - **Smart Rate Limiting**: Prevents rapid game launches with configurable delays
 - **System Bootup Delay**: Configurable delay before script starts monitoring (useful for auto-start on system boot)
 - **Window Arrangement**: Automatically arranges game windows using customizable layouts
+- **Notifications**: Optional Pushover and Discord webhook alerts for errors and issues
 
 ### Submarine Build Analysis
 - **Build Detection**: Identifies submarine parts (WSUC, SSUC, YSYC, etc.)
@@ -73,12 +89,13 @@ A comprehensive automation script that monitors submarine return times across mu
 - Python 3.12.4+
 - FFXIV with XIVLauncher (Dalamud)
 - AutoRetainer plugin (installed and configured)
-- pywin32 package: `pip install pywin32` - Provides Windows API access for window management, process control, and GUI automation
+- pywin32 package: `pip install pywin32 win32gui` - Provides Windows API access for window management, process control, and GUI automation
 - psutil package (recommended): `pip install psutil` - Enables accurate process uptime tracking. Optional but recommended for proper MAX_RUNTIME enforcement.
+- For 2FA support: `pip install pyotp keyring requests` - Required only if using Two-Factor Authentication
 
 **Required Plugin Configuration:**
 - **AutoRetainer Multi-Mode**: Must be enabled and set to auto-enable, enable Wait on login screen in common settings
-- **No 2FA**: Two-factor authentication must be disabled on accounts
+- **2FA Supported**: Two-factor authentication is now supported via keyring integration (see 2FA Setup section)
 - **Autologging Enabled**: XIVLauncher must have autologin configured for each account
 
 ---
@@ -87,12 +104,12 @@ A comprehensive automation script that monitors submarine return times across mu
 
 ### Step 1: Configure Account Locations
 
-Edit the `account_locations` list in `Auto-AutoRetainer.py` (around line 56-65):
+Edit the `account_locations` list in `Auto-AutoRetainer.py`:
 
 ```python
 account_locations = [
-     acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=False, force247uptime=False),
-     acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True, force247uptime=True),
+     acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=True, force247uptime=False, enable_2fa=False, keyring_name=None),
+     acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True, force247uptime=True, enable_2fa=True, keyring_name="ffxiv_acc1"),
     # Add more accounts as needed
 ]
 ```
@@ -101,6 +118,8 @@ account_locations = [
 - **pluginconfigs_path**: Path to the account's plugin configuration folder
 - **include_submarines**: Set to `True` to monitor submarines, `False` to disable submarine monitoring
 - **force247uptime**: Set to `True` to keep the game always running for this account so AutoRetainer can continuously rotate retainers (subject to `MAX_RUNTIME` safety restarts)
+- **enable_2fa**: Set to `True` if account uses Two-Factor Authentication (requires `keyring_name`)
+- **keyring_name**: Name of the keyring entry storing the OTP secret (use `Set_2FA_Key.py` to configure)
 
 **Configuration Behavior Matrix:**
 
@@ -119,7 +138,7 @@ account_locations = [
 
 ### Step 2: Configure Game Launchers
 
-Edit the `GAME_LAUNCHERS` dictionary in `Auto-AutoRetainer.py` (around line 68-77):
+Edit the `GAME_LAUNCHERS` dictionary in `Auto-AutoRetainer.py`:
 
 ```python
 GAME_LAUNCHERS = {
@@ -390,11 +409,9 @@ public unsafe sealed class RenameWindow : SplatoonScript
 
 **For Full Automation, You MUST:**
 
-1. **Disable 2FA (Two-Factor Authentication):**
-   - Log into your Square Enix account management
-   - Navigate to security settings
-   - **Disable** One-Time Password (2FA) for each account
-   - **Warning:** This reduces account security. Use at your own risk.
+1. **Configure 2FA (Two-Factor Authentication):**
+   - **Option A - Disable 2FA:** Disable One-Time Password in your Square Enix account settings (simplest, but reduces security)
+   - **Option B - Use Automated 2FA:** Keep 2FA enabled and configure Auto-AutoRetainer to send OTP codes automatically (see **2FA Setup** section below)
 
 2. **Enable XIVLauncher Autologin:**
    - Open XIVLauncher settings
@@ -420,6 +437,228 @@ public unsafe sealed class RenameWindow : SplatoonScript
 - Only use this on accounts you're willing to risk
 - Consider using dedicated submarine farming accounts
 - Never share your launcher files or credential data
+
+---
+
+## 2FA Setup (Optional)
+
+This section explains how to set up Two-Factor Authentication (2FA) for use with Auto-AutoRetainer. The script can automatically generate and send OTP codes when launching the game.
+
+### Prerequisites
+
+- Windows operating system
+- Python with the required packages: `pip install pyotp keyring requests`
+- The `Set_2FA_Key.py` script (included in this repository)
+- **Your account must NOT have 2FA enabled yet** - if it does, disable it first before continuing
+
+### Step 1: Disable Existing 2FA (If Applicable)
+
+If your account already has 2FA enabled, you must disable it first:
+1. Log into your Square Enix account
+2. Navigate to One-Time Password settings
+3. Remove/disable the existing authenticator
+4. Proceed to Step 2 once 2FA is fully disabled
+
+### Step 2: Get Your Authentication Key
+
+**⚠️ Important:** Do not navigate away from the Mogstation or click the back button during this process - doing so will regenerate a new key and invalidate the one you copied.
+
+1. Log into your account on the [Mogstation website](https://www.mogstation.com)
+2. Navigate to: https://secure.square-enix.com/account/app/svc/otpTop
+3. Click on **"Software Authenticator"** option
+4. Click **"Software Authenticator Registration"**
+5. On the next page, you'll see a QR code - **do not scan it**
+6. Click **"Unable to Scan QR Code"**
+7. The next page will display your **Authentication Key** - this is the secret key you need
+8. **Copy this key into a Notepad document** and remove any spaces from it
+9. Open your phone's authenticator app (Google Authenticator, Authy, etc.)
+10. Choose "Add account" or "Enter manually"
+11. Enter the following:
+    - **Code Name:** Name it whatever you want
+    - **Your Key:** Paste the key with no spaces
+    - **Type of key:** Time based
+12. Click **Add** - your phone will now generate 6-digit codes
+13. On the Mogstation site, press **Next** and enter the 2FA code your phone provides
+14. It should now say you are set up for 2FA
+15. Relog into Mogstation and it should show your **Emergency Removal Password** - keep this in case you lose or damage your phone (use as a password to remove the 2FA)
+
+### Step 3: Configure XIVLauncher for 2FA
+
+1. Make sure to set the launcher setting for **"Use One-Time-Passwords"** to enabled
+2. Enable **"Log in automatically"**
+3. Verify you can login with your phone authenticator
+
+**Testing Auto-Login with 2FA:**
+- If your game auto logs in, **hold SHIFT** when clicking your .bat file or main launcher
+- This will force the launcher to open
+- Once you have confirmed you're able to open game using the code, close game and force open the launcher again
+
+4. In XIVLauncher, click on the **settings gear**, then the **main game tab**
+5. Enable the **"Enable XL Authenticator app/OTP macro support"** setting
+6. Click the **Save checkmark**
+7. Ensure both the **"Log in automatically"** and **"Enable XL Authenticator app/OTP macro support"** settings are enabled
+8. Close the launcher
+
+**⚠️ First Login Note:** The FIRST time you attempt to log in, you will likely get a Windows environment popup asking you to allow permissions. If this happens, allow, then cancel the OTP window.
+
+### Step 4: Store the Key in Windows
+
+1. Open `Set_2FA_Key.py` in a text/code editor 
+2. Set your values using the key you saved in Notepad:
+   ```python
+   # Give your key a unique name (e.g., "ffxiv_main_2fa", "ffxiv_acc1_2fa")
+   keyring_name = "ffxiv_main_2fa"
+
+   # Paste your authentication key here (with spaces removed)
+   secret_key = "YOURAUTHENTICATIONKEYHERE"
+   ```
+3. Save the file
+4. Run the script: `python Set_2FA_Key.py`
+5. The window will flash and disappear very quickly - don't run it twice
+6. The script will securely store your key in Windows Credential Manager
+7. **Verify:** Open "Credential Manager" in Windows, click "Windows Credentials" at the top, and look for your key under "Generic Credentials"
+8. **Security:** After confirming 2FA works, delete the secret key value from `Set_2FA_Key.py` - keeping it in plain text is a security risk
+
+**Note:** Each FFXIV account with 2FA needs its own unique keyring name.
+
+### Step 5: Configure Auto-AutoRetainer for 2FA
+
+Edit your configuration (either in `Auto-AutoRetainer.py` or `config.json`):
+
+**In Python script:**
+```python
+account_locations = [
+    acc("Main", f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs",
+        include_submarines=True, force247uptime=False, enable_2fa=True, keyring_name="ffxiv_main_2fa"),
+]
+```
+
+**In config.json:**
+```json
+"account_locations": [
+    {
+        "enabled": true,
+        "nickname": "Main",
+        "pluginconfigs_path": "C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs",
+        "include_submarines": true,
+        "force247uptime": false,
+        "enable_2fa": true,
+        "keyring_name": "ffxiv_main_2fa"
+    }
+]
+```
+
+### 2FA Timing Configuration
+
+If the script sends the OTP code before the launcher is ready to receive it, increase the delay:
+
+```python
+OTP_LAUNCH_DELAY = 10  # Seconds to wait after launching before sending OTP (default: 10)
+```
+
+Or in `config.json`:
+```json
+"OTP_LAUNCH_DELAY": 10
+```
+
+**Note:** Going below 10 seconds is not recommended as the launcher may not be ready.
+
+### Troubleshooting 2FA
+
+**OTP code rejected:**
+- Ensure your system clock is accurate (OTP codes are time-based)
+- Verify the authentication key was copied correctly without extra spaces
+- Check that the keyring_name in your config matches what you set in `Set_2FA_Key.py`
+
+**Code sent too early:**
+- Increase `OTP_LAUNCH_DELAY` to give the launcher more time to load
+
+**"Keyring not found" error:**
+- Run `Set_2FA_Key.py` again to store the key
+- Verify the keyring_name matches exactly (case-sensitive)
+
+**Key became invalid:**
+- If you navigated away during registration, the key was regenerated
+- Disable 2FA on your account and start the process over from Step 2
+
+---
+
+## External Configuration File (Optional)
+
+Instead of editing the Python script directly, you can use an external `config.json` file to override settings.
+
+### Setup
+
+1. Copy `config.json.example` to `config.json` in the same folder as the script
+2. Edit only the settings you want to change
+3. Any settings not in `config.json` will use the values from the Python script
+
+### Path Placeholders
+
+Use `{user}` in paths to automatically substitute the current Windows username:
+```json
+"pluginconfigs_path": "C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs"
+```
+
+### Example Minimal Config
+
+```json
+{
+    "VERSION_SUFFIX": " - Main Account",
+    "WINDOW_LAYOUT": "main",
+    "DEBUG": true,
+    "ENABLE_DISCORD_WEBHOOK": true,
+    "DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/123456789/abcde",
+    "USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME": false,
+
+    "account_locations": [
+        {
+            "enabled": true,
+            "nickname": "Main",
+            "pluginconfigs_path": "C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs",
+            "include_submarines": true,
+            "force247uptime": true,
+            "enable_2fa": false,
+            "keyring_name": null
+        }
+    ],
+
+    "game_launchers": {
+        "Main": "C:\\Users\\{user}\\AppData\\Local\\XIVLauncher\\XIVLauncher.exe"
+    }
+}
+```
+
+### Notes
+
+- If `config.json` has a syntax error, the script will display the error and exit
+- The script prints `[CONFIG] Loaded configuration from ...` when using an external config
+- See `config.json.example` for all available settings
+
+---
+
+## Notification Settings (Optional)
+
+Auto-AutoRetainer can send notifications when errors occur.
+
+### Pushover Notifications
+
+```json
+"ENABLE_PUSHOVER": true,
+"PUSHOVER_USER_KEY": "your_user_key",
+"PUSHOVER_API_TOKEN": "your_api_token"
+```
+
+### Discord Webhook Notifications
+
+```json
+"ENABLE_DISCORD_WEBHOOK": true,
+"DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/..."
+```
+
+**Note:** If notifications are enabled but credentials are missing, the script will halt with an error message.
+
+---
 
 ### Step 6: Configure Window Layouts (Optional)
 
@@ -647,7 +886,7 @@ python Auto-AutoRetainer.py
 
 ```
 =====================================================================================
-Auto-Autoretainer v1.14
+Auto-Autoretainer v1.26
 FFXIV Game Instance Manager
 =====================================================================================
 Updated: 2025-12-11 09:00:00
@@ -717,12 +956,16 @@ Press Ctrl+C to exit
 ```bash
 pip install pywin32
 pip install win32gui
+pip install psutil
+pip install pyotp
+pip install keyring
+pip install requests
 ```
 
 ### System Requirements
 - **OS**: Windows 10/11 (script uses win32gui for window management)
 - **Python**: 3.12.4 or higher
-- **FFXIV**: With XIVLauncher and Dalamud, Auto-Open Game, No One Time Password, AutoRetainer Auto-Enable Multi when logging in
+- **FFXIV**: With XIVLauncher and Dalamud, Auto-Open Game, OTP setup if needed, AutoRetainer Auto-Enable Multi when logging in
 
 ### Plugin Requirements
 - **AutoRetainer**: For submarine data and automation
@@ -790,10 +1033,11 @@ Based on known voyage routes:
 4. Test AutoRetainer manually before using automation
 
 ### 2FA/Login Issues
-1. **Disable 2FA** on all accounts (required for full automation)
+1. **Configure 2FA** properly - either disable it or set up automated OTP (see 2FA Setup section)
 2. Ensure XIVLauncher has saved credentials for each account
 3. Test autologin by running launcher manually
-4. Check that no login prompts appear during launch
+4. Check that no login prompts appear during launch (unless it's a 2FA code prompt if expected)
+5. For automated 2FA: verify keyring_name matches exactly and OTP_LAUNCH_DELAY is sufficient
 
 ---
 
@@ -923,11 +1167,21 @@ The script will automatically load `window_layout_{name}.json` based on the `WIN
 - **AutoRetainer Plugin**: For submarine data and automation framework
 - **XIVLauncher**: For multi-account support and autologin functionality
 - **Dalamud**: For plugin ecosystem
+- **AsunaPahlo**: For paving the way with 2FA and external configuration implementations
 
 ---
 
+## Disclaimer
+
+This script is provided as-is for personal use. Use at your own risk. The author is not responsible for any account issues, bans, or data loss resulting from the use of this software.
+
+**Important:** Using automation tools may violate the FFXIV Terms of Service. Use responsibly and understand the risks.
+
 ## Version History
 
+**v1.26** (2026-01-19) - Added initial startup launcher check to close any stuck XIVLauncher on bootup. Code consolidation: Created generic helper functions (kill_process_by_image_name, is_process_running_with_visible_windows, kill_game_client_and_cleanup, get_process_start_time_by_name) to reduce redundant code. Refactored 11 process functions to use generic helpers for consistency.  
+**v1.25** (2026-01-19) - Added pre-launch config validation for AutologinEnabled and OtpServerEnabled. Checks launcherConfigV3.json BEFORE launching game (not just after failures). Automatically fixes AutologinEnabled to "true" if not set correctly. Automatically fixes OtpServerEnabled to "true" when account has enable_2fa=True. Prevents launcher from opening with login prompt instead of auto-logging in. Added validate_launcher_config_before_launch() function for pre-launch checks.  
+**v1.24** (2026-01-14) - Added 2FA/OTP support for accounts with Two-Factor Authentication enabled. Script automatically generates and sends OTP codes via XIVLauncher API when launching games. OTP secrets stored securely in Windows Credential Manager using keyring library. New account parameters: enable_2fa, keyring_name. Added OtpServerEnabled auto-fix in launcherConfigV3.json when 2FA accounts fail to launch. Added external configuration file support (config.json) - settings can now be overridden without editing the Python script. Added Discord webhook notifications for errors alongside existing Pushover support. Added credential validation that halts script if notifications are enabled but credentials missing. Added "enabled" field to account_locations for easy account toggling. VERSION is always read from script, never from config.json.  
 **v1.23** (2026-01-11) - Critical bug fix: Window title failure no longer kills all running game clients in multi-client mode. Added ENABLE_AUTOLOGIN_UPDATER feature that automatically checks and updates AutologinEnabled in launcherConfigV3.json when launcher opens instead of game. After launcher fail 1/3 or 2/3, checks if AutologinEnabled is "false" and updates to "true" before retry - fixes rare cases where launcher opens because autologin was disabled. Added comprehensive error logging system with ENABLE_LOGGING parameter and arr.log file for tracking major issues (WINDOW_TITLE_FAILED, LAUNCHER_FAILED, AUTOLOGIN_UPDATED events). Multi-client mode now continues normal rotation when window title check fails instead of killing all processes. Logging defaults: False for Auto-AutoRetainer, True for SubTimers scripts.  
 **v1.22** (2026-01-08) - Added robust window movement with retry logic and responsiveness checking. Implemented is_window_responding() to detect frozen windows before move attempts using Windows SendMessageTimeout API. Added MAX_WINDOW_MOVE_ATTEMPTS = 3 configuration for retry logic per window. Window position verification now only checks x,y coordinates since FFXIV controls own window size via in-game graphics settings. Up to 3 move attempts per window with 1-second verification delay between attempts (WINDOW_MOVE_VERIFICATION_DELAY reduced from 3 to 1). Script skips unresponsive windows instead of freezing, continues processing remaining windows. Failed windows tracked separately with detailed failure reasons in debug output. Enhanced move_window_to_position() with MoveWindow API and window style modifications for reliable positioning. Added MAX_FAILED_FORCE_CRASH = True to automatically crash clients after MAX_WINDOW_MOVE_ATTEMPTS failures. Failed clients will be relaunched on next cycle if they should be running (similar to inactivity timer). Extracts PID from window title and force crashes using kill_process_by_pid(). Prevents script freeze when game clients become unresponsive during window arrangement. Window movement now succeeds on first attempt in most cases with proper responsiveness and position verification.  
 **v1.21** (2026-01-02) - Disabled force-close monitoring when all submarines are voyaging (idle state). Force-close monitoring now only runs when ready_subs > 0 or account is in (WAITING) state. When all subs are voyaging with 0 ready (showing +hours without status), monitoring is disabled. Prevents false-positive crashes for force247uptime accounts idle between voyage completions. Monitoring activates when subs become ready, deactivates when all subs sent out. Ensures force-close only monitors accounts with actual work to process.  
