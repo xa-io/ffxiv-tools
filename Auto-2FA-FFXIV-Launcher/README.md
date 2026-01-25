@@ -1,4 +1,4 @@
-# Launch FFXIV With Automated 2FA - Standalone Launcher
+# Launch FFXIV With Automated 2FA v1.01 - Standalone Launcher
 
 **Quick launcher for FFXIV with automatic Two-Factor Authentication**
 
@@ -579,4 +579,5 @@ This script is provided as-is for personal use. Use at your own risk. The author
 
 ## Version History
 
+**v1.01** (2026-01-25) - Fixed batch file launcher leaving cmd.exe processes running after game launch. Changed batch file launch from `start /B` to direct `cmd.exe /c` execution with DETACHED_PROCESS flag.  
 **v1.00** (2026-01-19) - Initial release - Standalone 2FA launcher extracted from Auto-AutoRetainer
