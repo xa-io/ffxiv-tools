@@ -21,13 +21,16 @@
 # Important Note: Requires pyotp, keyring, and requests packages. Your OTP secret must be stored using Set_2FA_Key.py
 # before this script will work. XIVLauncher must have "Enable XL Authenticator app/OTP macro support" enabled.
 #
-# Launch With 2FA v1.00
+# Launch With 2FA v1.01
 # Standalone FFXIV Launcher with Automatic 2FA
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-19 21:50:00
+# Last Updated: 2026-01-25 09:00:00
 #
 # ## Release Notes ##
 #
+# v1.01 - Fixed batch file launcher leaving cmd.exe processes running after game launch
+#         Changed batch file launch from 'start /B' to direct cmd.exe /c execution
+#         Added DETACHED_PROCESS flag to properly separate cmd.exe from Python
 # v1.00 - Initial release - Standalone 2FA launcher extracted from Auto-AutoRetainer
 #
 ########################################################################################################################
@@ -164,11 +167,15 @@ def launch_game():
         is_batch_file = LAUNCHER_PATH.lower().endswith('.bat')
         
         if is_batch_file:
-            # For batch files, use cmd.exe with /c to close CMD after execution
+            # For batch files, run via cmd.exe /c which closes after execution
+            # DETACHED_PROCESS ensures the cmd.exe doesn't stay attached to Python
+            DETACHED_PROCESS = 0x00000008
             subprocess.Popen(
-                f'start "" /B "{LAUNCHER_PATH}"',
-                shell=True,
-                creationflags=subprocess.CREATE_NO_WINDOW
+                f'cmd.exe /c "{LAUNCHER_PATH}"',
+                shell=False,
+                creationflags=DETACHED_PROCESS | subprocess.CREATE_NO_WINDOW,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
             )
             print(f"[LAUNCH] Batch file launcher started: {LAUNCHER_PATH}")
         else:
