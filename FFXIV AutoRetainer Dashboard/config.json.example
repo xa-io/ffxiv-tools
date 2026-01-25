@@ -1,0 +1,23 @@
+{
+    "HOST": "127.0.0.1",
+    "PORT": 1234,
+    "DEBUG": false,
+    "AUTO_REFRESH": 60,
+    "account_locations": [
+        {
+            "nickname": "Main",
+            "pluginconfigs_path": "C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs",
+            "enabled": true
+        },
+        {
+            "nickname": "Acc1",
+            "pluginconfigs_path": "C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs",
+            "enabled": false
+        },
+        {
+            "nickname": "Acc2",
+            "pluginconfigs_path": "C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs",
+            "enabled": false
+        }
+    ]
+}
