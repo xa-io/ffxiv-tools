@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.26 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.27 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -886,7 +886,7 @@ python Auto-AutoRetainer.py
 
 ```
 =====================================================================================
-Auto-Autoretainer v1.26
+Auto-Autoretainer v1.27
 FFXIV Game Instance Manager
 =====================================================================================
 Updated: 2025-12-11 09:00:00
@@ -1179,6 +1179,7 @@ This script is provided as-is for personal use. Use at your own risk. The author
 
 ## Version History
 
+**v1.27** (2026-01-25) - Fixed batch file launcher leaving cmd.exe processes running after game launch. Changed batch file launch from `start /B` with shell=True to direct `cmd.exe /c` execution with DETACHED_PROCESS flag. Added cleanup_batch_launcher_processes() function that runs 30 seconds after launch in a daemon thread to terminate any lingering cmd.exe processes matching the batch file path. Prevents accumulation of idle "Windows Command Processor" processes in Task Manager.  
 **v1.26** (2026-01-19) - Added initial startup launcher check to close any stuck XIVLauncher on bootup. Code consolidation: Created generic helper functions (kill_process_by_image_name, is_process_running_with_visible_windows, kill_game_client_and_cleanup, get_process_start_time_by_name) to reduce redundant code. Refactored 11 process functions to use generic helpers for consistency.  
 **v1.25** (2026-01-19) - Added pre-launch config validation for AutologinEnabled and OtpServerEnabled. Checks launcherConfigV3.json BEFORE launching game (not just after failures). Automatically fixes AutologinEnabled to "true" if not set correctly. Automatically fixes OtpServerEnabled to "true" when account has enable_2fa=True. Prevents launcher from opening with login prompt instead of auto-logging in. Added validate_launcher_config_before_launch() function for pre-launch checks.  
 **v1.24** (2026-01-14) - Added 2FA/OTP support for accounts with Two-Factor Authentication enabled. Script automatically generates and sends OTP codes via XIVLauncher API when launching games. OTP secrets stored securely in Windows Credential Manager using keyring library. New account parameters: enable_2fa, keyring_name. Added OtpServerEnabled auto-fix in launcherConfigV3.json when 2FA accounts fail to launch. Added external configuration file support (config.json) - settings can now be overridden without editing the Python script. Added Discord webhook notifications for errors alongside existing Pushover support. Added credential validation that halts script if notifications are enabled but credentials missing. Added "enabled" field to account_locations for easy account toggling. VERSION is always read from script, never from config.json.  
