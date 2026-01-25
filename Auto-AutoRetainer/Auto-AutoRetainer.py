@@ -32,13 +32,18 @@
 # labeled with "ProcessID - nickname" format, autologin enabled, and AutoRetainer multi-mode auto-enabled
 # for full automation. 2FA is supported via keyring integration. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.26
+# Auto-AutoRetainer v1.27
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-19 17:10:00
+# Last Updated: 2026-01-25 09:00:00
 #
 # ## Release Notes ##
 #
+# v1.27 - Fixed batch file launcher leaving cmd.exe processes running after game launch
+#         Added cleanup_batch_launcher_processes() to terminate lingering cmd.exe processes
+#         Changed batch file launch from 'start /B' to direct cmd.exe /c execution
+#         Added post-launch cleanup delay and process termination for batch file launchers
+#         Batch files now properly close their cmd.exe shells after launching the game
 # v1.26 - Added initial startup launcher check to close any stuck XIVLauncher on bootup
 #         Code consolidation: Created generic helper functions to reduce redundant code
 #         New helpers: kill_process_by_image_name(), is_process_running_with_visible_windows(),
@@ -233,6 +238,7 @@ from ctypes import wintypes
 import re
 import win32con
 import requests
+import threading
 
 # Try to import psutil for process information
 try:
@@ -256,7 +262,7 @@ except ImportError:
 # ===============================================
 # Configuration Parameters
 # ===============================================
-VERSION = "v1.26"       # Current script version
+VERSION = "v1.27"       # Current script version
 VERSION_SUFFIX = ""     # Custom text appended to version display (set via config.json, e.g., " - Main")
 
 # Display settings
@@ -1334,6 +1340,54 @@ def kill_process_by_image_name(image_name, error_tag="PROCESS"):
         log_error(f"{error_tag}_KILL_FAILED: {e}")
         return False
 
+def cleanup_batch_launcher_processes(batch_file_path):
+    """
+    Clean up any lingering cmd.exe processes that were spawned to run a batch file.
+    Finds cmd.exe processes with the batch file path in their command line and terminates them.
+    This prevents accumulation of idle cmd.exe processes after game launches.
+    
+    Args:
+        batch_file_path: Full path to the batch file that was launched
+    """
+    if not PSUTIL_AVAILABLE:
+        return
+    
+    try:
+        # Normalize the batch file path for comparison
+        batch_path_lower = batch_file_path.lower()
+        batch_filename = os.path.basename(batch_file_path).lower()
+        killed_count = 0
+        
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                # Only check cmd.exe processes
+                if proc.info['name'].lower() != 'cmd.exe':
+                    continue
+                
+                cmdline = proc.info.get('cmdline', [])
+                if not cmdline:
+                    continue
+                
+                # Join command line and check if it contains the batch file path
+                cmdline_str = ' '.join(cmdline).lower()
+                
+                # Check if this cmd.exe was spawned for our batch file
+                if batch_path_lower in cmdline_str or batch_filename in cmdline_str:
+                    proc.terminate()
+                    killed_count += 1
+                    if DEBUG:
+                        print(f"[DEBUG] Cleaned up lingering cmd.exe (PID {proc.info['pid']}) for {batch_filename}")
+                        
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+        
+        if killed_count > 0 and DEBUG:
+            print(f"[DEBUG] Cleaned up {killed_count} lingering cmd.exe process(es) for batch file launcher")
+            
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Error cleaning up batch launcher processes: {e}")
+
 def is_process_running_with_visible_windows(process_name, return_pid=False):
     """
     Check if a process is running with visible windows (active app state).
@@ -1562,13 +1616,24 @@ def launch_game(nickname):
         is_batch_file = launcher_path.lower().endswith('.bat')
         
         if is_batch_file:
-            # For batch files, use cmd.exe with /c to close CMD after execution
-            # Using shell=True with the proper command avoids lingering CMD windows
+            # For batch files, run via cmd.exe /c which closes after execution
+            # DETACHED_PROCESS ensures the cmd.exe doesn't stay attached to Python
+            # After a short delay, cleanup any lingering cmd.exe processes for this batch file
+            DETACHED_PROCESS = 0x00000008
             subprocess.Popen(
-                f'start "" /B "{launcher_path}"',
-                shell=True,
-                creationflags=subprocess.CREATE_NO_WINDOW
+                f'cmd.exe /c "{launcher_path}"',
+                shell=False,
+                creationflags=DETACHED_PROCESS | subprocess.CREATE_NO_WINDOW,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
             )
+            # Schedule cleanup of any lingering cmd.exe processes after game starts
+            # This runs in a separate thread to not block the main script
+            def delayed_cleanup():
+                time.sleep(30)  # Wait for game to fully launch
+                cleanup_batch_launcher_processes(launcher_path)
+            cleanup_thread = threading.Thread(target=delayed_cleanup, daemon=True)
+            cleanup_thread.start()
         else:
             # For executables, use normal Popen
             subprocess.Popen(
