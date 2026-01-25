@@ -2,6 +2,8 @@
 
 A self-hosted web dashboard that displays FFXIV character data from AutoRetainer's DefaultConfig.json. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, marketboard items, gil totals, and income/cost calculations.
 
+<img width="807" height="430" alt="image" src="https://github.com/user-attachments/assets/32005cc8-a331-4ae8-a7f6-9c2109cada22" />
+
 ## Features
 
 - **Self-Hosted Web Server**: Flask-based server with configurable host/port (default: `127.0.0.1:1234`)
