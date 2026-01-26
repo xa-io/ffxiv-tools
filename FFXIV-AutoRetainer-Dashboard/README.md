@@ -2,7 +2,7 @@
 
 A self-hosted web dashboard that displays FFXIV character data from AutoRetainer's DefaultConfig.json and Altoholic's altoholic.db. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, marketboard items, gil totals, income/cost calculations, and comprehensive supply tracking.
 
-<img width="773" height="453" alt="image" src="https://github.com/user-attachments/assets/ab887aeb-2797-4d71-b786-a97c0fdb930f" />
+<img width="1414" height="1561" alt="image" src="https://github.com/user-attachments/assets/69a0f217-74e7-452f-80af-38597c12beed" />
 
 ## Features
 
