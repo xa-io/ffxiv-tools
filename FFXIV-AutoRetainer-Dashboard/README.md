@@ -1,4 +1,4 @@
-# FFXIV AutoRetainer Dashboard v1.04
+# FFXIV AutoRetainer Dashboard v1.05
 
 A self-hosted web dashboard that displays FFXIV character data from AutoRetainer's DefaultConfig.json and Altoholic's altoholic.db. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, marketboard items, gil totals, income/cost calculations, and comprehensive supply tracking.
 
@@ -13,6 +13,8 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 - **Configurable Plan Earnings**: Set custom average earnings per submarine plan route
 - **Supply Tracking**: Displays ceruleum tanks, repair kits, and days until restocking needed
 - **Multi-Account Support**: Configure multiple accounts via config.json
+- **Anonymize**: Hides personal data for screenshots (names, worlds, FCs, retainers, subs)
+- **Expand All / Collapse All**: Expand or collapse all character cards
 - **Auto-Refresh**: Configurable auto-refresh interval (default: 60 seconds)
 - **Modern UI**: Dark-themed responsive design with collapsible sections
 - **Ready Status Indicators**: Visual highlighting when retainers/submarines are ready
@@ -245,6 +247,11 @@ FFXIV - Landing Page/
 Created by: https://github.com/xa-io
 
 ## Version History
+
+### v1.05 (2026-01-26)
+
+- **Anonymize Mode**: Hide personal data for screenshots - replaces character names, worlds, FC names, retainer names, and submarine names with generic placeholders
+- **Expand/Collapse All**: Quick buttons to expand or collapse all character cards within an account
 
 ### v1.04 (2026-01-26)
 
