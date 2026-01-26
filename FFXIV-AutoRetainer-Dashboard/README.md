@@ -1,14 +1,17 @@
-# FFXIV AutoRetainer Dashboard v1.02
+# FFXIV AutoRetainer Dashboard v1.03
 
-A self-hosted web dashboard that displays FFXIV character data from AutoRetainer's DefaultConfig.json. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, marketboard items, gil totals, and income/cost calculations.
+A self-hosted web dashboard that displays FFXIV character data from AutoRetainer's DefaultConfig.json and Altoholic's altoholic.db. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, marketboard items, gil totals, income/cost calculations, and comprehensive supply tracking.
 
-<img width="807" height="430" alt="image" src="https://github.com/user-attachments/assets/32005cc8-a331-4ae8-a7f6-9c2109cada22" />
+<img width="773" height="453" alt="image" src="https://github.com/user-attachments/assets/ab887aeb-2797-4d71-b786-a97c0fdb930f" />
 
 ## Features
 
 - **Self-Hosted Web Server**: Flask-based server with configurable host/port (default: `127.0.0.1:1234`)
 - **Real-Time Data**: Parses AutoRetainer DefaultConfig.json on each page load
-- **Altoholic Integration**: Reads treasure values from Altoholic's altoholic.db
+- **Altoholic Integration**: Reads treasure values, venture coins, coffers, dyes, and job levels from Altoholic's altoholic.db
+- **Submarine Plan Detection**: Automatically detects leveling vs farming submarines based on AutoRetainer plan names
+- **Configurable Plan Earnings**: Set custom average earnings per submarine plan route
+- **Supply Tracking**: Displays ceruleum tanks, repair kits, and days until restocking needed
 - **Multi-Account Support**: Configure multiple accounts via config.json
 - **Auto-Refresh**: Configurable auto-refresh interval (default: 60 seconds)
 - **Modern UI**: Dark-themed responsive design with collapsible sections
@@ -17,34 +20,46 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 ### Data Displayed
 
 #### Summary Cards
+
 - Total Gil across all accounts
 - Treasure Value (from Altoholic)
+- Coffer + Dyes estimated value
 - Gil + Treasure combined total
-- Total Submarines (ready/total)
-- Total Retainers (ready/total)
+- Total Submarines (ready/total) with Leveling/Farming breakdown
+- Total Retainers (ready/total) with Leveling/Farming breakdown
 - Total Marketboard items
 - Monthly/Annual income estimates
 - Monthly costs (supplies)
 - Monthly profit calculations
 
 #### Per-Character Information
+
 - Character name, world, and FC
+- Current class and level (from Altoholic)
 - Character gil + Retainer gil
 - Treasure value (salvaged rings, bracelets, etc.)
-- Ceruleum tanks and Repair kits inventory
+- Coffer + Dye estimated value
+- FC Points, Venture Coins, and Coffer count
+- Ceruleum tanks and Repair kits inventory (for characters with submarines)
+- Days until restocking needed (color-coded: red <7 days, yellow <14 days)
 - Daily income and cost estimates
 - Ready status highlighting (red background when items ready)
 
 #### Submarine Details
+
 - Submarine name and level
 - Build configuration (e.g., SSUC, WSUC)
+- Plan name (from AutoRetainer configuration)
+- Leveling/Farming status (detected from plan or VesselBehavior)
 - Return status (Ready! or time remaining)
 
 #### Retainer Details
+
 - Retainer name and level
 - Gil held by retainer
 - Marketboard items count
 - Venture status
+- Leveling/Farming status (Level <100 = Leveling, Level 100 = Farming)
 
 ## Installation
 
@@ -93,11 +108,54 @@ account_locations = [
             "nickname": "Alt1",
             "pluginconfigs_path": "C:\\Users\\{user}\\AltData\\Alt1\\pluginConfigs"
         }
-    ]
+    ],
+
+    "submarine_plans": {
+        "leveling": [
+            "Level Up Default",
+            "Unlock All Sectors",
+            "XP Grind"
+        ],
+        "farming": {
+            "OJ": 118661,
+            "Yummy OJ": 118661,
+            "Overseer OJ": 118661,
+            "JORZ": 140404,
+            "MROJZ": 116206,
+            "Custom Route 1": 80000
+        }
+    },
+
+    "item_values": {
+        "venture_coffer": 18000,
+        "pure_white_dye": 450000,
+        "jet_black_dye": 600000,
+        "pastel_pink_dye": 40000
+    }
 }
 ```
 
 **Note**: Use `{user}` as a placeholder for the current username - it will be replaced automatically.
+
+### Submarine Plans Configuration
+
+The `submarine_plans` section allows you to configure which AutoRetainer plan names indicate leveling vs farming:
+
+- **leveling**: Array of plan names that indicate submarines are leveling (no income counted)
+- **farming**: Object mapping plan names to their average daily gil earnings
+
+Plan names must match exactly as they appear in AutoRetainer's SubmarinePointPlans or SubmarineUnlockPlans.
+
+### Item Values Configuration
+
+The `item_values` section lets you override default market values for estimation:
+
+| Item | Default Value | Description |
+| ---- | ------------- | ----------- |
+| `venture_coffer` | 18,000 | Venture Coffer market value |
+| `pure_white_dye` | 450,000 | Pure White Dye market value |
+| `jet_black_dye` | 600,000 | Jet Black Dye market value |
+| `pastel_pink_dye` | 40,000 | Pastel Pink Dye market value |
 
 ## Usage
 
@@ -110,7 +168,8 @@ python "Landing Page.py"
 ### Access the Dashboard
 
 Open your browser and navigate to:
-```
+
+```text
 http://127.0.0.1:1234
 ```
 
@@ -134,12 +193,14 @@ http://127.0.0.1:1234
 The dashboard calculates income and costs based on submarine builds:
 
 ### Gil Rates (per day)
+
 - **SSUC/WSUC**: 140,000 gil
 - **S+S+U+C+/W+S+U+C+**: 180,000 gil
 - **YUUW**: 120,000 gil
 - And more...
 
 ### Supply Costs
+
 - **Ceruleum Tank**: 350 gil each
 - **Repair Kit**: 2,000 gil each
 
@@ -156,14 +217,17 @@ To access the dashboard from other devices on your network:
 ## Troubleshooting
 
 ### "Config not found" Error
+
 - Verify the `pluginconfigs_path` points to your XIVLauncher pluginConfigs directory
 - Ensure AutoRetainer plugin has been run at least once to create the config file
 
 ### No Submarine Data
+
 - Make sure you have submarines registered in AutoRetainer
 - Check that the character has workshop access
 
 ### Page Not Loading
+
 - Verify Flask is installed: `pip install flask`
 - Check that the port is not in use by another application
 
@@ -181,6 +245,22 @@ FFXIV - Landing Page/
 Created by: https://github.com/xa-io
 
 ## Version History
+
+### v1.03 (2026-01-26)
+
+- **Character Sorting**: Sort characters within each account by Level, Gil, Treasure, FC Points, Ventures, Coffers, Dyes, Tanks, Kits, Restock Days, Retainers, or Subs
+- **Submarine Plan Detection**: Automatically detects leveling vs farming based on AutoRetainer plan names
+- **Configurable Plan Earnings**: Set custom average gil/day per submarine route in config.json
+- **Enhanced Altoholic Integration**: Now reads venture coins from Currencies, coffers, dyes, and job levels from Inventory, Saddle, ArmoryInventory, and Retainers
+- **FC Points Display**: Shows FC points in character header and details with total in summary
+- **Venture Coins Display**: Shows venture coin count from Altoholic Currencies
+- **Coffer + Dye Tracking**: Counts coffers and dyes separately with total value estimate and configurable prices
+- **Treasure Value Display**: Shows treasure value in character header with sort option
+- **Character Class/Level**: Shows current highest-level class from Altoholic
+- **Supply Tracking**: Displays ceruleum tanks, repair kits, and days until restocking in header
+- **Days Until Restock**: Calculates based on submarine consumption rates (color-coded warnings) with lowest across all accounts shown in summary
+- **Leveling/Farming Stats**: Summary cards show breakdown of leveling vs farming submarines and retainers
+- **Retainer Status**: Retainers under level 100 shown as leveling, level 100 shown as farming
 
 ### v1.02 (2026-01-25)
 
