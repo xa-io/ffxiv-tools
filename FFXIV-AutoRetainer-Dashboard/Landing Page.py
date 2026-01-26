@@ -24,13 +24,14 @@
 # • Modern, responsive UI with dark theme
 # • Multi-account support via config.json
 #
-# Landing Page v1.03
+# Landing Page v1.04
 # FFXIV AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-26 08:35:00
+# Last Updated: 2026-01-26 11:30:00
 #
 # ## Release Notes ##
 #
+# v1.04 - Added character filtering options to hide characters without submarines or retainers
 # v1.03 - Major feature update with Altoholic integration and enhanced submarine tracking
 #         Added submarine plan detection (leveling vs farming) from AutoRetainer config
 #         Added FC Points, Venture Coins, Coffers to character title bar
@@ -1236,6 +1237,32 @@ HTML_TEMPLATE = '''
             border-color: var(--accent);
         }
         
+        .filter-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75em;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn:hover {
+            background: var(--border);
+            color: var(--text-primary);
+        }
+        
+        .filter-btn.active {
+            background: var(--warning);
+            color: white;
+            border-color: var(--warning);
+        }
+        
+        .character-card.filtered-hidden {
+            display: none;
+        }
+        
         .character-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
@@ -1569,10 +1596,13 @@ HTML_TEMPLATE = '''
                 <button class="sort-btn" data-sort="restock" data-order="asc" onclick="sortCharacters(this)">Restock ▲</button>
                 <button class="sort-btn" data-sort="retainers" data-order="desc" onclick="sortCharacters(this)">Retainers ▼</button>
                 <button class="sort-btn" data-sort="subs" data-order="desc" onclick="sortCharacters(this)">Subs ▼</button>
+                <span style="flex-grow: 1;"></span>
+                <button class="filter-btn" data-filter="retainers" onclick="toggleFilter(this)">Hide No Retainers</button>
+                <button class="filter-btn" data-filter="subs" onclick="toggleFilter(this)">Hide No Subs</button>
             </div>
             <div class="character-grid">
                 {% for char in account.characters %}
-                <div class="character-card" data-char="{{ char.cid }}" data-level="{{ char.current_level }}" data-gil="{{ char.total_gil }}" data-treasure="{{ char.treasure_value }}" data-fc-points="{{ char.fc_points }}" data-venture-coins="{{ char.venture_coins }}" data-coffers="{{ char.coffer_count }}" data-dyes="{{ char.dye_count }}" data-tanks="{{ char.ceruleum }}" data-kits="{{ char.repair_kits }}" data-restock="{{ char.days_until_restock if char.days_until_restock is not none else 9999 }}" data-retainers="{{ char.ready_retainers }}" data-subs="{{ char.ready_subs }}">
+                <div class="character-card" data-char="{{ char.cid }}" data-level="{{ char.current_level }}" data-gil="{{ char.total_gil }}" data-treasure="{{ char.treasure_value }}" data-fc-points="{{ char.fc_points }}" data-venture-coins="{{ char.venture_coins }}" data-coffers="{{ char.coffer_count }}" data-dyes="{{ char.dye_count }}" data-tanks="{{ char.ceruleum }}" data-kits="{{ char.repair_kits }}" data-restock="{{ char.days_until_restock if char.days_until_restock is not none else 9999 }}" data-retainers="{{ char.ready_retainers }}" data-total-retainers="{{ char.total_retainers }}" data-subs="{{ char.ready_subs }}" data-total-subs="{{ char.total_subs }}">
                     <div class="character-header collapsed {% if char.ready_retainers > 0 or char.ready_subs > 0 %}has-available{% endif %}" onclick="toggleCharacter(this)">
                         <div class="char-header-row name-row">
                             <span class="character-name">{{ char.name }}{% if char.current_level > 0 %} <span style="font-size: 0.8em; color: var(--text-secondary);">(Lv {{ char.current_level }}, {{ char.current_job }})</span>{% endif %}</span>
@@ -1718,7 +1748,7 @@ HTML_TEMPLATE = '''
         {% endfor %}
         
         <div class="footer">
-            FFXIV AutoRetainer Dashboard v1.03 | Data sourced from AutoRetainer DefaultConfig.json & Altoholic<br>
+            FFXIV AutoRetainer Dashboard v1.04 | Data sourced from AutoRetainer DefaultConfig.json & Altoholic<br>
             <a href="https://github.com/xa-io/ffxiv-tools/tree/main/FFXIV-AutoRetainer-Dashboard" target="_blank" style="color: var(--accent); text-decoration: none;">github.com/xa-io/ffxiv-tools</a>
         </div>
     </div>
@@ -1818,6 +1848,62 @@ HTML_TEMPLATE = '''
             
             // Re-append in sorted order
             cards.forEach(card => grid.appendChild(card));
+        }
+        
+        function toggleFilter(btn) {
+            const accountContent = btn.closest('.account-content');
+            const grid = accountContent.querySelector('.character-grid');
+            const cards = grid.querySelectorAll('.character-card');
+            const filterType = btn.dataset.filter;
+            
+            // Toggle active state
+            btn.classList.toggle('active');
+            const isActive = btn.classList.contains('active');
+            
+            // Apply filter
+            cards.forEach(card => {
+                if (filterType === 'retainers') {
+                    const totalRetainers = parseInt(card.dataset.totalRetainers) || 0;
+                    if (isActive && totalRetainers === 0) {
+                        card.classList.add('filtered-hidden');
+                    } else if (!isActive) {
+                        // Only remove if no other filter is hiding it
+                        const subsFilter = btn.closest('.sort-bar').querySelector('.filter-btn[data-filter="subs"]');
+                        const subsActive = subsFilter && subsFilter.classList.contains('active');
+                        const totalSubs = parseInt(card.dataset.totalSubs) || 0;
+                        if (!subsActive || totalSubs > 0) {
+                            card.classList.remove('filtered-hidden');
+                        }
+                    }
+                } else if (filterType === 'subs') {
+                    const totalSubs = parseInt(card.dataset.totalSubs) || 0;
+                    if (isActive && totalSubs === 0) {
+                        card.classList.add('filtered-hidden');
+                    } else if (!isActive) {
+                        // Only remove if no other filter is hiding it
+                        const retainersFilter = btn.closest('.sort-bar').querySelector('.filter-btn[data-filter="retainers"]');
+                        const retainersActive = retainersFilter && retainersFilter.classList.contains('active');
+                        const totalRetainers = parseInt(card.dataset.totalRetainers) || 0;
+                        if (!retainersActive || totalRetainers > 0) {
+                            card.classList.remove('filtered-hidden');
+                        }
+                    }
+                }
+            });
+            
+            // Re-apply both filters to ensure consistency
+            const sortBar = btn.closest('.sort-bar');
+            const retainersBtn = sortBar.querySelector('.filter-btn[data-filter="retainers"]');
+            const subsBtn = sortBar.querySelector('.filter-btn[data-filter="subs"]');
+            const hideNoRetainers = retainersBtn && retainersBtn.classList.contains('active');
+            const hideNoSubs = subsBtn && subsBtn.classList.contains('active');
+            
+            cards.forEach(card => {
+                const totalRetainers = parseInt(card.dataset.totalRetainers) || 0;
+                const totalSubs = parseInt(card.dataset.totalSubs) || 0;
+                const shouldHide = (hideNoRetainers && totalRetainers === 0) || (hideNoSubs && totalSubs === 0);
+                card.classList.toggle('filtered-hidden', shouldHide);
+            });
         }
         
         function restoreCollapsedState() {
@@ -1949,7 +2035,7 @@ if __name__ == "__main__":
     load_external_config()
     
     print("=" * 60)
-    print("  FFXIV AutoRetainer Dashboard v1.00")
+    print("  FFXIV AutoRetainer Dashboard v1.04")
     print("=" * 60)
     print(f"  Server: http://{HOST}:{PORT}")
     print(f"  Accounts: {len(account_locations)}")
