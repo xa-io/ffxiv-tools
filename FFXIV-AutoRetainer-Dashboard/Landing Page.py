@@ -24,13 +24,15 @@
 # • Modern, responsive UI with dark theme
 # • Multi-account support via config.json
 #
-# Landing Page v1.04
+# Landing Page v1.05
 # FFXIV AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-26 11:30:00
+# Last Updated: 2026-01-26 12:42:00
 #
 # ## Release Notes ##
 #
+# v1.05 - Added Anonymize button to hide personal data for screenshots (names, worlds, FCs, retainers, subs)
+#         Added Expand All / Collapse All buttons for character cards
 # v1.04 - Added character filtering options to hide characters without submarines or retainers
 # v1.03 - Major feature update with Altoholic integration and enhanced submarine tracking
 #         Added submarine plan detection (leveling vs farming) from AutoRetainer config
@@ -1597,8 +1599,11 @@ HTML_TEMPLATE = '''
                 <button class="sort-btn" data-sort="retainers" data-order="desc" onclick="sortCharacters(this)">Retainers ▼</button>
                 <button class="sort-btn" data-sort="subs" data-order="desc" onclick="sortCharacters(this)">Subs ▼</button>
                 <span style="flex-grow: 1;"></span>
+                <button class="filter-btn anon-btn" onclick="toggleAnonymize(this)">🔒 Anonymize</button>
                 <button class="filter-btn" data-filter="retainers" onclick="toggleFilter(this)">Hide No Retainers</button>
                 <button class="filter-btn" data-filter="subs" onclick="toggleFilter(this)">Hide No Subs</button>
+                <button class="filter-btn" onclick="expandAllChars(this)" title="Expand All">▼</button>
+                <button class="filter-btn" onclick="collapseAllChars(this)" title="Collapse All">▲</button>
             </div>
             <div class="character-grid">
                 {% for char in account.characters %}
@@ -1748,7 +1753,7 @@ HTML_TEMPLATE = '''
         {% endfor %}
         
         <div class="footer">
-            FFXIV AutoRetainer Dashboard v1.04 | Data sourced from AutoRetainer DefaultConfig.json & Altoholic<br>
+            FFXIV AutoRetainer Dashboard v1.05 | Data sourced from AutoRetainer DefaultConfig.json & Altoholic<br>
             <a href="https://github.com/xa-io/ffxiv-tools/tree/main/FFXIV-AutoRetainer-Dashboard" target="_blank" style="color: var(--accent); text-decoration: none;">github.com/xa-io/ffxiv-tools</a>
         </div>
     </div>
@@ -1906,6 +1911,139 @@ HTML_TEMPLATE = '''
             });
         }
         
+        let isAnonymized = false;
+        const originalData = new Map();
+        
+        function toggleAnonymize(btn) {
+            isAnonymized = !isAnonymized;
+            btn.classList.toggle('active', isAnonymized);
+            btn.textContent = isAnonymized ? '🔓 De-Anonymize' : '🔒 Anonymize';
+            
+            // Toggle all anonymize buttons across all accounts
+            document.querySelectorAll('.anon-btn').forEach(b => {
+                b.classList.toggle('active', isAnonymized);
+                b.textContent = isAnonymized ? '🔓 De-Anonymize' : '🔒 Anonymize';
+            });
+            
+            if (isAnonymized) {
+                anonymizeAll();
+            } else {
+                restoreAll();
+            }
+        }
+        
+        function anonymizeAll() {
+            // Anonymize account headers
+            document.querySelectorAll('.account-section').forEach((section, accIndex) => {
+                const header = section.querySelector('.account-header h2');
+                if (header && !originalData.has(header)) {
+                    originalData.set(header, header.textContent);
+                }
+                header.textContent = 'Account ' + (accIndex + 1);
+            });
+            
+            // Anonymize character data
+            document.querySelectorAll('.character-card').forEach((card, cardIndex) => {
+                const charName = card.querySelector('.character-name');
+                if (charName) {
+                    if (!originalData.has(charName)) {
+                        originalData.set(charName, charName.innerHTML);
+                    }
+                    // Keep the level/job info but replace the name
+                    const levelInfo = charName.querySelector('span');
+                    charName.innerHTML = 'Toon ' + (cardIndex + 1) + (levelInfo ? ' ' + levelInfo.outerHTML : '');
+                }
+                
+                const worldFC = card.querySelector('.character-world');
+                if (worldFC) {
+                    if (!originalData.has(worldFC)) {
+                        originalData.set(worldFC, worldFC.textContent);
+                    }
+                    const hasFC = worldFC.textContent.includes('•');
+                    worldFC.textContent = 'Eorzea' + (hasFC ? ' • FC Name' : '');
+                }
+                
+                // Anonymize retainer names in expanded content (table rows, first td is name)
+                const retTable = card.querySelector('.ret-table');
+                if (retTable) {
+                    retTable.querySelectorAll('tr').forEach((row, rowIndex) => {
+                        if (rowIndex === 0) return; // Skip header row
+                        const nameCell = row.querySelector('td:first-child');
+                        if (nameCell) {
+                            if (!originalData.has(nameCell)) {
+                                originalData.set(nameCell, nameCell.textContent);
+                            }
+                            nameCell.textContent = 'Retainer ' + rowIndex;
+                        }
+                    });
+                }
+                
+                // Anonymize submarine names in expanded content (table rows, first td is name)
+                const subTable = card.querySelector('.sub-table');
+                if (subTable) {
+                    subTable.querySelectorAll('tr').forEach((row, rowIndex) => {
+                        if (rowIndex === 0) return; // Skip header row
+                        const nameCell = row.querySelector('td:first-child');
+                        if (nameCell) {
+                            if (!originalData.has(nameCell)) {
+                                originalData.set(nameCell, nameCell.textContent);
+                            }
+                            nameCell.textContent = 'Submarine ' + rowIndex;
+                        }
+                    });
+                }
+            });
+        }
+        
+        function restoreAll() {
+            originalData.forEach((value, element) => {
+                if (element.classList && element.classList.contains('character-name')) {
+                    element.innerHTML = value;
+                } else {
+                    element.textContent = value;
+                }
+            });
+            originalData.clear();
+        }
+        
+        function expandAllChars(btn) {
+            const accountContent = btn.closest('.account-content');
+            const cards = accountContent.querySelectorAll('.character-card');
+            const collapsedChars = JSON.parse(localStorage.getItem('collapsedChars') || '{}');
+            
+            cards.forEach(card => {
+                const charId = card.dataset.char;
+                const header = card.querySelector('.character-header');
+                const body = header.nextElementSibling;
+                
+                header.classList.remove('collapsed');
+                body.classList.remove('collapsed');
+                card.classList.add('expanded');
+                collapsedChars[charId] = false;
+            });
+            
+            localStorage.setItem('collapsedChars', JSON.stringify(collapsedChars));
+        }
+        
+        function collapseAllChars(btn) {
+            const accountContent = btn.closest('.account-content');
+            const cards = accountContent.querySelectorAll('.character-card');
+            const collapsedChars = JSON.parse(localStorage.getItem('collapsedChars') || '{}');
+            
+            cards.forEach(card => {
+                const charId = card.dataset.char;
+                const header = card.querySelector('.character-header');
+                const body = header.nextElementSibling;
+                
+                header.classList.add('collapsed');
+                body.classList.add('collapsed');
+                card.classList.remove('expanded');
+                collapsedChars[charId] = true;
+            });
+            
+            localStorage.setItem('collapsedChars', JSON.stringify(collapsedChars));
+        }
+        
         function restoreCollapsedState() {
             const collapsedAccounts = JSON.parse(localStorage.getItem('collapsedAccounts') || '{}');
             document.querySelectorAll('.account-section').forEach(section => {
@@ -2035,7 +2173,7 @@ if __name__ == "__main__":
     load_external_config()
     
     print("=" * 60)
-    print("  FFXIV AutoRetainer Dashboard v1.04")
+    print("  FFXIV AutoRetainer Dashboard v1.05")
     print("=" * 60)
     print(f"  Server: http://{HOST}:{PORT}")
     print(f"  Accounts: {len(account_locations)}")
