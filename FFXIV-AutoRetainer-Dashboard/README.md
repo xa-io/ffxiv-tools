@@ -246,6 +246,10 @@ Created by: https://github.com/xa-io
 
 ## Version History
 
+### v1.04 (2026-01-26)
+
+- **Character Filtering**: Hide characters without submarines or retainers using toggle buttons in the sort bar
+
 ### v1.03 (2026-01-26)
 
 - **Character Sorting**: Sort characters within each account by Level, Gil, Treasure, FC Points, Ventures, Coffers, Dyes, Tanks, Kits, Restock Days, Retainers, or Subs
