@@ -9,28 +9,40 @@
 #
 # FFXIV AutoRetainer Dashboard - Self-Hosted Web Interface
 #
-# A comprehensive web dashboard that displays FFXIV character data from AutoRetainer's DefaultConfig.json.
-# Provides a beautiful, modern UI accessible via browser showing characters, submarines, retainers,
-# marketboard items, gil totals, and income/cost calculations.
+# A comprehensive web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream.
+# Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers,
+# housing locations, marketboard items, gil totals, inventory tracking, and income/cost calculations.
 #
 # Core Features:
 # • Self-hosted Flask web server with configurable host/port
-# • Real-time data parsing from AutoRetainer DefaultConfig.json
-# • Character overview with gil, retainers, and submarine counts
-# • Submarine tracking with builds, levels, and return times
-# • Retainer details with venture status and marketboard items
-# • Monthly income calculations based on submarine builds
-# • Daily repair cost estimates based on consumption rates
-# • Modern, responsive UI with dark theme
-# • Multi-account support via config.json
+# • Real-time data parsing from AutoRetainer, Altoholic, and Lifestream configs
+# • Character overview with gil, FC points, venture coins, coffers, dyes, and inventory
+# • Submarine tracking with builds, levels, plans (leveling/farming), and return times
+# • Retainer details with venture status, levels, and marketboard items
+# • Housing display showing Personal House and FC House locations
+# • Sorting by level, gil, treasure, FC points, ventures, inventory, retainer/sub levels
+# • Filtering by retainers, submarines, personal house, and FC house
+# • Anonymize mode for screenshots (hides names, addresses with TOP SECRET)
+# • Monthly income and daily repair cost calculations
+# • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.05
+# Landing Page v1.08
 # FFXIV AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-26 12:42:00
+# Last Updated: 2026-01-26 16:00:00
 #
 # ## Release Notes ##
 #
+# v1.08 - Added Personal House and FC House filter buttons (show only characters with houses)
+#         Added Retainer Lv and Submarine Lv sort buttons for min/max levels
+#         Renamed sort buttons to emojis for compact display
+#         Anonymize now hides housing addresses with TOP SECRET in expanded section
+# v1.07 - Added Housing information from Lifestream DefaultConfig.json
+#         Added Personal House and FC House display after Lv/Class in character header
+#         Format: "Mist W1 P15" for Ward 1, Plot 15 in Mist district
+# v1.06 - Added Inventory Space tracking from AutoRetainer DefaultConfig.json
+#         Added Inventory row in character expanded breakdown with color coding (red >= 130, yellow >= 100)
+#         Added Inventory sort button to sort characters by inventory usage
 # v1.05 - Added Anonymize button to hide personal data for screenshots (names, worlds, FCs, retainers, subs)
 #         Added Expand All / Collapse All buttons for character cards
 # v1.04 - Added character filtering options to hide characters without submarines or retainers
@@ -85,10 +97,12 @@ def acc(nickname, pluginconfigs_path):
     """Create account configuration dictionary"""
     auto_path = os.path.join(pluginconfigs_path, "AutoRetainer", "DefaultConfig.json")
     alto_path = os.path.join(pluginconfigs_path, "Altoholic", "altoholic.db")
+    lfstrm_path = os.path.join(pluginconfigs_path, "Lifestream", "DefaultConfig.json")
     return {
         "nickname": nickname,
         "auto_path": auto_path,
         "alto_path": alto_path,
+        "lfstrm_path": lfstrm_path,
     }
 
 # Default account locations - update these paths for your setup
@@ -275,6 +289,72 @@ JOB_ABBREVIATIONS = {
     "Leatherworker": "LTW", "Weaver": "WVR", "Alchemist": "ALC", "Culinarian": "CUL",
     "Miner": "MIN", "Botanist": "BTN", "Fisher": "FSH",
 }
+
+# ===============================================
+# Residential District Mapping (Lifestream)
+# ===============================================
+RESIDENTIAL_DISTRICTS = {
+    8: "Mist",
+    9: "Goblet",
+    2: "Lavender Beds",
+    70: "Empyreum",
+    111: "Shirogane"
+}
+
+DISTRICT_ABBREV = {
+    "Mist": "Mist",
+    "Goblet": "Goblet",
+    "Lavender Beds": "LB",
+    "Empyreum": "Empyreum",
+    "Shirogane": "Shirogane"
+}
+
+
+def load_lifestream_data(lifestream_path):
+    """
+    Load housing plot data from Lifestream config.
+    Returns a dict mapping CID -> {'private': {'ward': int, 'plot': int, 'district': str}, 'fc': {'ward': int, 'plot': int, 'district': str}}
+    Characters can have both a private house and FC house.
+    """
+    if not os.path.isfile(lifestream_path):
+        return {}
+    
+    try:
+        with open(lifestream_path, 'r', encoding='utf-8-sig') as f:
+            data = json.load(f)
+        
+        house_data = data.get('HousePathDatas', [])
+        housing_map = {}
+        
+        for entry in house_data:
+            cid = entry.get('CID')
+            if cid:
+                if cid not in housing_map:
+                    housing_map[cid] = {'private': None, 'fc': None}
+                
+                ward = entry.get('Ward')
+                plot = entry.get('Plot')
+                if ward is not None:
+                    ward = ward + 1
+                if plot is not None:
+                    plot = plot + 1
+                
+                district_id = entry.get('ResidentialDistrict')
+                district_name = RESIDENTIAL_DISTRICTS.get(district_id, "")
+                district_abbrev = DISTRICT_ABBREV.get(district_name, "")
+                
+                is_private = entry.get('IsPrivate', False)
+                
+                if is_private:
+                    housing_map[cid]['private'] = {'ward': ward, 'plot': plot, 'district': district_abbrev}
+                else:
+                    housing_map[cid]['fc'] = {'ward': ward, 'plot': plot, 'district': district_abbrev}
+        
+        return housing_map
+    except Exception as e:
+        print(f"[WARNING] Failed to load Lifestream data from '{lifestream_path}': {e}")
+        return {}
+
 
 # ===============================================
 # Submarine VesselBehavior Plan Types
@@ -829,6 +909,12 @@ def get_all_data():
         if alto_path:
             alto_map = scan_altoholic_db(alto_path)
         
+        # Load Lifestream housing data
+        housing_map = {}
+        lfstrm_path = account.get("lfstrm_path", "")
+        if lfstrm_path:
+            housing_map = load_lifestream_data(lfstrm_path)
+        
         for char in characters:
             cid = char.get("CID", 0)
             char_gil = char.get("Gil", 0)
@@ -893,6 +979,17 @@ def get_all_data():
                 coffer_count = venture_coffers_ar
                 coffer_dye_value += venture_coffers_ar * COFFER_DYE_VALUES.get(32161, 18000)
             
+            # Get housing data from Lifestream
+            private_house = None
+            fc_house = None
+            if cid in housing_map:
+                private_data = housing_map[cid].get('private')
+                fc_data_house = housing_map[cid].get('fc')
+                if private_data:
+                    private_house = f"{private_data['district']} W{private_data['ward']} P{private_data['plot']}"
+                if fc_data_house:
+                    fc_house = f"{fc_data_house['district']} W{fc_data_house['ward']} P{fc_data_house['plot']}"
+            
             char_data = {
                 "cid": cid,
                 "name": char.get("Name", "Unknown"),
@@ -926,17 +1023,25 @@ def get_all_data():
                 "retainers_leveling": char_retainers_leveling,
                 "retainers_farming": char_retainers_farming,
                 "days_until_restock": days_until_restock,
+                "private_house": private_house,
+                "fc_house": fc_house,
             }
             
             # Count ready submarines and retainers
             char_ready_subs = sum(1 for s in submarines if s["is_ready"])
             char_ready_retainers = sum(1 for r in retainers if r["is_ready"])
             
-            # Add ready counts to character data
+            # Get max levels for sorting
+            max_retainer_level = max((r["level"] for r in retainers), default=0)
+            max_sub_level = max((s["level"] for s in submarines), default=0)
+            
+            # Add ready counts and max levels to character data
             char_data["ready_subs"] = char_ready_subs
             char_data["total_subs"] = len(submarines)
             char_data["ready_retainers"] = char_ready_retainers
             char_data["total_retainers"] = len(retainers)
+            char_data["max_retainer_level"] = max_retainer_level
+            char_data["max_sub_level"] = max_sub_level
             
             account_data["characters"].append(char_data)
             account_data["total_gil"] += char_data["total_gil"]
@@ -1142,7 +1247,6 @@ HTML_TEMPLATE = '''
             border-radius: 12px;
             margin-bottom: 25px;
             border: 1px solid var(--border);
-            overflow: hidden;
         }
         
         .account-header {
@@ -1154,6 +1258,10 @@ HTML_TEMPLATE = '''
             cursor: pointer;
             user-select: none;
             transition: opacity 0.2s;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-radius: 12px 12px 0 0;
         }
         
         .account-header:hover {
@@ -1205,10 +1313,17 @@ HTML_TEMPLATE = '''
             flex-wrap: wrap;
             gap: 6px;
             padding: 10px;
-            margin-bottom: 10px;
+            margin-top: 5px;
             background: var(--bg-secondary);
             border-radius: 8px;
             align-items: center;
+            position: sticky;
+            top: 59px;
+            z-index: 99;
+        }
+        
+        .sort-bar.collapsed {
+            display: none;
         }
         
         .sort-label {
@@ -1580,53 +1695,59 @@ HTML_TEMPLATE = '''
                 </div>
             </div>
             
+            {% if not account.error %}
+            <div class="sort-bar collapsed">
+                <span class="sort-label">Sort by:</span>
+                <button class="sort-btn" data-sort="level" data-order="desc" onclick="sortCharacters(this)" title="Level">Level ▼</button>
+                <button class="sort-btn" data-sort="gil" data-order="desc" onclick="sortCharacters(this)" title="Gil">Gil ▼</button>
+                <button class="sort-btn" data-sort="treasure" data-order="desc" onclick="sortCharacters(this)" title="Treasure">💎 ▼</button>
+                <button class="sort-btn" data-sort="fc_points" data-order="desc" onclick="sortCharacters(this)" title="FC Points">🪙 ▼</button>
+                <button class="sort-btn" data-sort="venture_coins" data-order="desc" onclick="sortCharacters(this)" title="Ventures">🛒 ▼</button>
+                <button class="sort-btn" data-sort="coffers" data-order="desc" onclick="sortCharacters(this)" title="Coffers">📦 ▼</button>
+                <button class="sort-btn" data-sort="dyes" data-order="desc" onclick="sortCharacters(this)" title="Dyes">🎨 ▼</button>
+                <button class="sort-btn" data-sort="tanks" data-order="desc" onclick="sortCharacters(this)" title="Ceruleum Tanks">⛽ ▼</button>
+                <button class="sort-btn" data-sort="kits" data-order="desc" onclick="sortCharacters(this)" title="Repair Kits">🔧 ▼</button>
+                <button class="sort-btn" data-sort="restock" data-order="asc" onclick="sortCharacters(this)" title="Restock Days">♻️ ▲</button>
+                <button class="sort-btn" data-sort="inventory" data-order="desc" onclick="sortCharacters(this)" title="Inventory">🎒 ▼</button>
+                <button class="sort-btn" data-sort="retainers" data-order="desc" onclick="sortCharacters(this)" title="Retainers">👤 ▼</button>
+                <button class="sort-btn" data-sort="retainer_level" data-order="desc" onclick="sortCharacters(this)" title="Retainer Level">👤 Lv ▼</button>
+                <button class="sort-btn" data-sort="subs" data-order="desc" onclick="sortCharacters(this)" title="Submarines">🚢 ▼</button>
+                <button class="sort-btn" data-sort="sub_level" data-order="desc" onclick="sortCharacters(this)" title="Submarine Level">🚢 Lv ▼</button>
+                <span style="flex-grow: 1;"></span>
+                <button class="filter-btn anon-btn" onclick="toggleAnonymize(this)" title="Anonymize">🔒</button>
+                <button class="filter-btn" data-filter="personal-house" onclick="toggleFilter(this)" title="Show only characters with Personal House">🏠</button>
+                <button class="filter-btn" data-filter="fc-house" onclick="toggleFilter(this)" title="Show only characters with FC House">🏨</button>
+                <button class="filter-btn" data-filter="retainers" onclick="toggleFilter(this)" title="Show only characters with Retainers">👤</button>
+                <button class="filter-btn" data-filter="subs" onclick="toggleFilter(this)" title="Show only characters with Submarines">🚢</button>
+                <button class="filter-btn" onclick="expandAllChars(this)" title="Expand All">▼</button>
+                <button class="filter-btn" onclick="collapseAllChars(this)" title="Collapse All">▲</button>
+            </div>
+            {% endif %}
+            
             <div class="account-content collapsed">
             {% if account.error %}
             <div class="error-message">{{ account.error }}</div>
             {% else %}
-            <div class="sort-bar">
-                <span class="sort-label">Sort by:</span>
-                <button class="sort-btn" data-sort="level" data-order="desc" onclick="sortCharacters(this)">Level ▼</button>
-                <button class="sort-btn" data-sort="gil" data-order="desc" onclick="sortCharacters(this)">Gil ▼</button>
-                <button class="sort-btn" data-sort="treasure" data-order="desc" onclick="sortCharacters(this)">Treasure ▼</button>
-                <button class="sort-btn" data-sort="fc_points" data-order="desc" onclick="sortCharacters(this)">FC Pts ▼</button>
-                <button class="sort-btn" data-sort="venture_coins" data-order="desc" onclick="sortCharacters(this)">Ventures ▼</button>
-                <button class="sort-btn" data-sort="coffers" data-order="desc" onclick="sortCharacters(this)">Coffers ▼</button>
-                <button class="sort-btn" data-sort="dyes" data-order="desc" onclick="sortCharacters(this)">Dyes ▼</button>
-                <button class="sort-btn" data-sort="tanks" data-order="desc" onclick="sortCharacters(this)">Tanks ▼</button>
-                <button class="sort-btn" data-sort="kits" data-order="desc" onclick="sortCharacters(this)">Kits ▼</button>
-                <button class="sort-btn" data-sort="restock" data-order="asc" onclick="sortCharacters(this)">Restock ▲</button>
-                <button class="sort-btn" data-sort="retainers" data-order="desc" onclick="sortCharacters(this)">Retainers ▼</button>
-                <button class="sort-btn" data-sort="subs" data-order="desc" onclick="sortCharacters(this)">Subs ▼</button>
-                <span style="flex-grow: 1;"></span>
-                <button class="filter-btn anon-btn" onclick="toggleAnonymize(this)">🔒 Anonymize</button>
-                <button class="filter-btn" data-filter="retainers" onclick="toggleFilter(this)">Hide No Retainers</button>
-                <button class="filter-btn" data-filter="subs" onclick="toggleFilter(this)">Hide No Subs</button>
-                <button class="filter-btn" onclick="expandAllChars(this)" title="Expand All">▼</button>
-                <button class="filter-btn" onclick="collapseAllChars(this)" title="Collapse All">▲</button>
-            </div>
             <div class="character-grid">
                 {% for char in account.characters %}
-                <div class="character-card" data-char="{{ char.cid }}" data-level="{{ char.current_level }}" data-gil="{{ char.total_gil }}" data-treasure="{{ char.treasure_value }}" data-fc-points="{{ char.fc_points }}" data-venture-coins="{{ char.venture_coins }}" data-coffers="{{ char.coffer_count }}" data-dyes="{{ char.dye_count }}" data-tanks="{{ char.ceruleum }}" data-kits="{{ char.repair_kits }}" data-restock="{{ char.days_until_restock if char.days_until_restock is not none else 9999 }}" data-retainers="{{ char.ready_retainers }}" data-total-retainers="{{ char.total_retainers }}" data-subs="{{ char.ready_subs }}" data-total-subs="{{ char.total_subs }}">
+                <div class="character-card" data-char="{{ char.cid }}" data-level="{{ char.current_level }}" data-gil="{{ char.total_gil }}" data-treasure="{{ char.treasure_value }}" data-fc-points="{{ char.fc_points }}" data-venture-coins="{{ char.venture_coins }}" data-coffers="{{ char.coffer_count }}" data-dyes="{{ char.dye_count }}" data-tanks="{{ char.ceruleum }}" data-kits="{{ char.repair_kits }}" data-restock="{{ char.days_until_restock if char.days_until_restock is not none else 9999 }}" data-retainers="{{ char.ready_retainers }}" data-total-retainers="{{ char.total_retainers }}" data-subs="{{ char.ready_subs }}" data-total-subs="{{ char.total_subs }}" data-inventory="{{ 140 - char.inventory_space }}" data-has-personal-house="{{ 'true' if char.private_house else 'false' }}" data-has-fc-house="{{ 'true' if char.fc_house else 'false' }}" data-retainer-level="{{ char.max_retainer_level }}" data-sub-level="{{ char.max_sub_level }}">
                     <div class="character-header collapsed {% if char.ready_retainers > 0 or char.ready_subs > 0 %}has-available{% endif %}" onclick="toggleCharacter(this)">
                         <div class="char-header-row name-row">
-                            <span class="character-name">{{ char.name }}{% if char.current_level > 0 %} <span style="font-size: 0.8em; color: var(--text-secondary);">(Lv {{ char.current_level }}, {{ char.current_job }})</span>{% endif %}</span>
+                            <span class="character-name">{{ char.name }}{% if char.current_level > 0 %} <span style="font-size: 0.8em; color: var(--text-secondary);">(Lv {{ char.current_level }}, {{ char.current_job }})</span>{% endif %}{% if char.private_house %} <span style="font-size: 0.8em;" title="Personal House: {{ char.private_house }}">🏠</span>{% endif %}{% if char.fc_house %} <span style="font-size: 0.8em;" title="FC House: {{ char.fc_house }}">🏨</span>{% endif %}</span>
                             <span class="char-status {% if char.ready_retainers > 0 %}available{% else %}all-sent{% endif %}">👤 {{ char.ready_retainers }}/{{ char.total_retainers }}</span>
                         </div>
                         <div class="char-header-row">
-                            <span class="character-world">{{ char.world }}{% if char.fc_name %} • {{ char.fc_name }}{% endif %}</span>
+                            <span class="character-world">{{ char.world }}{% if char.fc_name %} • {{ char.fc_name }}{% endif %} • 🎒 {{ 140 - char.inventory_space }}/140</span>
                             <span class="char-status {% if char.ready_subs > 0 %}available{% else %}all-sent{% endif %}">🚢 {{ char.ready_subs }}/{{ char.total_subs }}</span>
                         </div>
                         <div class="char-header-row">
                             <span style="font-size: 0.8em; color: var(--text-secondary);">🪙 {{ "{:,}".format(char.fc_points) }} | 🛒 {{ char.venture_coins }} | 📦 {{ char.coffer_count }} | 🎨 {{ char.dye_count }}</span>
                             <span class="character-gil">{{ "{:,}".format(char.total_gil) }} gil</span>
                         </div>
-                        {% if char.total_subs > 0 %}
                         <div class="char-header-row">
-                            <span style="font-size: 0.8em; color: var(--text-secondary);">⛽ {{ "{:,}".format(char.ceruleum) }} | 🔧 {{ "{:,}".format(char.repair_kits) }} | <span style="{% if char.days_until_restock is not none and char.days_until_restock < 7 %}color: var(--danger);{% elif char.days_until_restock is not none and char.days_until_restock < 14 %}color: var(--warning);{% endif %}">🔄 {% if char.days_until_restock is not none %}{{ char.days_until_restock }}d{% else %}N/A{% endif %}</span></span>
-                            <span style="font-size: 0.8em; color: var(--gold);">💎 {{ "{:,}".format(char.treasure_value) }}</span>
+                            <span style="font-size: 0.8em; color: var(--text-secondary);">⛽ {{ "{:,}".format(char.ceruleum) }} | 🔧 {{ "{:,}".format(char.repair_kits) }}{% if char.total_subs > 0 %} | <span style="{% if char.days_until_restock is not none and char.days_until_restock < 7 %}color: var(--danger);{% elif char.days_until_restock is not none and char.days_until_restock < 14 %}color: var(--warning);{% endif %}">🔄 {% if char.days_until_restock is not none %}{{ char.days_until_restock }}d{% else %}N/A{% endif %}</span>{% endif %}</span>
+                            {% if char.total_subs > 0 %}<span style="font-size: 0.8em; color: var(--gold);">💎 {{ "{:,}".format(char.treasure_value) }}</span>{% endif %}
                         </div>
-                        {% endif %}
                     </div>
                     <div class="character-body collapsed">
                         {% if char.current_level > 0 %}
@@ -1667,7 +1788,22 @@ HTML_TEMPLATE = '''
                             <span class="info-label">Coffers 📦</span>
                             <span class="info-value">{{ char.coffer_count }}</span>
                         </div>
-                        {% if char.total_subs > 0 %}
+                        <div class="info-row">
+                            <span class="info-label">Inventory 🎒</span>
+                            <span class="info-value" style="{% if (140 - char.inventory_space) >= 130 %}color: var(--accent);{% elif (140 - char.inventory_space) >= 100 %}color: var(--warning);{% endif %}">{{ 140 - char.inventory_space }}/140</span>
+                        </div>
+                        {% if char.private_house %}
+                        <div class="info-row">
+                            <span class="info-label">Personal House 🏠</span>
+                            <span class="info-value">{{ char.private_house }}</span>
+                        </div>
+                        {% endif %}
+                        {% if char.fc_house %}
+                        <div class="info-row">
+                            <span class="info-label">FC House 🏨</span>
+                            <span class="info-value">{{ char.fc_house }}</span>
+                        </div>
+                        {% endif %}
                         <div class="info-row">
                             <span class="info-label">Ceruleum Tanks ⛽</span>
                             <span class="info-value">{{ "{:,}".format(char.ceruleum) }}</span>
@@ -1676,6 +1812,7 @@ HTML_TEMPLATE = '''
                             <span class="info-label">Repair Kits 🔧</span>
                             <span class="info-value">{{ "{:,}".format(char.repair_kits) }}</span>
                         </div>
+                        {% if char.total_subs > 0 %}
                         <div class="info-row">
                             <span class="info-label">Days Until Restock 🔄</span>
                             <span class="info-value" style="{% if char.days_until_restock is not none and char.days_until_restock < 7 %}color: var(--danger);{% elif char.days_until_restock is not none and char.days_until_restock < 14 %}color: var(--warning);{% else %}color: var(--success);{% endif %}">{% if char.days_until_restock is not none %}{{ char.days_until_restock }} days{% else %}N/A{% endif %}</span>
@@ -1719,7 +1856,7 @@ HTML_TEMPLATE = '''
                         {% endif %}
                         
                         {% if char.retainers %}
-                        <div class="section-title collapsible" onclick="toggleCollapse(this)">👤 Retainers ({{ char.retainers|length }})</div>
+                        <div class="section-title collapsible" onclick="toggleCollapse(this)">👤 Retainers ({{ char.retainers|length }}) - <span style="color: var(--warning);">Lvl: {{ char.retainers_leveling }}</span> | <span style="color: var(--success);">Farm: {{ char.retainers_farming }}</span></div>
                         <div class="collapse-content">
                             <table class="ret-table">
                                 <tr>
@@ -1753,7 +1890,7 @@ HTML_TEMPLATE = '''
         {% endfor %}
         
         <div class="footer">
-            FFXIV AutoRetainer Dashboard v1.05 | Data sourced from AutoRetainer DefaultConfig.json & Altoholic<br>
+            FFXIV AutoRetainer Dashboard v1.08 | Data sourced from AutoRetainer DefaultConfig.json, Altoholic & Lifestream<br>
             <a href="https://github.com/xa-io/ffxiv-tools/tree/main/FFXIV-AutoRetainer-Dashboard" target="_blank" style="color: var(--accent); text-decoration: none;">github.com/xa-io/ffxiv-tools</a>
         </div>
     </div>
@@ -1775,8 +1912,18 @@ HTML_TEMPLATE = '''
             const accountSection = header.closest('.account-section');
             const accountName = accountSection.dataset.account;
             const isCollapsed = header.classList.toggle('collapsed');
-            const content = header.nextElementSibling;
-            content.classList.toggle('collapsed');
+            
+            // Toggle sort-bar (sibling after header)
+            const sortBar = accountSection.querySelector('.sort-bar');
+            if (sortBar) {
+                sortBar.classList.toggle('collapsed', isCollapsed);
+            }
+            
+            // Toggle account-content
+            const content = accountSection.querySelector('.account-content');
+            if (content) {
+                content.classList.toggle('collapsed', isCollapsed);
+            }
             
             // Save state to localStorage
             const collapsedAccounts = JSON.parse(localStorage.getItem('collapsedAccounts') || '{}');
@@ -1800,8 +1947,8 @@ HTML_TEMPLATE = '''
         
         function sortCharacters(btn) {
             const sortBar = btn.closest('.sort-bar');
-            const accountContent = btn.closest('.account-content');
-            const grid = accountContent.querySelector('.character-grid');
+            const accountSection = btn.closest('.account-section');
+            const grid = accountSection.querySelector('.character-grid');
             const cards = Array.from(grid.querySelectorAll('.character-card'));
             
             const sortKey = btn.dataset.sort;
@@ -1833,8 +1980,11 @@ HTML_TEMPLATE = '''
                 'tanks': 'tanks',
                 'kits': 'kits',
                 'restock': 'restock',
+                'inventory': 'inventory',
                 'retainers': 'retainers',
-                'subs': 'subs'
+                'retainer_level': 'retainer-level',
+                'subs': 'subs',
+                'sub_level': 'sub-level'
             };
             
             const attr = attrMap[sortKey];
@@ -1856,57 +2006,42 @@ HTML_TEMPLATE = '''
         }
         
         function toggleFilter(btn) {
-            const accountContent = btn.closest('.account-content');
-            const grid = accountContent.querySelector('.character-grid');
+            const accountSection = btn.closest('.account-section');
+            const grid = accountSection.querySelector('.character-grid');
             const cards = grid.querySelectorAll('.character-card');
-            const filterType = btn.dataset.filter;
+            const sortBar = btn.closest('.sort-bar');
             
             // Toggle active state
             btn.classList.toggle('active');
-            const isActive = btn.classList.contains('active');
             
-            // Apply filter
-            cards.forEach(card => {
-                if (filterType === 'retainers') {
-                    const totalRetainers = parseInt(card.dataset.totalRetainers) || 0;
-                    if (isActive && totalRetainers === 0) {
-                        card.classList.add('filtered-hidden');
-                    } else if (!isActive) {
-                        // Only remove if no other filter is hiding it
-                        const subsFilter = btn.closest('.sort-bar').querySelector('.filter-btn[data-filter="subs"]');
-                        const subsActive = subsFilter && subsFilter.classList.contains('active');
-                        const totalSubs = parseInt(card.dataset.totalSubs) || 0;
-                        if (!subsActive || totalSubs > 0) {
-                            card.classList.remove('filtered-hidden');
-                        }
-                    }
-                } else if (filterType === 'subs') {
-                    const totalSubs = parseInt(card.dataset.totalSubs) || 0;
-                    if (isActive && totalSubs === 0) {
-                        card.classList.add('filtered-hidden');
-                    } else if (!isActive) {
-                        // Only remove if no other filter is hiding it
-                        const retainersFilter = btn.closest('.sort-bar').querySelector('.filter-btn[data-filter="retainers"]');
-                        const retainersActive = retainersFilter && retainersFilter.classList.contains('active');
-                        const totalRetainers = parseInt(card.dataset.totalRetainers) || 0;
-                        if (!retainersActive || totalRetainers > 0) {
-                            card.classList.remove('filtered-hidden');
-                        }
-                    }
-                }
-            });
-            
-            // Re-apply both filters to ensure consistency
-            const sortBar = btn.closest('.sort-bar');
+            // Get all filter states
             const retainersBtn = sortBar.querySelector('.filter-btn[data-filter="retainers"]');
             const subsBtn = sortBar.querySelector('.filter-btn[data-filter="subs"]');
+            const personalHouseBtn = sortBar.querySelector('.filter-btn[data-filter="personal-house"]');
+            const fcHouseBtn = sortBar.querySelector('.filter-btn[data-filter="fc-house"]');
+            
             const hideNoRetainers = retainersBtn && retainersBtn.classList.contains('active');
             const hideNoSubs = subsBtn && subsBtn.classList.contains('active');
+            const showOnlyPersonalHouse = personalHouseBtn && personalHouseBtn.classList.contains('active');
+            const showOnlyFcHouse = fcHouseBtn && fcHouseBtn.classList.contains('active');
             
+            // Apply all filters
             cards.forEach(card => {
                 const totalRetainers = parseInt(card.dataset.totalRetainers) || 0;
                 const totalSubs = parseInt(card.dataset.totalSubs) || 0;
-                const shouldHide = (hideNoRetainers && totalRetainers === 0) || (hideNoSubs && totalSubs === 0);
+                const hasPersonalHouse = card.dataset.hasPersonalHouse === 'true';
+                const hasFcHouse = card.dataset.hasFcHouse === 'true';
+                
+                let shouldHide = false;
+                
+                // Hide filters (hide if condition not met)
+                if (hideNoRetainers && totalRetainers === 0) shouldHide = true;
+                if (hideNoSubs && totalSubs === 0) shouldHide = true;
+                
+                // Show-only filters (hide if doesn't have the feature)
+                if (showOnlyPersonalHouse && !hasPersonalHouse) shouldHide = true;
+                if (showOnlyFcHouse && !hasFcHouse) shouldHide = true;
+                
                 card.classList.toggle('filtered-hidden', shouldHide);
             });
         }
@@ -1917,12 +2052,12 @@ HTML_TEMPLATE = '''
         function toggleAnonymize(btn) {
             isAnonymized = !isAnonymized;
             btn.classList.toggle('active', isAnonymized);
-            btn.textContent = isAnonymized ? '🔓 De-Anonymize' : '🔒 Anonymize';
+            btn.textContent = isAnonymized ? '🔓' : '🔒';
             
             // Toggle all anonymize buttons across all accounts
             document.querySelectorAll('.anon-btn').forEach(b => {
                 b.classList.toggle('active', isAnonymized);
-                b.textContent = isAnonymized ? '🔓 De-Anonymize' : '🔒 Anonymize';
+                b.textContent = isAnonymized ? '🔓' : '🔒';
             });
             
             if (isAnonymized) {
@@ -1949,9 +2084,11 @@ HTML_TEMPLATE = '''
                     if (!originalData.has(charName)) {
                         originalData.set(charName, charName.innerHTML);
                     }
-                    // Keep the level/job info but replace the name
-                    const levelInfo = charName.querySelector('span');
-                    charName.innerHTML = 'Toon ' + (cardIndex + 1) + (levelInfo ? ' ' + levelInfo.outerHTML : '');
+                    // Keep all spans (level/job info AND housing emojis) but replace the name
+                    const allSpans = charName.querySelectorAll('span');
+                    let spansHtml = '';
+                    allSpans.forEach(span => { spansHtml += ' ' + span.outerHTML; });
+                    charName.innerHTML = 'Toon ' + (cardIndex + 1) + spansHtml;
                 }
                 
                 const worldFC = card.querySelector('.character-world');
@@ -1959,8 +2096,13 @@ HTML_TEMPLATE = '''
                     if (!originalData.has(worldFC)) {
                         originalData.set(worldFC, worldFC.textContent);
                     }
-                    const hasFC = worldFC.textContent.includes('•');
-                    worldFC.textContent = 'Eorzea' + (hasFC ? ' • FC Name' : '');
+                    // Count bullet points: 2+ means FC + inventory, 1 means just inventory (no FC)
+                    const bulletCount = (worldFC.textContent.match(/•/g) || []).length;
+                    const hasFC = bulletCount >= 2;
+                    // Extract actual inventory value to preserve it
+                    const inventoryMatch = worldFC.textContent.match(/🎒 (\d+\/\d+)/);
+                    const inventoryText = inventoryMatch ? ' • 🎒 ' + inventoryMatch[1] : '';
+                    worldFC.textContent = 'Eorzea' + (hasFC ? ' • FC Name' : '') + inventoryText;
                 }
                 
                 // Anonymize retainer names in expanded content (table rows, first td is name)
@@ -1978,7 +2120,7 @@ HTML_TEMPLATE = '''
                     });
                 }
                 
-                // Anonymize submarine names in expanded content (table rows, first td is name)
+                // Anonymize submarine names and plan names in expanded content
                 const subTable = card.querySelector('.sub-table');
                 if (subTable) {
                     subTable.querySelectorAll('tr').forEach((row, rowIndex) => {
@@ -1990,8 +2132,33 @@ HTML_TEMPLATE = '''
                             }
                             nameCell.textContent = 'Submarine ' + rowIndex;
                         }
+                        // Anonymize plan name (4th column) with TOP SECRET in red
+                        const planCell = row.querySelector('td:nth-child(4)');
+                        if (planCell) {
+                            if (!originalData.has(planCell)) {
+                                originalData.set(planCell, { html: planCell.innerHTML, style: planCell.getAttribute('style') });
+                            }
+                            planCell.innerHTML = 'TOP SECRET';
+                            planCell.style.color = 'var(--accent)';
+                        }
                     });
                 }
+                
+                // Anonymize housing info in expanded content
+                card.querySelectorAll('.info-row').forEach(row => {
+                    const label = row.querySelector('.info-label');
+                    const value = row.querySelector('.info-value');
+                    if (label && value) {
+                        const labelText = label.textContent;
+                        if (labelText.includes('Personal House') || labelText.includes('FC House')) {
+                            if (!originalData.has(value)) {
+                                originalData.set(value, { html: value.innerHTML, style: value.getAttribute('style') });
+                            }
+                            value.innerHTML = 'TOP SECRET';
+                            value.style.color = 'var(--accent)';
+                        }
+                    }
+                });
             });
         }
         
@@ -1999,6 +2166,14 @@ HTML_TEMPLATE = '''
             originalData.forEach((value, element) => {
                 if (element.classList && element.classList.contains('character-name')) {
                     element.innerHTML = value;
+                } else if (typeof value === 'object' && value.html !== undefined) {
+                    // Restore plan cells with original HTML and style
+                    element.innerHTML = value.html;
+                    if (value.style) {
+                        element.setAttribute('style', value.style);
+                    } else {
+                        element.removeAttribute('style');
+                    }
                 } else {
                     element.textContent = value;
                 }
@@ -2007,8 +2182,8 @@ HTML_TEMPLATE = '''
         }
         
         function expandAllChars(btn) {
-            const accountContent = btn.closest('.account-content');
-            const cards = accountContent.querySelectorAll('.character-card');
+            const accountSection = btn.closest('.account-section');
+            const cards = accountSection.querySelectorAll('.character-card');
             const collapsedChars = JSON.parse(localStorage.getItem('collapsedChars') || '{}');
             
             cards.forEach(card => {
@@ -2026,8 +2201,8 @@ HTML_TEMPLATE = '''
         }
         
         function collapseAllChars(btn) {
-            const accountContent = btn.closest('.account-content');
-            const cards = accountContent.querySelectorAll('.character-card');
+            const accountSection = btn.closest('.account-section');
+            const cards = accountSection.querySelectorAll('.character-card');
             const collapsedChars = JSON.parse(localStorage.getItem('collapsedChars') || '{}');
             
             cards.forEach(card => {
@@ -2049,6 +2224,7 @@ HTML_TEMPLATE = '''
             document.querySelectorAll('.account-section').forEach(section => {
                 const accountName = section.dataset.account;
                 const header = section.querySelector('.account-header');
+                const sortBar = section.querySelector('.sort-bar');
                 const content = section.querySelector('.account-content');
                 
                 // Default to collapsed if not in localStorage
@@ -2056,9 +2232,11 @@ HTML_TEMPLATE = '''
                 
                 if (shouldBeCollapsed) {
                     header.classList.add('collapsed');
+                    if (sortBar) sortBar.classList.add('collapsed');
                     content.classList.add('collapsed');
                 } else {
                     header.classList.remove('collapsed');
+                    if (sortBar) sortBar.classList.remove('collapsed');
                     content.classList.remove('collapsed');
                 }
             });
@@ -2173,7 +2351,7 @@ if __name__ == "__main__":
     load_external_config()
     
     print("=" * 60)
-    print("  FFXIV AutoRetainer Dashboard v1.05")
+    print("  FFXIV AutoRetainer Dashboard v1.08")
     print("=" * 60)
     print(f"  Server: http://{HOST}:{PORT}")
     print(f"  Accounts: {len(account_locations)}")
