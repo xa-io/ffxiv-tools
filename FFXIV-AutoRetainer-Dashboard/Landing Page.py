@@ -24,13 +24,19 @@
 # • Modern, responsive UI with dark theme
 # • Multi-account support via config.json
 #
-# Landing Page v1.02
+# Landing Page v1.03
 # FFXIV AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-25 15:30:00
+# Last Updated: 2026-01-26 08:35:00
 #
 # ## Release Notes ##
 #
+# v1.03 - Major feature update with Altoholic integration and enhanced submarine tracking
+#         Added submarine plan detection (leveling vs farming) from AutoRetainer config
+#         Added FC Points, Venture Coins, Coffers to character title bar
+#         Added Coffer + Dyes estimated value button at top
+#         Added character class/level display from Altoholic
+#         Added Leveling/Farming stats at top for submarines and retainers
 # v1.02 - UI color refinements: blue account headers, red highlights for ready items
 # v1.01 - Fixed stale submarine display bug (validates AdditionalSubmarineData against OfflineSubmarineData)
 # v1.00 - Initial release with comprehensive dashboard features
@@ -240,6 +246,64 @@ CERULEUM_TANK_COST = 350   # Gil per tank
 REPAIR_KIT_COST = 2000     # Gil per kit
 
 # ===============================================
+# Coffer and Dye Values (for estimation)
+# ===============================================
+COFFER_DYE_VALUES = {
+    32161: 18000,   # Venture Coffer
+    13114: 450000,  # General-purpose Pure White Dye
+    13115: 600000,  # General-purpose Jet Black Dye
+    13708: 40000,   # General-purpose Pastel Pink Dye
+}
+COFFER_DYE_IDS = set(COFFER_DYE_VALUES.keys())
+
+# ===============================================
+# Job Class Abbreviations (for character class display)
+# ===============================================
+JOB_ABBREVIATIONS = {
+    "Adventurer": "ADV", "Paladin": "PLD", "Gladiator": "GLA", "Warrior": "WAR",
+    "Marauder": "MRD", "DarkKnight": "DRK", "Gunbreaker": "GNB", "WhiteMage": "WHM",
+    "Conjurer": "CNJ", "Scholar": "SCH", "Astrologian": "AST", "Sage": "SGE",
+    "Monk": "MNK", "Pugilist": "PGL", "Dragoon": "DRG", "Lancer": "LNC",
+    "Ninja": "NIN", "Rogue": "ROG", "Samurai": "SAM", "Reaper": "RPR",
+    "Viper": "VPR", "Bard": "BRD", "Archer": "ARC", "Machinist": "MCH",
+    "Dancer": "DNC", "Pictomancer": "PCT", "BlackMage": "BLM", "Thaumaturge": "THM",
+    "Summoner": "SMN", "Arcanist": "ACN", "RedMage": "RDM", "BlueMage": "BLU",
+    "Carpenter": "CRP", "Blacksmith": "BSM", "Armorer": "ARM", "Goldsmith": "GSM",
+    "Leatherworker": "LTW", "Weaver": "WVR", "Alchemist": "ALC", "Culinarian": "CUL",
+    "Miner": "MIN", "Botanist": "BTN", "Fisher": "FSH",
+}
+
+# ===============================================
+# Submarine VesselBehavior Plan Types
+# ===============================================
+# VesselBehavior values from AutoRetainer:
+# 0 = Finalize (docked/idle)
+# 1 = Use Specified Path (farming route)
+# 2 = Level Up (leveling mode)
+# 3 = Unlock Sectors
+# 4 = Use Point Plan
+VESSEL_BEHAVIOR_FARMING = {1, 4}  # These indicate farming mode
+VESSEL_BEHAVIOR_LEVELING = {2, 3}  # These indicate leveling mode
+
+# ===============================================
+# Plan Configuration (loaded from config.json)
+# ===============================================
+# These can be overridden in config.json
+submarine_plans = {
+    "leveling": [],
+    "farming": {}  # name: average_earnings
+}
+# Retainer leveling/farming is purely level-based: < 100 = leveling, >= 100 = farming
+item_values = {
+    "venture_coffer": 18000,
+    "pure_white_dye": 450000,
+    "jet_black_dye": 600000,
+    "pastel_pink_dye": 40000
+}
+# Plan GUID to Name lookup (built from DefaultConfig.json)
+submarine_plan_names = {}  # GUID -> Name
+
+# ===============================================
 # Flask Application
 # ===============================================
 app = Flask(__name__)
@@ -250,6 +314,7 @@ app = Flask(__name__)
 def load_external_config():
     """Load external config file if it exists"""
     global HOST, PORT, DEBUG, AUTO_REFRESH, account_locations
+    global submarine_plans, retainer_plans, item_values
     
     config_path = Path(__file__).parent / CONFIG_FILE
     if not config_path.exists():
@@ -276,9 +341,79 @@ def load_external_config():
                 new_locations.append(acc(nickname, pluginconfigs_path))
             account_locations = new_locations
         
+        # Load plan configurations
+        if "submarine_plans" in config:
+            submarine_plans.update(config["submarine_plans"])
+        if "item_values" in config:
+            item_values.update(config["item_values"])
+        
         print(f"[CONFIG] Loaded configuration from {config_path}")
     except Exception as e:
         print(f"[CONFIG] Error loading config: {e}")
+
+
+def build_plan_name_lookup(data):
+    """Build GUID to plan name lookup from AutoRetainer config"""
+    global submarine_plan_names
+    submarine_plan_names = {}
+    
+    # SubmarinePointPlans
+    for plan in data.get("SubmarinePointPlans", []):
+        guid = plan.get("GUID", "")
+        name = plan.get("Name", "")
+        if guid and name:
+            submarine_plan_names[guid] = name
+    
+    # SubmarineUnlockPlans
+    for plan in data.get("SubmarineUnlockPlans", []):
+        guid = plan.get("GUID", "")
+        name = plan.get("Name", "")
+        if guid and name:
+            submarine_plan_names[guid] = name
+
+
+def get_submarine_plan_info(sub_data):
+    """
+    Determine submarine leveling/farming status and earnings based on plan name.
+    Returns: (is_leveling, is_farming, plan_name, plan_earnings)
+    """
+    # Get the plan GUID being used
+    selected_point_plan = sub_data.get("SelectedPointPlan", "")
+    selected_unlock_plan = sub_data.get("SelectedUnlockPlan", "")
+    vessel_behavior = sub_data.get("VesselBehavior", 0)
+    
+    # Determine which plan to look up based on VesselBehavior
+    plan_guid = ""
+    if vessel_behavior == 4:  # Use Point Plan
+        plan_guid = selected_point_plan
+    elif vessel_behavior == 3:  # Unlock Sectors
+        plan_guid = selected_unlock_plan
+    
+    # Get plan name from GUID lookup
+    plan_name = submarine_plan_names.get(plan_guid, "")
+    
+    # Check if plan name matches config leveling plans
+    leveling_plans = submarine_plans.get("leveling", [])
+    farming_plans = submarine_plans.get("farming", {})
+    
+    if plan_name and plan_name in leveling_plans:
+        return True, False, plan_name, 0
+    
+    if plan_name and plan_name in farming_plans:
+        plan_earnings = farming_plans.get(plan_name, 0)
+        return False, True, plan_name, plan_earnings
+    
+    # Fallback to VesselBehavior detection
+    if vessel_behavior in VESSEL_BEHAVIOR_FARMING:
+        # Check if we can match the plan name to get earnings
+        if plan_name and plan_name in farming_plans:
+            return False, True, plan_name, farming_plans[plan_name]
+        return False, True, plan_name if plan_name else "Unknown Plan", 0
+    elif vessel_behavior in VESSEL_BEHAVIOR_LEVELING:
+        return True, False, plan_name if plan_name else "Leveling", 0
+    
+    # Default fallback
+    return True, False, "", 0
 
 
 def shorten_part_name(full_name: str) -> str:
@@ -343,8 +478,15 @@ def _safe_json_load(s):
 
 def scan_altoholic_db(db_path):
     """
-    Scan Altoholic DB and return treasure values per character.
-    Returns: { CharacterId: {"treasure_value": int} }
+    Scan Altoholic DB and return comprehensive character data.
+    Returns: { CharacterId: {
+        "treasure_value": int,
+        "coffer_dye_value": int,
+        "coffer_count": int,
+        "venture_coins": int,
+        "current_job": str,
+        "current_level": int,
+    }}
     """
     result = {}
     if not os.path.isfile(db_path):
@@ -353,13 +495,19 @@ def scan_altoholic_db(db_path):
     try:
         con = sqlite3.connect(db_path)
         cur = con.cursor()
-        rows = cur.execute("SELECT CharacterId, Inventory, Saddle FROM characters").fetchall()
+        rows = cur.execute(
+            "SELECT CharacterId, Inventory, Saddle, ArmoryInventory, Retainers, Jobs, Currencies FROM characters"
+        ).fetchall()
         
-        for char_id, inv_json, saddle_json in rows:
+        for char_id, inv_json, saddle_json, armory_json, retainers_json, jobs_json, currencies_json in rows:
             treasure_value = 0
+            coffer_dye_value = 0
+            coffer_count = 0
+            dye_count = 0
+            venture_coins = 0
             
             def consume(items):
-                nonlocal treasure_value
+                nonlocal treasure_value, coffer_dye_value, coffer_count, dye_count
                 if not items:
                     return
                 for it in items:
@@ -373,6 +521,23 @@ def scan_altoholic_db(db_path):
                     
                     if iid in TREASURE_IDS:
                         treasure_value += qty * TREASURE_VALUES[iid]
+                    
+                    if iid in COFFER_DYE_IDS:
+                        # Use configurable item_values if available, else fall back to defaults
+                        if iid == 32161:  # Venture Coffer
+                            coffer_dye_value += qty * item_values.get("venture_coffer", COFFER_DYE_VALUES[iid])
+                            coffer_count += qty
+                        elif iid == 13114:  # Pure White Dye
+                            coffer_dye_value += qty * item_values.get("pure_white_dye", COFFER_DYE_VALUES[iid])
+                            dye_count += qty
+                        elif iid == 13115:  # Jet Black Dye
+                            coffer_dye_value += qty * item_values.get("jet_black_dye", COFFER_DYE_VALUES[iid])
+                            dye_count += qty
+                        elif iid == 13708:  # Pastel Pink Dye
+                            coffer_dye_value += qty * item_values.get("pastel_pink_dye", COFFER_DYE_VALUES[iid])
+                            dye_count += qty
+                        else:
+                            coffer_dye_value += qty * COFFER_DYE_VALUES[iid]
             
             inv = _safe_json_load(inv_json)
             if isinstance(inv, list):
@@ -381,8 +546,53 @@ def scan_altoholic_db(db_path):
             if isinstance(sad, list):
                 consume(sad)
             
-            if treasure_value > 0:
-                result[int(char_id)] = {"treasure_value": int(treasure_value)}
+            # Process ArmoryInventory (nested dict with slot arrays like MainHand, OffHand, etc.)
+            armory = _safe_json_load(armory_json)
+            if isinstance(armory, dict):
+                for slot_name, slot_items in armory.items():
+                    if isinstance(slot_items, list):
+                        consume(slot_items)
+            
+            # Process Retainers inventories
+            retainers = _safe_json_load(retainers_json)
+            if isinstance(retainers, list):
+                for retainer in retainers:
+                    if isinstance(retainer, dict):
+                        ret_inv = retainer.get("Inventory", [])
+                        if isinstance(ret_inv, list):
+                            consume(ret_inv)
+            
+            # Parse Jobs to find current/highest level job
+            current_job = ""
+            current_level = 0
+            jobs = _safe_json_load(jobs_json)
+            if isinstance(jobs, dict):
+                for job_name, job_data in jobs.items():
+                    if isinstance(job_data, dict):
+                        level = job_data.get("Level", 0)
+                        if level > current_level:
+                            current_level = level
+                            current_job = JOB_ABBREVIATIONS.get(job_name, job_name[:3].upper())
+            
+            # Parse Currencies to get Venture coins
+            currencies = _safe_json_load(currencies_json)
+            if isinstance(currencies, dict):
+                venture_coins = currencies.get("Venture", 0)
+                if not isinstance(venture_coins, int):
+                    try:
+                        venture_coins = int(venture_coins)
+                    except Exception:
+                        venture_coins = 0
+            
+            result[int(char_id)] = {
+                "treasure_value": int(treasure_value),
+                "coffer_dye_value": int(coffer_dye_value),
+                "coffer_count": int(coffer_count),
+                "dye_count": int(dye_count),
+                "venture_coins": int(venture_coins),
+                "current_job": current_job,
+                "current_level": current_level,
+            }
         
         con.close()
     except Exception as e:
@@ -458,6 +668,22 @@ def parse_submarine_data(char_data):
         
         level = sub_data.get("Level", 0)
         build = get_sub_build_string(sub_data)
+        vessel_behavior = sub_data.get("VesselBehavior", 0)
+        
+        # Get plan info from config-based detection
+        is_leveling, is_farming, plan_name, plan_earnings = get_submarine_plan_info(sub_data)
+        
+        # If no plan match and no VesselBehavior detection, use level/build fallbacks
+        if not plan_name and vessel_behavior == 0:
+            if level >= 100:
+                is_leveling = False
+                is_farming = True
+            elif build and build in BUILD_GIL_RATES:
+                is_leveling = False
+                is_farming = True
+            else:
+                is_leveling = True
+                is_farming = False
         
         # Get return time from offline data
         return_time = None
@@ -468,17 +694,25 @@ def parse_submarine_data(char_data):
         now_ts = datetime.datetime.now().timestamp()
         is_ready = (not return_time) or (return_time <= now_ts)
         
-        # Calculate gil rate and consumption
-        gil_rate = BUILD_GIL_RATES.get(build, 0)
+        # Calculate gil rate - use plan earnings if available, otherwise use build rates
+        if plan_earnings > 0:
+            gil_rate = plan_earnings
+        else:
+            gil_rate = BUILD_GIL_RATES.get(build, 0)
+        
         consumption = BUILD_CONSUMPTION_RATES.get(build, DEFAULT_CONSUMPTION)
         
         submarines.append({
             "name": name,
             "level": level,
             "build": build if build else "Leveling",
+            "plan_name": plan_name,
             "return_time": return_time,
             "return_formatted": format_time_remaining(return_time) if return_time else "Docked",
             "is_ready": is_ready,
+            "is_leveling": is_leveling,
+            "is_farming": is_farming,
+            "vessel_behavior": vessel_behavior,
             "daily_gil": gil_rate,
             "monthly_gil": gil_rate * 30,
             "tanks_per_day": consumption["tanks_per_day"],
@@ -532,6 +766,16 @@ def get_all_data():
     total_daily_income = 0
     total_daily_cost = 0
     total_treasure = 0
+    total_coffer_dye_value = 0
+    total_coffer_count = 0
+    total_dye_count = 0
+    total_venture_coins = 0
+    total_fc_points = 0
+    total_subs_leveling = 0
+    total_subs_farming = 0
+    total_retainers_leveling = 0
+    total_retainers_farming = 0
+    min_restock_days = None  # Track lowest restock days across all accounts (excluding 0)
     
     for account in account_locations:
         account_data = {
@@ -544,6 +788,15 @@ def get_all_data():
             "ready_retainers": 0,
             "total_mb_items": 0,
             "total_treasure": 0,
+            "total_coffer_dye_value": 0,
+            "total_coffer_count": 0,
+            "total_dye_count": 0,
+            "total_venture_coins": 0,
+            "total_fc_points": 0,
+            "subs_leveling": 0,
+            "subs_farming": 0,
+            "retainers_leveling": 0,
+            "retainers_farming": 0,
         }
         
         auto_path = account["auto_path"]
@@ -560,6 +813,9 @@ def get_all_data():
             account_data["error"] = f"Failed to load: {e}"
             all_accounts.append(account_data)
             continue
+        
+        # Build plan name lookup from this config
+        build_plan_name_lookup(data)
         
         fc_data = extract_fc_data(data)
         characters = collect_characters(data, account["nickname"])
@@ -579,20 +835,60 @@ def get_all_data():
             sub_daily_income = sum(s["daily_gil"] for s in submarines)
             sub_daily_cost = sum(s["daily_cost"] for s in submarines)
             
+            # Calculate days until restocking needed
+            total_tanks_per_day = sum(s.get("tanks_per_day", 0) for s in submarines)
+            total_kits_per_day = sum(s.get("kits_per_day", 0) for s in submarines)
+            ceruleum = char.get("Ceruleum", 0)
+            repair_kits = char.get("RepairKits", 0)
+            
+            days_until_restock = None
+            if submarines and total_tanks_per_day > 0 and total_kits_per_day > 0:
+                days_from_tanks = ceruleum / total_tanks_per_day if ceruleum > 0 else 0
+                days_from_kits = repair_kits / total_kits_per_day if repair_kits > 0 else 0
+                days_until_restock = int(min(days_from_tanks, days_from_kits))
+            
+            # Count leveling vs farming submarines
+            char_subs_leveling = sum(1 for s in submarines if s.get("is_leveling", False))
+            char_subs_farming = sum(1 for s in submarines if s.get("is_farming", False))
+            
             # Parse retainers
             retainers = parse_retainer_data(char)
             retainer_gil = sum(r["gil"] for r in retainers)
             mb_items = sum(r["mb_items"] for r in retainers)
             
-            # Get FC info
+            # Count leveling vs farming retainers (< 100 = leveling, 100 = farming)
+            char_retainers_leveling = sum(1 for r in retainers if r["level"] < 100)
+            char_retainers_farming = sum(1 for r in retainers if r["level"] >= 100)
+            
+            # Get FC info and FC points
             fc_name = ""
+            fc_points = 0
             if cid in fc_data:
                 fc_name = fc_data[cid].get("Name", "")
+                fc_points = fc_data[cid].get("FCPoints", 0)
             
-            # Get treasure value from Altoholic
+            # Get Altoholic data (treasure, coffers, dyes, job, etc.)
             treasure_value = 0
+            coffer_dye_value = 0
+            coffer_count = 0
+            dye_count = 0
+            venture_coins = 0
+            current_job = ""
+            current_level = 0
             if cid in alto_map:
                 treasure_value = alto_map[cid].get("treasure_value", 0)
+                coffer_dye_value = alto_map[cid].get("coffer_dye_value", 0)
+                coffer_count = alto_map[cid].get("coffer_count", 0)
+                dye_count = alto_map[cid].get("dye_count", 0)
+                venture_coins = alto_map[cid].get("venture_coins", 0)
+                current_job = alto_map[cid].get("current_job", "")
+                current_level = alto_map[cid].get("current_level", 0)
+            
+            # Get venture coffers from AutoRetainer if Altoholic doesn't have it
+            venture_coffers_ar = char.get("VentureCoffers", 0)
+            if coffer_count == 0 and venture_coffers_ar > 0:
+                coffer_count = venture_coffers_ar
+                coffer_dye_value += venture_coffers_ar * COFFER_DYE_VALUES.get(32161, 18000)
             
             char_data = {
                 "cid": cid,
@@ -602,10 +898,15 @@ def get_all_data():
                 "retainer_gil": retainer_gil,
                 "total_gil": char_gil + retainer_gil,
                 "treasure_value": treasure_value,
+                "coffer_dye_value": coffer_dye_value,
+                "coffer_count": coffer_count,
+                "dye_count": dye_count,
+                "venture_coins": venture_coins,
                 "total_with_treasure": char_gil + retainer_gil + treasure_value,
                 "submarines": submarines,
                 "retainers": retainers,
                 "fc_name": fc_name,
+                "fc_points": fc_points,
                 "ceruleum": char.get("Ceruleum", 0),
                 "repair_kits": char.get("RepairKits", 0),
                 "ventures": char.get("Ventures", 0),
@@ -615,6 +916,13 @@ def get_all_data():
                 "monthly_income": sub_daily_income * 30,
                 "daily_cost": sub_daily_cost,
                 "mb_items": mb_items,
+                "current_job": current_job,
+                "current_level": current_level,
+                "subs_leveling": char_subs_leveling,
+                "subs_farming": char_subs_farming,
+                "retainers_leveling": char_retainers_leveling,
+                "retainers_farming": char_retainers_farming,
+                "days_until_restock": days_until_restock,
             }
             
             # Count ready submarines and retainers
@@ -635,6 +943,21 @@ def get_all_data():
             account_data["ready_retainers"] += char_ready_retainers
             account_data["total_mb_items"] += mb_items
             account_data["total_treasure"] += treasure_value
+            account_data["total_coffer_dye_value"] += coffer_dye_value
+            account_data["total_coffer_count"] += coffer_count
+            account_data["total_dye_count"] += dye_count
+            account_data["total_venture_coins"] += venture_coins
+            account_data["total_fc_points"] += fc_points
+            
+            # Track minimum restock days (excluding 0 and None)
+            if days_until_restock is not None and days_until_restock > 0:
+                if min_restock_days is None or days_until_restock < min_restock_days:
+                    min_restock_days = days_until_restock
+            
+            account_data["subs_leveling"] += char_subs_leveling
+            account_data["subs_farming"] += char_subs_farming
+            account_data["retainers_leveling"] += char_retainers_leveling
+            account_data["retainers_farming"] += char_retainers_farming
             
             total_daily_income += sub_daily_income
             total_daily_cost += sub_daily_cost
@@ -649,6 +972,15 @@ def get_all_data():
         ready_retainers += account_data["ready_retainers"]
         total_mb_items += account_data["total_mb_items"]
         total_treasure += account_data["total_treasure"]
+        total_coffer_dye_value += account_data["total_coffer_dye_value"]
+        total_coffer_count += account_data["total_coffer_count"]
+        total_dye_count += account_data["total_dye_count"]
+        total_venture_coins += account_data["total_venture_coins"]
+        total_fc_points += account_data["total_fc_points"]
+        total_subs_leveling += account_data["subs_leveling"]
+        total_subs_farming += account_data["subs_farming"]
+        total_retainers_leveling += account_data["retainers_leveling"]
+        total_retainers_farming += account_data["retainers_farming"]
         
         all_accounts.append(account_data)
     
@@ -664,6 +996,15 @@ def get_all_data():
             "max_mb_items": total_retainers * 20,
             "total_treasure": total_treasure,
             "total_with_treasure": total_gil + total_treasure,
+            "total_coffer_dye_value": total_coffer_dye_value,
+            "total_coffer_count": total_coffer_count,
+            "total_dye_count": total_dye_count,
+            "total_venture_coins": total_venture_coins,
+            "total_fc_points": total_fc_points,
+            "subs_leveling": total_subs_leveling,
+            "subs_farming": total_subs_farming,
+            "retainers_leveling": total_retainers_leveling,
+            "retainers_farming": total_retainers_farming,
             "daily_income": total_daily_income,
             "monthly_income": total_daily_income * 30,
             "annual_income": total_daily_income * 365,
@@ -671,6 +1012,7 @@ def get_all_data():
             "monthly_cost": total_daily_cost * 30,
             "daily_profit": total_daily_income - total_daily_cost,
             "monthly_profit": (total_daily_income - total_daily_cost) * 30,
+            "min_restock_days": min_restock_days,
         },
         "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
@@ -745,19 +1087,19 @@ HTML_TEMPLATE = '''
         .summary-grid {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 6px;
             margin-bottom: 20px;
         }
         
         .summary-card {
             background: var(--bg-card);
-            padding: 8px 15px;
+            padding: 6px 10px;
             border-radius: 8px;
             text-align: center;
             border: 1px solid var(--border);
             transition: transform 0.2s, box-shadow 0.2s;
             flex: 1 1 auto;
-            min-width: 120px;
+            min-width: 90px;
         }
         
         .summary-card:hover {
@@ -783,6 +1125,13 @@ HTML_TEMPLATE = '''
             color: var(--text-secondary);
             font-size: 0.7em;
             margin-top: 2px;
+        }
+        
+        .summary-card .sublabel {
+            color: var(--text-secondary);
+            font-size: 0.6em;
+            margin-top: 1px;
+            opacity: 0.8;
         }
         
         .account-section {
@@ -846,6 +1195,45 @@ HTML_TEMPLATE = '''
             display: flex;
             align-items: center;
             gap: 5px;
+        }
+        
+        .sort-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            align-items: center;
+        }
+        
+        .sort-label {
+            color: var(--text-secondary);
+            font-size: 0.85em;
+            margin-right: 5px;
+        }
+        
+        .sort-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75em;
+            transition: all 0.2s;
+        }
+        
+        .sort-btn:hover {
+            background: var(--border);
+            color: var(--text-primary);
+        }
+        
+        .sort-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
         }
         
         .character-grid {
@@ -1091,6 +1479,7 @@ HTML_TEMPLATE = '''
             <div class="summary-card">
                 <div class="value" id="sum-total-gil">{{ "{:,}".format(data.summary.total_gil) }}</div>
                 <div class="label">💰 Total Gil</div>
+                <div class="sublabel">🪙 {{ "{:,}".format(data.summary.total_fc_points) }} FC</div>
             </div>
             <div class="summary-card">
                 <div class="value" id="sum-treasure">{{ "{:,}".format(data.summary.total_treasure) }}</div>
@@ -1101,11 +1490,28 @@ HTML_TEMPLATE = '''
                 <div class="label">🏆 Gil + Treasure</div>
             </div>
             <div class="summary-card">
-                <div class="value"><span id="sum-ready-subs">{{ data.summary.ready_subs }}</span>/<span id="sum-total-subs">{{ data.summary.total_subs }}</span></div>
+                <div class="value" id="sum-coffer-dye">{{ "{:,}".format(data.summary.total_coffer_dye_value) }}</div>
+                <div class="label">📦 Coffer + Dyes</div>
+                <div class="sublabel">📦 {{ data.summary.total_coffer_count }} | 🎨 {{ data.summary.total_dye_count }}</div>
+            </div>
+            <div class="summary-card">
+                <div class="value">
+                    <span id="sum-ready-subs">{{ data.summary.ready_subs }}</span>/<span id="sum-total-subs">{{ data.summary.total_subs }}</span>
+                    <div style="font-size: 0.7em; color: var(--text-secondary);">
+                        <span style="color: var(--warning);">Lvl: {{ data.summary.subs_leveling }}</span> |
+                        <span style="color: var(--success);">Farm: {{ data.summary.subs_farming }}</span>
+                    </div>
+                </div>
                 <div class="label">🚢 Submarines</div>
             </div>
             <div class="summary-card">
-                <div class="value"><span id="sum-ready-retainers">{{ data.summary.ready_retainers }}</span>/<span id="sum-total-retainers">{{ data.summary.total_retainers }}</span></div>
+                <div class="value">
+                    <span id="sum-ready-retainers">{{ data.summary.ready_retainers }}</span>/<span id="sum-total-retainers">{{ data.summary.total_retainers }}</span>
+                    <div style="font-size: 0.7em; color: var(--text-secondary);">
+                        <span style="color: var(--warning);">Lvl: {{ data.summary.retainers_leveling }}</span> |
+                        <span style="color: var(--success);">Farm: {{ data.summary.retainers_farming }}</span>
+                    </div>
+                </div>
                 <div class="label">👤 Retainers</div>
             </div>
             <div class="summary-card">
@@ -1119,6 +1525,7 @@ HTML_TEMPLATE = '''
             <div class="summary-card">
                 <div class="value cost" id="sum-monthly-cost">{{ "{:,}".format(data.summary.monthly_cost|int) }}</div>
                 <div class="label">📉 Monthly Cost</div>
+                <div class="sublabel" style="{% if data.summary.min_restock_days is not none and data.summary.min_restock_days < 7 %}color: var(--danger);{% elif data.summary.min_restock_days is not none and data.summary.min_restock_days < 14 %}color: var(--warning);{% endif %}">🔄 {% if data.summary.min_restock_days is not none %}{{ data.summary.min_restock_days }}d lowest{% else %}N/A{% endif %}</div>
             </div>
             <div class="summary-card">
                 <div class="value profit" id="sum-monthly-profit">{{ "{:,}".format(data.summary.monthly_profit|int) }}</div>
@@ -1148,24 +1555,51 @@ HTML_TEMPLATE = '''
             {% if account.error %}
             <div class="error-message">{{ account.error }}</div>
             {% else %}
+            <div class="sort-bar">
+                <span class="sort-label">Sort by:</span>
+                <button class="sort-btn" data-sort="level" data-order="desc" onclick="sortCharacters(this)">Level ▼</button>
+                <button class="sort-btn" data-sort="gil" data-order="desc" onclick="sortCharacters(this)">Gil ▼</button>
+                <button class="sort-btn" data-sort="treasure" data-order="desc" onclick="sortCharacters(this)">Treasure ▼</button>
+                <button class="sort-btn" data-sort="fc_points" data-order="desc" onclick="sortCharacters(this)">FC Pts ▼</button>
+                <button class="sort-btn" data-sort="venture_coins" data-order="desc" onclick="sortCharacters(this)">Ventures ▼</button>
+                <button class="sort-btn" data-sort="coffers" data-order="desc" onclick="sortCharacters(this)">Coffers ▼</button>
+                <button class="sort-btn" data-sort="dyes" data-order="desc" onclick="sortCharacters(this)">Dyes ▼</button>
+                <button class="sort-btn" data-sort="tanks" data-order="desc" onclick="sortCharacters(this)">Tanks ▼</button>
+                <button class="sort-btn" data-sort="kits" data-order="desc" onclick="sortCharacters(this)">Kits ▼</button>
+                <button class="sort-btn" data-sort="restock" data-order="asc" onclick="sortCharacters(this)">Restock ▲</button>
+                <button class="sort-btn" data-sort="retainers" data-order="desc" onclick="sortCharacters(this)">Retainers ▼</button>
+                <button class="sort-btn" data-sort="subs" data-order="desc" onclick="sortCharacters(this)">Subs ▼</button>
+            </div>
             <div class="character-grid">
                 {% for char in account.characters %}
-                <div class="character-card" data-char="{{ char.cid }}">
+                <div class="character-card" data-char="{{ char.cid }}" data-level="{{ char.current_level }}" data-gil="{{ char.total_gil }}" data-treasure="{{ char.treasure_value }}" data-fc-points="{{ char.fc_points }}" data-venture-coins="{{ char.venture_coins }}" data-coffers="{{ char.coffer_count }}" data-dyes="{{ char.dye_count }}" data-tanks="{{ char.ceruleum }}" data-kits="{{ char.repair_kits }}" data-restock="{{ char.days_until_restock if char.days_until_restock is not none else 9999 }}" data-retainers="{{ char.ready_retainers }}" data-subs="{{ char.ready_subs }}">
                     <div class="character-header collapsed {% if char.ready_retainers > 0 or char.ready_subs > 0 %}has-available{% endif %}" onclick="toggleCharacter(this)">
                         <div class="char-header-row name-row">
-                            <span class="character-name">{{ char.name }}</span>
-                            <span class="char-status {% if char.ready_retainers > 0 %}available{% else %}all-sent{% endif %}">👤 {{ char.ready_retainers }}/{{ char.total_retainers }} retainers</span>
+                            <span class="character-name">{{ char.name }}{% if char.current_level > 0 %} <span style="font-size: 0.8em; color: var(--text-secondary);">(Lv {{ char.current_level }}, {{ char.current_job }})</span>{% endif %}</span>
+                            <span class="char-status {% if char.ready_retainers > 0 %}available{% else %}all-sent{% endif %}">👤 {{ char.ready_retainers }}/{{ char.total_retainers }}</span>
                         </div>
                         <div class="char-header-row">
                             <span class="character-world">{{ char.world }}{% if char.fc_name %} • {{ char.fc_name }}{% endif %}</span>
-                            <span class="char-status {% if char.ready_subs > 0 %}available{% else %}all-sent{% endif %}">🚢 {{ char.ready_subs }}/{{ char.total_subs }} subs</span>
+                            <span class="char-status {% if char.ready_subs > 0 %}available{% else %}all-sent{% endif %}">🚢 {{ char.ready_subs }}/{{ char.total_subs }}</span>
                         </div>
                         <div class="char-header-row">
-                            <span></span>
+                            <span style="font-size: 0.8em; color: var(--text-secondary);">🪙 {{ "{:,}".format(char.fc_points) }} | 🛒 {{ char.venture_coins }} | 📦 {{ char.coffer_count }} | 🎨 {{ char.dye_count }}</span>
                             <span class="character-gil">{{ "{:,}".format(char.total_gil) }} gil</span>
                         </div>
+                        {% if char.total_subs > 0 %}
+                        <div class="char-header-row">
+                            <span style="font-size: 0.8em; color: var(--text-secondary);">⛽ {{ "{:,}".format(char.ceruleum) }} | 🔧 {{ "{:,}".format(char.repair_kits) }} | <span style="{% if char.days_until_restock is not none and char.days_until_restock < 7 %}color: var(--danger);{% elif char.days_until_restock is not none and char.days_until_restock < 14 %}color: var(--warning);{% endif %}">🔄 {% if char.days_until_restock is not none %}{{ char.days_until_restock }}d{% else %}N/A{% endif %}</span></span>
+                            <span style="font-size: 0.8em; color: var(--gold);">💎 {{ "{:,}".format(char.treasure_value) }}</span>
+                        </div>
+                        {% endif %}
                     </div>
                     <div class="character-body collapsed">
+                        {% if char.current_level > 0 %}
+                        <div class="info-row">
+                            <span class="info-label">Current Class</span>
+                            <span class="info-value">{{ char.current_job }} Lv {{ char.current_level }}</span>
+                        </div>
+                        {% endif %}
                         <div class="info-row">
                             <span class="info-label">Character Gil</span>
                             <span class="info-value">{{ "{:,}".format(char.gil) }}</span>
@@ -1180,14 +1614,38 @@ HTML_TEMPLATE = '''
                             <span class="info-value" style="color: var(--gold);">{{ "{:,}".format(char.treasure_value) }}</span>
                         </div>
                         {% endif %}
+                        {% if char.coffer_dye_value > 0 %}
                         <div class="info-row">
-                            <span class="info-label">Ceruleum Tanks</span>
+                            <span class="info-label">Coffer + Dye Value</span>
+                            <span class="info-value" style="color: var(--accent-light);">{{ "{:,}".format(char.coffer_dye_value) }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="info-row">
+                            <span class="info-label">FC Points 🪙</span>
+                            <span class="info-value">{{ "{:,}".format(char.fc_points) }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Venture Coins 🛒</span>
+                            <span class="info-value">{{ char.venture_coins }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Coffers 📦</span>
+                            <span class="info-value">{{ char.coffer_count }}</span>
+                        </div>
+                        {% if char.total_subs > 0 %}
+                        <div class="info-row">
+                            <span class="info-label">Ceruleum Tanks ⛽</span>
                             <span class="info-value">{{ "{:,}".format(char.ceruleum) }}</span>
                         </div>
                         <div class="info-row">
-                            <span class="info-label">Repair Kits</span>
+                            <span class="info-label">Repair Kits 🔧</span>
                             <span class="info-value">{{ "{:,}".format(char.repair_kits) }}</span>
                         </div>
+                        <div class="info-row">
+                            <span class="info-label">Days Until Restock 🔄</span>
+                            <span class="info-value" style="{% if char.days_until_restock is not none and char.days_until_restock < 7 %}color: var(--danger);{% elif char.days_until_restock is not none and char.days_until_restock < 14 %}color: var(--warning);{% else %}color: var(--success);{% endif %}">{% if char.days_until_restock is not none %}{{ char.days_until_restock }} days{% else %}N/A{% endif %}</span>
+                        </div>
+                        {% endif %}
                         <div class="info-row">
                             <span class="info-label">Daily Income</span>
                             <span class="info-value success">+{{ "{:,}".format(char.daily_income|int) }}</span>
@@ -1198,13 +1656,14 @@ HTML_TEMPLATE = '''
                         </div>
                         
                         {% if char.submarines %}
-                        <div class="section-title collapsible" onclick="toggleCollapse(this)">🚢 Submarines ({{ char.submarines|length }})</div>
+                        <div class="section-title collapsible" onclick="toggleCollapse(this)">🚢 Submarines ({{ char.submarines|length }}) - <span style="color: var(--warning);">Lvl: {{ char.subs_leveling }}</span> | <span style="color: var(--success);">Farm: {{ char.subs_farming }}</span></div>
                         <div class="collapse-content">
                             <table class="sub-table">
                                 <tr>
                                     <th>Name</th>
                                     <th>Lvl</th>
                                     <th>Build</th>
+                                    <th>Plan</th>
                                     <th>Status</th>
                                 </tr>
                                 {% for sub in char.submarines %}
@@ -1212,6 +1671,9 @@ HTML_TEMPLATE = '''
                                     <td>{{ sub.name }}</td>
                                     <td>{{ sub.level }}</td>
                                     <td>{{ sub.build }}</td>
+                                    <td style="{% if sub.is_farming %}color: var(--success);{% else %}color: var(--warning);{% endif %}">
+                                        {% if sub.plan_name %}{{ sub.plan_name }}{% elif sub.is_farming %}Farm{% else %}Lvl{% endif %}
+                                    </td>
                                     <td class="{% if sub.return_formatted == 'Ready!' %}status-ready{% else %}status-voyaging{% endif %}">
                                         {{ sub.return_formatted }}
                                     </td>
@@ -1256,7 +1718,7 @@ HTML_TEMPLATE = '''
         {% endfor %}
         
         <div class="footer">
-            FFXIV AutoRetainer Dashboard v1.02 | Data sourced from AutoRetainer DefaultConfig.json<br>
+            FFXIV AutoRetainer Dashboard v1.03 | Data sourced from AutoRetainer DefaultConfig.json & Altoholic<br>
             <a href="https://github.com/xa-io/ffxiv-tools/tree/main/FFXIV-AutoRetainer-Dashboard" target="_blank" style="color: var(--accent); text-decoration: none;">github.com/xa-io/ffxiv-tools</a>
         </div>
     </div>
@@ -1299,6 +1761,63 @@ HTML_TEMPLATE = '''
             const collapsedChars = JSON.parse(localStorage.getItem('collapsedChars') || '{}');
             collapsedChars[charId] = isCollapsed;
             localStorage.setItem('collapsedChars', JSON.stringify(collapsedChars));
+        }
+        
+        function sortCharacters(btn) {
+            const sortBar = btn.closest('.sort-bar');
+            const accountContent = btn.closest('.account-content');
+            const grid = accountContent.querySelector('.character-grid');
+            const cards = Array.from(grid.querySelectorAll('.character-card'));
+            
+            const sortKey = btn.dataset.sort;
+            let order = btn.dataset.order;
+            
+            // Toggle order if clicking same button
+            if (btn.classList.contains('active')) {
+                order = order === 'asc' ? 'desc' : 'asc';
+                btn.dataset.order = order;
+            }
+            
+            // Update button text with arrow
+            const btnText = btn.textContent.replace(/ [▲▼]$/, '');
+            btn.textContent = btnText + (order === 'asc' ? ' ▲' : ' ▼');
+            
+            // Remove active from other buttons, add to this one
+            sortBar.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Map sort keys to data attributes
+            const attrMap = {
+                'level': 'level',
+                'gil': 'gil',
+                'treasure': 'treasure',
+                'fc_points': 'fc-points',
+                'venture_coins': 'venture-coins',
+                'coffers': 'coffers',
+                'dyes': 'dyes',
+                'tanks': 'tanks',
+                'kits': 'kits',
+                'restock': 'restock',
+                'retainers': 'retainers',
+                'subs': 'subs'
+            };
+            
+            const attr = attrMap[sortKey];
+            
+            // Sort cards
+            cards.sort((a, b) => {
+                const aVal = parseFloat(a.dataset[attr.replace(/-([a-z])/g, (g) => g[1].toUpperCase())]) || 0;
+                const bVal = parseFloat(b.dataset[attr.replace(/-([a-z])/g, (g) => g[1].toUpperCase())]) || 0;
+                
+                if (order === 'asc') {
+                    return aVal - bVal;
+                } else {
+                    return bVal - aVal;
+                }
+            });
+            
+            // Re-append in sorted order
+            cards.forEach(card => grid.appendChild(card));
         }
         
         function restoreCollapsedState() {
