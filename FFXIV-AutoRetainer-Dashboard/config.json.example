@@ -19,5 +19,28 @@
             "pluginconfigs_path": "C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs",
             "enabled": false
         }
-    ]
+    ],
+
+    "submarine_plans": {
+        "leveling": [
+            "Level Up Default",
+            "Unlock All Sectors",
+            "XP Grind"
+        ],
+        "farming": {
+            "OJ": 118661,
+            "Yummy OJ": 118661,
+            "Overseer OJ": 118661,
+            "JORZ": 140404,
+            "MROJZ": 116206,
+            "Custom Route 1": 80000
+        }
+    },
+
+    "item_values": {
+        "venture_coffer": 18000,
+        "pure_white_dye": 450000,
+        "jet_black_dye": 600000,
+        "pastel_pink_dye": 40000
+    }
 }
