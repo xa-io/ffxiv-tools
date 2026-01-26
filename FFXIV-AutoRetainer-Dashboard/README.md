@@ -1,19 +1,23 @@
-# FFXIV AutoRetainer Dashboard v1.05
+# FFXIV AutoRetainer Dashboard v1.08
 
-A self-hosted web dashboard that displays FFXIV character data from AutoRetainer's DefaultConfig.json and Altoholic's altoholic.db. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, marketboard items, gil totals, income/cost calculations, and comprehensive supply tracking.
+A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, income/cost calculations, and comprehensive supply tracking.
 
-<img width="1406" height="1636" alt="image" src="https://github.com/user-attachments/assets/2720d703-5fc4-4d56-95fe-e9e46c6b3fa0" />
+<img width="1368" height="1742" alt="image" src="https://github.com/user-attachments/assets/36cd10a4-38c5-4cc5-87d7-14fd7b3b29b8" />
 
 ## Features
 
 - **Self-Hosted Web Server**: Flask-based server with configurable host/port (default: `127.0.0.1:1234`)
-- **Real-Time Data**: Parses AutoRetainer DefaultConfig.json on each page load
+- **Real-Time Data**: Parses AutoRetainer, Altoholic, and Lifestream configs on each page load
 - **Altoholic Integration**: Reads treasure values, venture coins, coffers, dyes, and job levels from Altoholic's altoholic.db
+- **Lifestream Integration**: Reads housing data (Personal House and FC House locations)
 - **Submarine Plan Detection**: Automatically detects leveling vs farming submarines based on AutoRetainer plan names
 - **Configurable Plan Earnings**: Set custom average earnings per submarine plan route
 - **Supply Tracking**: Displays ceruleum tanks, repair kits, and days until restocking needed
+- **Inventory Tracking**: Shows inventory space used per character with color-coded warnings
 - **Multi-Account Support**: Configure multiple accounts via config.json
-- **Anonymize**: Hides personal data for screenshots (names, worlds, FCs, retainers, subs)
+- **Sorting**: Sort characters by level, gil, treasure, FC points, ventures, inventory, retainer/submarine levels
+- **Filtering**: Filter characters by retainers, submarines, personal house, or FC house
+- **Anonymize**: Hides personal data for screenshots (names, worlds, FCs, housing addresses show TOP SECRET)
 - **Expand All / Collapse All**: Expand or collapse all character cards
 - **Auto-Refresh**: Configurable auto-refresh interval (default: 60 seconds)
 - **Modern UI**: Dark-themed responsive design with collapsible sections
@@ -38,10 +42,12 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 
 - Character name, world, and FC
 - Current class and level (from Altoholic)
+- Personal House and FC House locations (from Lifestream)
 - Character gil + Retainer gil
 - Treasure value (salvaged rings, bracelets, etc.)
 - Coffer + Dye estimated value
 - FC Points, Venture Coins, and Coffer count
+- Inventory space used (color-coded: red >= 130, yellow >= 100)
 - Ceruleum tanks and Repair kits inventory (for characters with submarines)
 - Days until restocking needed (color-coded: red <7 days, yellow <14 days)
 - Daily income and cost estimates
@@ -247,6 +253,26 @@ FFXIV - Landing Page/
 Created by: https://github.com/xa-io
 
 ## Version History
+
+### v1.08 (2026-01-26)
+
+- **Housing Filter Buttons**: Added Personal House and FC House filter buttons to show only characters with houses
+- **Level Sort Buttons**: Added Retainer Lv and Submarine Lv sort buttons for sorting by max retainer/submarine level
+- **Compact Sort Buttons**: Renamed sort buttons to emojis for more compact display
+- **Anonymization Improvements**: Housing addresses now show "TOP SECRET" in red when anonymized, housing icons preserved in character header
+
+### v1.07 (2026-01-26)
+
+- **Housing Information**: Added housing data from Lifestream DefaultConfig.json
+- **Personal House Display**: Shows Personal House icon and location after character level/class
+- **FC House Display**: Shows FC House icon and location for characters with FC housing
+- **Housing Format**: Displays as "Mist W1 P15" for Ward 1, Plot 15 in Mist district
+
+### v1.06 (2026-01-26)
+
+- **Inventory Space Tracking**: Displays 🎒 X/140 in character summary card after FC name
+- **Inventory Breakdown**: Added Inventory row in character expanded details with color coding (red >= 130, yellow >= 100)
+- **Inventory Sorting**: Added "Inventory ▼" sort button to sort characters by inventory slots used
 
 ### v1.05 (2026-01-26)
 
