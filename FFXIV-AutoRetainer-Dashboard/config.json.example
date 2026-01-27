@@ -3,6 +3,9 @@
     "PORT": 1234,
     "DEBUG": false,
     "AUTO_REFRESH": 60,
+    "MINIMUM_MSQ_QUESTS": 5,
+    "SHOW_CLASSES": true,
+    "SHOW_CURRENCIES": true,
     "account_locations": [
         {
             "nickname": "Main",
