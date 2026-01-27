@@ -1,8 +1,8 @@
-# FFXIV AutoRetainer Dashboard v1.11
+# FFXIV AutoRetainer Dashboard v1.12
 
 A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression, job levels, currencies, income/cost calculations, and comprehensive supply tracking.
 
-<img width="1451" height="3385" alt="image" src="https://github.com/user-attachments/assets/244642b1-2b1f-44f4-a4bf-cf3260c17223" />
+<img width="1446" height="2153" alt="image" src="https://github.com/user-attachments/assets/34d11957-3de8-48c9-a906-18ebc7285f8e" />
 
 ## Features
 
@@ -21,6 +21,7 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 - **Player Name Copy**: Easy copy/paste of Name@World format
 - **Sorting**: Sort characters by level, gil, treasure, FC points, ventures, inventory, MSQ%, retainer/submarine levels
 - **Filtering**: Filter characters by retainers, submarines, personal house, or FC house
+- **Hide Money Stats**: Privatize earnings for screenshots (replaces financial data with *****)
 - **Anonymize**: Hides personal data for screenshots (names, worlds, FCs, housing addresses show TOP SECRET)
 - **Expand All / Collapse All**: Expand or collapse all character cards
 - **Auto-Refresh**: Configurable auto-refresh interval (default: 60 seconds)
@@ -283,6 +284,19 @@ FFXIV - Landing Page/
 Created by: https://github.com/xa-io
 
 ## Version History
+
+### v1.12 (2026-01-27)
+
+- **Hide Money Stats Button**: New 💰 button to privatize financial information for screenshots
+- **Comprehensive Hiding**: Replaces values with ***** for:
+  - **Summary Cards**: Total gil, FC points, treasure value, gil+treasure, coffers+dyes, subs, retainers, MB items, monthly income/cost/profit, annual income
+  - **Account Tabs**: Total gil, treasure, subs, retainers, MB items
+  - **Character Cards**: Gil, treasure value, FC points, venture coins, coffers, dyes, tanks, kits, restock days
+  - **Expanded Details**: Character gil, retainer gil, coffer+dye value, FC points, venture coins, coffers, tanks, kits, daily income/cost
+  - **Retainer Table**: Level and gil columns
+  - **Submarine Table**: Level, build, and status columns
+- **Currencies Unaffected**: Currencies dropdown displays normally (crystals, tomestones, etc.)
+- **Toggle Behavior**: Button changes from 💰 to 💸 when active, click again to restore values
 
 ### v1.11 (2026-01-26)
 
