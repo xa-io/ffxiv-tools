@@ -11,28 +11,47 @@
 #
 # A comprehensive web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream.
 # Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers,
-# housing locations, marketboard items, gil totals, inventory tracking, and income/cost calculations.
+# housing locations, marketboard items, gil totals, inventory tracking, MSQ progression, job levels,
+# currencies, income/cost calculations, and comprehensive supply tracking.
 #
 # Core Features:
 # • Self-hosted Flask web server with configurable host/port
 # • Real-time data parsing from AutoRetainer, Altoholic, and Lifestream configs
 # • Character overview with gil, FC points, venture coins, coffers, dyes, and inventory
+# • MSQ progression tracking with color-coded percentage (green ≥90%, yellow ≥50%, gray <50%)
+# • Job level display: DoW/DoM and DoH/DoL collapsible sections with all job levels
+# • Currency tracking: Categorized display (Crystals, Common, Tomestones, Battle, Societies)
 # • Submarine tracking with builds, levels, plans (leveling/farming), and return times
 # • Retainer details with venture status, levels, and marketboard items
 # • Housing display showing Personal House and FC House locations
-# • Sorting by level, gil, treasure, FC points, ventures, inventory, retainer/sub levels
+# • Sorting by level, gil, treasure, FC points, ventures, inventory, MSQ%, retainer/sub levels
 # • Filtering by retainers, submarines, personal house, and FC house
 # • Anonymize mode for screenshots (hides names, addresses with TOP SECRET)
+# • Configurable display options (MINIMUM_MSQ_QUESTS, SHOW_CLASSES, SHOW_CURRENCIES)
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.08
+# Landing Page v1.11
 # FFXIV AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-26 16:00:00
+# Last Updated: 2026-01-26 21:00:00
 #
 # ## Release Notes ##
 #
+# v1.11 - Improved Currencies display with categories and shortened names
+#         Categories: Crystals, Common, Tomestones, Battle, Societies, Other
+#         Shortened verbose names (e.g., "Allagan_Tomestone_Of_Poetics" → "Poetics")
+#         Compact flexbox layout prevents overflow and saves space
+# v1.10 - Added MSQ (Main Scenario Quest) progression percentage display
+#         Shows "MSQ: X%" after Lv/Class, before housing icons
+#         Color coded: green (≥90%), yellow (≥50%), gray (<50%)
+#         Tooltip shows completed/total quest count
+#         Quest data fetched from XIVAPI and cached locally
+#         Extracts completed quests from Altoholic database
+# v1.09 - Added Player Name@World row in expanded section for easy copy/paste
+#         Added DoW/DoM collapsible section showing all combat job levels (final jobs only)
+#         Added DoH/DoL collapsible section showing all crafter/gatherer levels
+#         Added Currencies collapsible section showing all currencies character has
 # v1.08 - Added Personal House and FC House filter buttons (show only characters with houses)
 #         Added Retainer Lv and Submarine Lv sort buttons for min/max levels
 #         Renamed sort buttons to emojis for compact display
@@ -82,6 +101,11 @@ HOST = "127.0.0.1"      # Server host address (use "0.0.0.0" for network access)
 PORT = 1234             # Server port number
 DEBUG = False           # Flask debug mode (set True for development)
 AUTO_REFRESH = 60       # Auto-refresh interval in seconds (0 to disable)
+
+# Display options
+MINIMUM_MSQ_QUESTS = 5  # Minimum MSQ quests to show MSQ progress (0 to always show)
+SHOW_CLASSES = True     # Show DoW/DoM and DoH/DoL job sections
+SHOW_CURRENCIES = True  # Show currencies section
 
 # ===============================================
 # External config file (optional)
@@ -291,6 +315,233 @@ JOB_ABBREVIATIONS = {
 }
 
 # ===============================================
+# Job Categories for DoW/DoM and DoH/DoL display
+# Shows only final job classes (not starter classes)
+# ===============================================
+JOB_CATEGORIES = {
+    "Tank": ["Paladin", "Warrior", "DarkKnight", "Gunbreaker"],
+    "Healer": ["WhiteMage", "Scholar", "Astrologian", "Sage"],
+    "MeleeDPS": ["Monk", "Dragoon", "Ninja", "Samurai", "Reaper", "Viper"],
+    "PhysRangedDPS": ["Bard", "Machinist", "Dancer"],
+    "MagicRangedDPS": ["BlackMage", "Summoner", "RedMage", "Pictomancer", "BlueMage"],
+    "DoH": ["Carpenter", "Blacksmith", "Armorer", "Goldsmith", "Leatherworker", "Weaver", "Alchemist", "Culinarian"],
+    "DoL": ["Miner", "Botanist", "Fisher"],
+}
+
+# Map base classes to their upgraded jobs (for level lookup)
+# If a character has Gladiator level but not Paladin, use Gladiator level for Paladin display
+JOB_BASE_CLASS = {
+    "Paladin": "Gladiator",
+    "Warrior": "Marauder",
+    "WhiteMage": "Conjurer",
+    "BlackMage": "Thaumaturge",
+    "Bard": "Archer",
+    "Dragoon": "Lancer",
+    "Monk": "Pugilist",
+    "Summoner": "Arcanist",
+    "Scholar": "Arcanist",
+    "Ninja": "Rogue",
+}
+
+# Combat jobs only (for MSQ level validation - excludes DoH/DoL)
+COMBAT_JOBS = set(
+    JOB_CATEGORIES["Tank"] + JOB_CATEGORIES["Healer"] + 
+    JOB_CATEGORIES["MeleeDPS"] + JOB_CATEGORIES["PhysRangedDPS"] + 
+    JOB_CATEGORIES["MagicRangedDPS"]
+)
+
+# Map job names to display names (handles CamelCase to spaced names)
+JOB_DISPLAY_NAMES = {
+    "Paladin": "Paladin", "Warrior": "Warrior", "DarkKnight": "Dark Knight", "Gunbreaker": "Gunbreaker",
+    "WhiteMage": "White Mage", "Scholar": "Scholar", "Astrologian": "Astrologian", "Sage": "Sage",
+    "Monk": "Monk", "Dragoon": "Dragoon", "Ninja": "Ninja", "Samurai": "Samurai", "Reaper": "Reaper", "Viper": "Viper",
+    "Bard": "Bard", "Machinist": "Machinist", "Dancer": "Dancer",
+    "BlackMage": "Black Mage", "Summoner": "Summoner", "RedMage": "Red Mage", "Pictomancer": "Pictomancer", "BlueMage": "Blue Mage",
+    "Carpenter": "Carpenter", "Blacksmith": "Blacksmith", "Armorer": "Armorer", "Goldsmith": "Goldsmith",
+    "Leatherworker": "Leatherworker", "Weaver": "Weaver", "Alchemist": "Alchemist", "Culinarian": "Culinarian",
+    "Miner": "Miner", "Botanist": "Botanist", "Fisher": "Fisher",
+}
+
+# ===============================================
+# Currency Categories and Display Names
+# ===============================================
+# Categories for organizing currencies in the UI
+CURRENCY_CATEGORIES = {
+    "Crystals": [
+        "Fire_Shard", "Fire_Crystal", "Fire_Cluster",
+        "Ice_Shard", "Ice_Crystal", "Ice_Cluster",
+        "Wind_Shard", "Wind_Crystal", "Wind_Cluster",
+        "Earth_Shard", "Earth_Crystal", "Earth_Cluster",
+        "Lightning_Shard", "Lightning_Crystal", "Lightning_Cluster",
+        "Water_Shard", "Water_Crystal", "Water_Cluster",
+    ],
+    "Common": [
+        "Gil", "MGP", "Venture", "Bicolor_Gemstone",
+    ],
+    "Tomestones": [
+        "Allagan_Tomestone_Of_Poetics", "Allagan_Tomestone_Of_Aesthetics",
+        "Allagan_Tomestone_Of_Heliometry", "Allagan_Tomestone_Of_Causality",
+        "Allagan_Tomestone_Of_Comedy", "Allagan_Tomestone_Of_Astronomy",
+        "Allagan_Tomestone_Of_Aphorism", "Allagan_Tomestone_Of_Revelation",
+        "Allagan_Tomestone_Of_Allegory", "Allagan_Tomestone_Of_Phantasmagoria",
+        "Allagan_Tomestone_Of_Goetia", "Allagan_Tomestone_Of_Genesis",
+        "Allagan_Tomestone_Of_Mendacity", "Allagan_Tomestone_Of_Creation",
+        "Allagan_Tomestone_Of_Verity", "Allagan_Tomestone_Of_Scripture",
+        "Allagan_Tomestone_Of_Lore", "Allagan_Tomestone_Of_Esoterics",
+        "Allagan_Tomestone_Of_Law", "Allagan_Tomestone_Of_Soldiery",
+        "Allagan_Tomestone_Of_Poetics", "Allagan_Tomestone_Of_Mythology",
+        "Allagan_Tomestone_Of_Philosophy", "Allagan_Tomestone_Of_Mnemosyne",
+        "Allagan_Tomestone_Of_Mathematics",
+    ],
+    "Battle": [
+        "Wolf_Mark", "Trophy_Crystal", "Allied_Seal", "Centurio_Seal",
+        "Sack_Of_Nuts", "Faux_Leaf", "Bozjan_Cluster", "Flame_Seal",
+        "Serpent_Seal", "Storm_Seal", "Achievement_Certificate",
+    ],
+    "Societies": [
+        "Fae_Fancy", "Hammered_Frogment", "Carved_Kupo_Nut",
+        "Loporrit_Carat", "Omicron_Omnitoken", "Seafarer's_Cowrie",
+        "Ananta_Dreamstaff", "Arkasodara_Pana", "Black_Copper_Gil",
+        "Kojin_Sango", "Namazu_Koban", "Pixie_Locket", "Qitari_Compliment",
+        "Steel_Amalj'ok", "Sylphic_Goldleaf", "Titan_Cobaltpiece",
+        "Tribal_Quest_Allowance",
+    ],
+}
+
+# Shorten currency names for display
+CURRENCY_SHORT_NAMES = {
+    # Tomestones - remove "Allagan_Tomestone_Of_"
+    "Allagan_Tomestone_Of_Poetics": "Poetics",
+    "Allagan_Tomestone_Of_Aesthetics": "Aesthetics",
+    "Allagan_Tomestone_Of_Heliometry": "Heliometry",
+    "Allagan_Tomestone_Of_Causality": "Causality",
+    "Allagan_Tomestone_Of_Comedy": "Comedy",
+    "Allagan_Tomestone_Of_Astronomy": "Astronomy",
+    "Allagan_Tomestone_Of_Aphorism": "Aphorism",
+    "Allagan_Tomestone_Of_Revelation": "Revelation",
+    "Allagan_Tomestone_Of_Allegory": "Allegory",
+    "Allagan_Tomestone_Of_Phantasmagoria": "Phantasmagoria",
+    "Allagan_Tomestone_Of_Goetia": "Goetia",
+    "Allagan_Tomestone_Of_Genesis": "Genesis",
+    "Allagan_Tomestone_Of_Mendacity": "Mendacity",
+    "Allagan_Tomestone_Of_Creation": "Creation",
+    "Allagan_Tomestone_Of_Verity": "Verity",
+    "Allagan_Tomestone_Of_Scripture": "Scripture",
+    "Allagan_Tomestone_Of_Lore": "Lore",
+    "Allagan_Tomestone_Of_Esoterics": "Esoterics",
+    "Allagan_Tomestone_Of_Law": "Law",
+    "Allagan_Tomestone_Of_Soldiery": "Soldiery",
+    "Allagan_Tomestone_Of_Mythology": "Mythology",
+    "Allagan_Tomestone_Of_Philosophy": "Philosophy",
+    "Allagan_Tomestone_Of_Mnemosyne": "Mnemosyne",
+    "Allagan_Tomestone_Of_Mathematics": "Mathematics",
+    # Crystals - remove underscores
+    "Fire_Shard": "Fire Shard", "Fire_Crystal": "Fire Crystal", "Fire_Cluster": "Fire Cluster",
+    "Ice_Shard": "Ice Shard", "Ice_Crystal": "Ice Crystal", "Ice_Cluster": "Ice Cluster",
+    "Wind_Shard": "Wind Shard", "Wind_Crystal": "Wind Crystal", "Wind_Cluster": "Wind Cluster",
+    "Earth_Shard": "Earth Shard", "Earth_Crystal": "Earth Crystal", "Earth_Cluster": "Earth Cluster",
+    "Lightning_Shard": "Lightning Shard", "Lightning_Crystal": "Lightning Crystal", "Lightning_Cluster": "Lightning Cluster",
+    "Water_Shard": "Water Shard", "Water_Crystal": "Water Crystal", "Water_Cluster": "Water Cluster",
+    # Common - clean up underscores
+    "Bicolor_Gemstone": "Bicolor Gemstone",
+    # Battle
+    "Wolf_Mark": "Wolf Marks", "Trophy_Crystal": "Trophy Crystal", "Allied_Seal": "Allied Seals",
+    "Centurio_Seal": "Centurio Seals", "Sack_Of_Nuts": "Sack of Nuts", "Faux_Leaf": "Faux Leaves",
+    "Bozjan_Cluster": "Bozjan Clusters", "Flame_Seal": "Flame Seals", "Serpent_Seal": "Serpent Seals",
+    "Storm_Seal": "Storm Seals", "Achievement_Certificate": "Achievement Cert",
+    # Societies
+    "Fae_Fancy": "Fae Fancy", "Hammered_Frogment": "Hammered Frogment", "Carved_Kupo_Nut": "Carved Kupo Nut",
+    "Loporrit_Carat": "Loporrit Carat", "Omicron_Omnitoken": "Omicron Omnitoken",
+    "Seafarer's_Cowrie": "Seafarer's Cowrie", "Ananta_Dreamstaff": "Ananta Dreamstaff",
+    "Arkasodara_Pana": "Arkasodara Pana", "Black_Copper_Gil": "Black Copper Gil",
+    "Kojin_Sango": "Kojin Sango", "Namazu_Koban": "Namazu Koban", "Pixie_Locket": "Pixie Locket",
+    "Qitari_Compliment": "Qitari Compliment", "Steel_Amalj'ok": "Steel Amalj'ok",
+    "Sylphic_Goldleaf": "Sylphic Goldleaf", "Titan_Cobaltpiece": "Titan Cobaltpiece",
+    "Tribal_Quest_Allowance": "Tribal Allowance",
+}
+
+
+def get_currency_display_name(currency_name):
+    """Get shortened display name for a currency"""
+    if currency_name in CURRENCY_SHORT_NAMES:
+        return CURRENCY_SHORT_NAMES[currency_name]
+    # Fallback: replace underscores with spaces
+    return currency_name.replace("_", " ")
+
+
+def categorize_currencies(currencies_dict):
+    """
+    Categorize currencies into groups for display.
+    Returns dict with:
+      - 'crystal_grid': dict of element -> {'Shard': val, 'Crystal': val, 'Cluster': val}
+      - 'categories': dict of category -> [(display_name, value), ...]
+    """
+    # Crystal elements in display order
+    CRYSTAL_ELEMENTS = ["Fire", "Ice", "Wind", "Earth", "Lightning", "Water"]
+    
+    # Build crystal grid: element -> {type: value}
+    crystal_grid = {elem: {"Shard": 0, "Crystal": 0, "Cluster": 0} for elem in CRYSTAL_ELEMENTS}
+    
+    # Other categories
+    categorized = {
+        "Common": [],
+        "Tomestones": [],
+        "Battle": [],
+        "Societies": [],
+        "Other": [],
+    }
+    
+    for curr_name, curr_value in currencies_dict.items():
+        # Check if it's a crystal
+        is_crystal = False
+        for elem in CRYSTAL_ELEMENTS:
+            if curr_name.startswith(elem + "_"):
+                is_crystal = True
+                if curr_name.endswith("_Shard"):
+                    crystal_grid[elem]["Shard"] = curr_value
+                elif curr_name.endswith("_Crystal"):
+                    crystal_grid[elem]["Crystal"] = curr_value
+                elif curr_name.endswith("_Cluster"):
+                    crystal_grid[elem]["Cluster"] = curr_value
+                break
+        
+        if is_crystal:
+            continue
+        
+        # Check other categories
+        display_name = get_currency_display_name(curr_name)
+        found_category = False
+        
+        for cat_name, cat_currencies in CURRENCY_CATEGORIES.items():
+            if cat_name == "Crystals":
+                continue  # Already handled
+            if curr_name in cat_currencies:
+                categorized[cat_name].append((display_name, curr_value))
+                found_category = True
+                break
+        
+        if not found_category:
+            categorized["Other"].append((display_name, curr_value))
+    
+    # Sort each category alphabetically by display name
+    for cat_name in categorized:
+        categorized[cat_name].sort(key=lambda x: x[0])
+    
+    # Check if character has any crystals
+    has_crystals = any(
+        crystal_grid[elem][t] > 0 
+        for elem in CRYSTAL_ELEMENTS 
+        for t in ["Shard", "Crystal", "Cluster"]
+    )
+    
+    return {
+        "crystal_grid": crystal_grid if has_crystals else None,
+        "crystal_elements": CRYSTAL_ELEMENTS,
+        "categories": {k: v for k, v in categorized.items() if v}
+    }
+
+
+# ===============================================
 # Residential District Mapping (Lifestream)
 # ===============================================
 RESIDENTIAL_DISTRICTS = {
@@ -398,6 +649,7 @@ def load_external_config():
     """Load external config file if it exists"""
     global HOST, PORT, DEBUG, AUTO_REFRESH, account_locations
     global submarine_plans, retainer_plans, item_values
+    global MINIMUM_MSQ_QUESTS, SHOW_CLASSES, SHOW_CURRENCIES
     
     config_path = Path(__file__).parent / CONFIG_FILE
     if not config_path.exists():
@@ -411,6 +663,9 @@ def load_external_config():
         PORT = config.get("PORT", PORT)
         DEBUG = config.get("DEBUG", DEBUG)
         AUTO_REFRESH = config.get("AUTO_REFRESH", AUTO_REFRESH)
+        MINIMUM_MSQ_QUESTS = config.get("MINIMUM_MSQ_QUESTS", MINIMUM_MSQ_QUESTS)
+        SHOW_CLASSES = config.get("SHOW_CLASSES", SHOW_CLASSES)
+        SHOW_CURRENCIES = config.get("SHOW_CURRENCIES", SHOW_CURRENCIES)
         
         if "account_locations" in config:
             new_locations = []
@@ -559,6 +814,1127 @@ def _safe_json_load(s):
         return None
 
 
+# ===============================================
+# MSQ Quest Tracking - Chronological Quest List with Names
+# ===============================================
+# Complete MSQ quest data in CHRONOLOGICAL ORDER (955 trackable quests)
+# Format: (quest_id, quest_name) tuples
+# Progress is calculated by finding the HIGHEST position MSQ quest the character has
+# This approach works even if Altoholic only tracks partial quest history
+#
+# Note: ~40 quests from quests.txt are not in quest_cache.json and cannot be tracked
+# Total expected MSQ: ~993 | Trackable: 955 (938 base + 17 patch 7.x)
+#
+# Covers: ARR -> Seventh Astral Era -> Heavensward -> Dragonsong War ->
+#         Stormblood -> Post-Ala Mhigan -> Shadowbringers -> Endwalker ->
+#         Newfound Adventure -> Dawntrail -> Crossroads -> Into the Mist
+MSQ_QUEST_DATA = [
+    (65564, "To the Bannock"),  # 1
+    (65621, "Close to Home"),  # 2
+    (65644, "Close to Home"),  # 3
+    (65645, "Close to Home"),  # 4
+    (65659, "Close to Home"),  # 5
+    (65660, "Close to Home"),  # 6
+    (65665, "Spirithold Broken"),  # 7
+    (65697, "Leia's Legacy"),  # 8
+    (65711, "Surveying the Damage"),  # 9
+    (65712, "On to Bentbranch"),  # 10
+    (65737, "Passing Muster"),  # 11
+    (65781, "It's Probably Pirates"),  # 12
+    (65808, "Life, Materia and Everything"),  # 13
+    (65839, "Step Nine"),  # 14
+    (65843, "Out of House and Home"),  # 15
+    (65856, "Way Down in the Hole"),  # 16
+    (65864, "Supply and Demands"),  # 17
+    (65865, "The Perfect Swarm"),  # 18
+    (65866, "Last Letter to Lost Hope"),  # 19
+    (65868, "Passing the Blade"),  # 20
+    (65869, "Following Footfalls"),  # 21
+    (65870, "Storms on the Horizon"),  # 22
+    (65872, "Oh Captain, My Captain"),  # 23
+    (65879, "Lord of the Inferno"),  # 24
+    (65912, "You Shall Not Trespass"),  # 25
+    (65913, "Don't Look Down"),  # 26
+    (65915, "In the Grim Darkness of the Forest"),  # 27
+    (65916, "Threat Level Elevated"),  # 28
+    (65917, "Migrant Marauders"),  # 29
+    (65920, "A Hearer Is Often Late"),  # 30
+    (65923, "Salvaging the Scene"),  # 31
+    (65933, "Sky-high"),  # 32
+    (65938, "Thanks a Million"),  # 33
+    (65939, "Relighting the Torch"),  # 34
+    (65942, "On to the Drydocks"),  # 35
+    (65948, "Without a Doubt"),  # 36
+    (65949, "Do Angry Pirates Dream"),  # 37
+    (65950, "Victory in Peril"),  # 38
+    (65951, "Righting the Shipwright"),  # 39
+    (65981, "Chasing Shadows"),  # 40
+    (65982, "Dread Is in the Air"),  # 41
+    (65983, "To Guard a Guardian"),  # 42
+    (65984, "Festive Endeavors"),  # 43
+    (65985, "Renewing the Covenant"),  # 44
+    (65998, "On to Summerford"),  # 45
+    (65999, "Dressed to Call"),  # 46
+    (66001, "Washed Up"),  # 47
+    (66002, "Double Dealing"),  # 48
+    (66003, "Loam Maintenance"),  # 49
+    (66004, "Plowshares to Swords"),  # 50
+    (66005, "Just Deserts"),  # 51
+    (66039, "Give It to Me Raw"),  # 52
+    (66043, "The Gridanian Envoy"),  # 53
+    (66045, "The Scions of the Seventh Dawn"),  # 54
+    (66046, "A Wild Rose by Any Other Name"),  # 55
+    (66047, "A Hero in the Making"),  # 56
+    (66049, "Sylph-management"),  # 57
+    (66050, "Into the Beast's Maw"),  # 58
+    (66052, "Wrath of the Titan"),  # 59
+    (66053, "All Good Things"),  # 60
+    (66054, "Eyes on Me"),  # 61
+    (66055, "Lady of the Vortex"),  # 62
+    (66056, "Reclamation"),  # 63
+    (66057, "Escape from Castrum Centri"),  # 64
+    (66058, "The Black Wolf's Ultimatum"),  # 65
+    (66064, "The Ul'dahn Envoy"),  # 66
+    (66079, "Lurkers in the Grotto"),  # 67
+    (66080, "Feint and Strike"),  # 68
+    (66081, "A Mizzenmast Repast"),  # 69
+    (66082, "The Lominsan Envoy"),  # 70
+    (66086, "Underneath the Sultantree"),  # 71
+    (66087, "Duty, Honor, Country"),  # 72
+    (66088, "A Royal Reception"),  # 73
+    (66104, "Close to Home"),  # 74
+    (66105, "Close to Home"),  # 75
+    (66106, "Close to Home"),  # 76
+    (66110, "Dressed to Deceive"),  # 77
+    (66131, "We Must Rebuild"),  # 78
+    (66154, "Unsolved Mystery"),  # 79
+    (66155, "What Poor People Think"),  # 80
+    (66156, "A Proper Burial"),  # 81
+    (66157, "For the Children"),  # 82
+    (66158, "Amalj'aa Wrong Places"),  # 83
+    (66159, "Takin' What They're Givin'"),  # 84
+    (66164, "Secrets and Lies"),  # 85
+    (66177, "A Matter of Tradition"),  # 86
+    (66196, "Into a Copper Hell"),  # 87
+    (66207, "Nothing to See Here"),  # 88
+    (66209, "Call of the Sea"),  # 89
+    (66210, "Call of the Sea"),  # 90
+    (66212, "Call of the Forest"),  # 91
+    (66213, "Fire in the Gloom"),  # 92
+    (66214, "Call of the Desert"),  # 93
+    (66216, "The Company You Keep (Twin Adder)"),  # 94
+    (66217, "The Company You Keep (Maelstrom)"),  # 95
+    (66218, "The Company You Keep (Immortal Flames)"),  # 96
+    (66219, "Wood's Will Be Done"),  # 97
+    (66220, "Till Sea Swallows All"),  # 98
+    (66221, "For Coin and Country"),  # 99
+    (66225, "Men of the Blue Tattoos"),  # 100
+    (66226, "High Society"),  # 101
+    (66245, "Sylphic Studies"),  # 102
+    (66246, "First Impressions"),  # 103
+    (66251, "First Contact"),  # 104
+    (66255, "Presence of the Enemy"),  # 105
+    (66260, "Brotherly Love"),  # 106
+    (66261, "Spirited Away"),  # 107
+    (66273, "Like Fine Wine"),  # 108
+    (66274, "Sylphish Concerns"),  # 109
+    (66279, "A Simple Gift"),  # 110
+    (66280, "Believe in Your Sylph"),  # 111
+    (66282, "Back from the Wood"),  # 112
+    (66283, "Shadow of Darkness"),  # 113
+    (66284, "Highbridge Times"),  # 114
+    (66292, "Where There Is Smoke"),  # 115
+    (66293, "On to Little Ala Mhigo"),  # 116
+    (66297, "Tea for Three"),  # 117
+    (66298, "Foot in the Door"),  # 118
+    (66299, "Meeting with the Resistance"),  # 119
+    (66301, "Killing Him Softly"),  # 120
+    (66310, "Helping Horn"),  # 121
+    (66311, "He Ain't Heavy"),  # 122
+    (66312, "Come Highly Recommended"),  # 123
+    (66313, "The Bear and the Young'uns' Cares"),  # 124
+    (66314, "Wilred Wants You"),  # 125
+    (66318, "Big Trouble in Little Ala Mhigo"),  # 126
+    (66319, "Back to Square One"),  # 127
+    (66322, "Seeing Eye to Winged Eye"),  # 128
+    (66323, "Rock of Rancor"),  # 129
+    (66335, "Power of Deduction"),  # 130
+    (66336, "Secret of the White Lily"),  # 131
+    (66337, "Skeletons in Her Closet"),  # 132
+    (66345, "Tales from the Tidus Slayer"),  # 133
+    (66346, "Hungry Hungry Goobbues"),  # 134
+    (66347, "The Lominsan Way"),  # 135
+    (66348, "Nix That"),  # 136
+    (66350, "A Modest Proposal"),  # 137
+    (66357, "The Perfect Prey"),  # 138
+    (66358, "When the Worm Turns"),  # 139
+    (66367, "There and Back Again"),  # 140
+    (66368, "The Things We Do for Cheese"),  # 141
+    (66376, "An Offer You Can Refuse"),  # 142
+    (66379, "It Won't Work"),  # 143
+    (66381, "Give a Man a Drink"),  # 144
+    (66382, "That Weight"),  # 145
+    (66384, "Battle Scars"),  # 146
+    (66386, "It Was a Very Good Year"),  # 147
+    (66391, "In the Company of Heroes"),  # 148
+    (66392, "As You Wish"),  # 149
+    (66393, "Lord of Crags"),  # 150
+    (66412, "Bringing out the Dead"),  # 151
+    (66414, "Bury Me Not on the Lone Prairie"),  # 152
+    (66419, "He Who Waited Behind"),  # 153
+    (66420, "Cold Reception"),  # 154
+    (66422, "The Unending War"),  # 155
+    (66423, "Men of Honor"),  # 156
+    (66425, "Three for Three"),  # 157
+    (66426, "The Rose and the Unicorn"),  # 158
+    (66433, "The Talk of Coerthas"),  # 159
+    (66446, "Road to Redemption"),  # 160
+    (66447, "Following the Evidence"),  # 161
+    (66448, "In the Eyes of Gods and Men"),  # 162
+    (66460, "Ye of Little Faith"),  # 163
+    (66463, "Factual Folklore"),  # 164
+    (66474, "Influencing Inquisitors"),  # 165
+    (66475, "By the Lights of Ishgard"),  # 166
+    (66476, "Blood for Blood"),  # 167
+    (66477, "The Heretic among Us"),  # 168
+    (66488, "In Pursuit of the Past"),  # 169
+    (66489, "Into the Eye of the Storm"),  # 170
+    (66491, "Sealed with Science"),  # 171
+    (66492, "With the Utmost Care"),  # 172
+    (66495, "A Promising Prospect"),  # 173
+    (66496, "It's Probably Not Pirates"),  # 174
+    (66497, "Representing the Representative"),  # 175
+    (66498, "The Reluctant Researcher"),  # 176
+    (66499, "Sweet Somethings"),  # 177
+    (66503, "History Repeating"),  # 178
+    (66511, "Better Late than Never"),  # 179
+    (66514, "Casing the Castrum"),  # 180
+    (66516, "Eyes on the Empire"),  # 181
+    (66517, "Footprints in the Snow"),  # 182
+    (66518, "Monumental Hopes"),  # 183
+    (66519, "Notorious Biggs"),  # 184
+    (66520, "Come-Into-My-Castrum"),  # 185
+    (66522, "Getting Even with Garlemald"),  # 186
+    (66537, "Drowning Out the Voices"),  # 187
+    (66538, "Acting the Part"),  # 188
+    (66540, "Fool Me Twice"),  # 189
+    (66541, "Every Little Thing She Does Is Magitek"),  # 190
+    (66573, "A Hero in Need"),  # 191
+    (69388, "Prudence at This Junction"),  # 192
+    (69389, "Heir Today, Gone Tomorrow"),  # 193
+    (69390, "Eggs over Queasy"),  # 194
+    (69391, "A Soldier's Breakfast"),  # 195
+    (69392, "We Come in Peace"),  # 196
+    (69393, "Dance Dance Diplomacy"),  # 197
+    (69394, "Forest Friend"),  # 198
+    (69395, "Druthers House Rules"),  # 199
+    (69396, "Never Forget"),  # 200
+    (69397, "Microbrewing"),  # 201
+    (69398, "Nouveau Riche"),  # 202
+    (69399, "Terror at Fallgourd"),  # 203
+    (69400, "Ziz Is So Ridiculous"),  # 204
+    (69401, "Trial by Turtle"),  # 205
+    (69402, "What Do You Mean You Forgot the Wine"),  # 206
+    (69403, "You Can't Take It with You"),  # 207
+    (69404, "The Final Flight of the Enterprise"),  # 208
+    (69405, "The Best Inventions"),  # 209
+    (69406, "The Curious Case of Giggity"),  # 210
+    (69407, "Dressed for Conquest"),  # 211
+    (69408, "Hearts on Fire"),  # 212
+    (69409, "Rock the Castrum"),  # 213
+    (70057, "Operation Archon"),  # 214
+    (70058, "The Ultimate Weapon"),  # 215
+    (65588, "Traitor in the Midst"),  # 216
+    (65589, "Back and Fourth"),  # 217
+    (65590, "Coming to Terms"),  # 218
+    (65593, "The Intercession of Saints"),  # 219
+    (65598, "Strength in Unity"),  # 220
+    (65605, "Dark Words, Dark Deeds"),  # 221
+    (65610, "First Blood"),  # 222
+    (65611, "The Path of the Righteous"),  # 223
+    (65613, "For the Greater Good"),  # 224
+    (65614, "Tendrils of Intrigue"),  # 225
+    (65618, "A Simple Plan"),  # 226
+    (65620, "The Instruments of Our Deliverance"),  # 227
+    (65622, "The Road Less Traveled"),  # 228
+    (65623, "Eyes Unclouded"),  # 229
+    (65624, "The Reason Roaille"),  # 230
+    (65625, "Let Us Cling Together"),  # 231
+    (65899, "Good Intentions"),  # 232
+    (65900, "Bait and Switch"),  # 233
+    (65901, "Best Laid Schemes"),  # 234
+    (65902, "The Rising Chorus"),  # 235
+    (65904, "On the Counteroffensive"),  # 236
+    (65905, "An Uninvited Ascian"),  # 237
+    (65906, "Mask of Grief"),  # 238
+    (65907, "Defenders for Ishgard"),  # 239
+    (65908, "The Wyrm's Roar"),  # 240
+    (65909, "Committed to the Cause"),  # 241
+    (65927, "Volunteer Dragonslayers"),  # 242
+    (65954, "An Allied Perspective"),  # 243
+    (65956, "Administrative Decision"),  # 244
+    (65957, "An Unexpected Ambition"),  # 245
+    (65958, "Ancient Ways, Timeless Wants"),  # 246
+    (65959, "Where We Are Needed"),  # 247
+    (65960, "The Least among Us"),  # 248
+    (65961, "A Time to Every Purpose"),  # 249
+    (65962, "Come, but Not Gone"),  # 250
+    (65963, "The Parting Glass"),  # 251
+    (65964, "Before the Dawn"),  # 252
+    (65965, "In Memory of Moenbryda"),  # 253
+    (66711, "The Price of Principles"),  # 254
+    (66725, "Hail to the King, Kupo"),  # 255
+    (66726, "You Have Selected Regicide"),  # 256
+    (66727, "On the Properties of Primals"),  # 257
+    (66728, "The Gifted"),  # 258
+    (66882, "A Final Temptation"),  # 259
+    (66883, "The Mother of Exiles"),  # 260
+    (66888, "Why We Adventure"),  # 261
+    (66892, "The Sea Rises"),  # 262
+    (66894, "Scouts in Distress"),  # 263
+    (66895, "The Gift of Eternity"),  # 264
+    (66896, "Into the Heart of the Whorl"),  # 265
+    (66897, "Lord of the Whorl"),  # 266
+    (66898, "When Yugiri Met the Fraternity"),  # 267
+    (66899, "Through the Maelstrom"),  # 268
+    (66978, "The Great Divide"),  # 269
+    (66979, "Desperate Times"),  # 270
+    (66982, "Revolution"),  # 271
+    (66983, "Stories We Tell"),  # 272
+    (66984, "Lord of Levin"),  # 273
+    (66989, "What Little Gods Are Made Of"),  # 274
+    (66992, "Guardian of Eorzea"),  # 275
+    (66993, "Recruiting the Realm"),  # 276
+    (66994, "Heretical Harassment"),  # 277
+    (66995, "When the Cold Sets In"),  # 278
+    (66996, "Brave New Companions"),  # 279
+    (69410, "Moving On"),  # 280
+    (69411, "All Things in Time"),  # 281
+    (69412, "Laying the Foundation"),  # 282
+    (69413, "It's Possibly a Primal"),  # 283
+    (69414, "Build on the Stone"),  # 284
+    (69415, "Still Waters"),  # 285
+    (69416, "Promises to Keep"),  # 286
+    (69417, "Yugiri's Game"),  # 287
+    (69418, "All Due Respect"),  # 288
+    (69419, "Shock and Awe"),  # 289
+    (69420, "Reap the Whirlwind"),  # 290
+    (69421, "Levin an Impression"),  # 291
+    (69422, "Chasing Ivy"),  # 292
+    (69423, "In Flagrante Delicto"),  # 293
+    (69424, "Aether on Demand"),  # 294
+    (70127, "The Steps of Faith"),  # 295
+    (67116, "Coming to Ishgard"),  # 296
+    (67117, "Taking in the Sights"),  # 297
+    (67118, "The Better Half"),  # 298
+    (67119, "Over the Wall"),  # 299
+    (67120, "Work in Progress"),  # 300
+    (67121, "The First and Foremost"),  # 301
+    (67122, "From on High"),  # 302
+    (67123, "Reconnaissance Lost"),  # 303
+    (67124, "At the End of Our Hope"),  # 304
+    (67125, "Knights Be Not Proud"),  # 305
+    (67126, "Onwards and Upwards"),  # 306
+    (67127, "An Indispensable Ally"),  # 307
+    (67128, "Meeting the Neighbors"),  # 308
+    (67129, "Sense of Urgency"),  # 309
+    (67130, "Hope Springs Eternal"),  # 310
+    (67131, "A Series of Unfortunate Events"),  # 311
+    (67132, "A Reward Long in Coming"),  # 312
+    (67133, "Divine Intervention"),  # 313
+    (67134, "Disclosure"),  # 314
+    (67135, "Flame General Affairs"),  # 315
+    (67136, "In Search of Raubahn"),  # 316
+    (67137, "Keeping the Flame Alive"),  # 317
+    (67138, "To Siege or Not to Siege"),  # 318
+    (67139, "Alphinaud's Way"),  # 319
+    (67140, "In Search of Iceheart"),  # 320
+    (67141, "From One Heretic to Another"),  # 321
+    (67142, "Sounding Out the Amphitheatre"),  # 322
+    (67143, "Camp of the Convictors"),  # 323
+    (67144, "Purple Flame, Purple Flame"),  # 324
+    (67145, "Where the Chocobos Roam"),  # 325
+    (67146, "Worse than Dragons"),  # 326
+    (67147, "The Trine Towers"),  # 327
+    (67148, "Gifts for the Outcasts"),  # 328
+    (67149, "The Nonmind"),  # 329
+    (67150, "A Gnathic Deity"),  # 330
+    (67151, "Breaking into Hives"),  # 331
+    (67152, "Lord of the Hive"),  # 332
+    (67153, "Mourn in Passing"),  # 333
+    (67154, "Beyond the Clouds"),  # 334
+    (67155, "Mountaintop Diplomacy"),  # 335
+    (67156, "Moghan's Trial"),  # 336
+    (67157, "Mogmug's Trial"),  # 337
+    (67158, "Mogwin's Trial"),  # 338
+    (67159, "Moglin's Judgment"),  # 339
+    (67160, "Leaving Moghome"),  # 340
+    (67161, "The Road to Zenith"),  # 341
+    (67162, "Waiting for the Wind to Change"),  # 342
+    (67163, "Heart of Ice"),  # 343
+    (67164, "The Wyrm's Lair"),  # 344
+    (67165, "New Winds, Old Friends"),  # 345
+    (67166, "A General Summons"),  # 346
+    (67167, "Awakening in Ul'dah"),  # 347
+    (67168, "A Brave Resolution"),  # 348
+    (67169, "Ready to Fly"),  # 349
+    (67170, "Into the Aery"),  # 350
+    (67171, "The Song Begins"),  # 351
+    (67172, "Unrest in Ishgard"),  # 352
+    (67173, "He Who Would Not Be Denied"),  # 353
+    (67174, "Ill-weather Friends"),  # 354
+    (67175, "Fire and Blood"),  # 355
+    (67176, "A Knight's Calling"),  # 356
+    (67177, "The Sins of Antiquity"),  # 357
+    (67178, "In Search of the Soleil"),  # 358
+    (67179, "Into the Blue"),  # 359
+    (67180, "Familiar Faces"),  # 360
+    (67181, "Devourer of Worlds"),  # 361
+    (67182, "Black and the White"),  # 362
+    (67183, "Bolt, Chain, and Island"),  # 363
+    (67184, "A Difference of Opinion"),  # 364
+    (67185, "One Good Turn"),  # 365
+    (67186, "An Engineering Enterprise"),  # 366
+    (67187, "Aetherial Trail"),  # 367
+    (67188, "Lost in the Lifestream"),  # 368
+    (67189, "Tataru's Surprise"),  # 369
+    (67190, "Onward to Sharlayan"),  # 370
+    (67191, "A Great New Nation"),  # 371
+    (67192, "Golems Begone"),  # 372
+    (67193, "An Illuminati Incident"),  # 373
+    (67194, "Leaving Idyllshire"),  # 374
+    (67195, "Matoya's Cave"),  # 375
+    (67196, "Forbidden Knowledge"),  # 376
+    (67197, "An Eye for Aether"),  # 377
+    (67198, "Hour of Departure"),  # 378
+    (67199, "The First Flight of the Excelsior"),  # 379
+    (67200, "Systematic Exploration"),  # 380
+    (67201, "In Node We Trust"),  # 381
+    (67202, "Chimerical Maintenance"),  # 382
+    (67203, "Close Encounters of the VIth Kind"),  # 383
+    (67204, "Fetters of Lament"),  # 384
+    (67205, "Heavensward"),  # 385
+    (67529, "The Spice of Life"),  # 386
+    (67530, "Noble Indiscretions"),  # 387
+    (67531, "A Child Apart"),  # 388
+    (67532, "Bloodlines"),  # 389
+    (67692, "An Uncertain Future"),  # 390
+    (67693, "Breaking the Cycle"),  # 391
+    (67694, "Another Time, Another Place"),  # 392
+    (67695, "In the Eye of the Beholder"),  # 393
+    (67696, "A Little Slow, a Little Late"),  # 394
+    (67697, "Dreams of the Lost"),  # 395
+    (67698, "Against the Dying of the Light"),  # 396
+    (67699, "As Goes Light, So Goes Darkness"),  # 397
+    (67767, "As It Once Was"),  # 398
+    (67768, "The Word of the Mother"),  # 399
+    (67769, "This War of Ours"),  # 400
+    (67770, "Staunch Conviction"),  # 401
+    (67771, "Once More, a Favor"),  # 402
+    (67772, "For Those We Have Lost"),  # 403
+    (67773, "Consequences"),  # 404
+    (67774, "Choices"),  # 405
+    (67775, "A Spectacle for the Ages"),  # 406
+    (67776, "For Those We Can Yet Save"),  # 407
+    (67777, "Causes and Costs"),  # 408
+    (67778, "The Man Within"),  # 409
+    (67779, "An Ally for Ishgard"),  # 410
+    (67780, "Winning Over the Wyrm"),  # 411
+    (67781, "An End to the Song"),  # 412
+    (67782, "Heroes of the Hour"),  # 413
+    (67783, "Litany of Peace"),  # 414
+    (67877, "Promises Kept"),  # 415
+    (67878, "Shadows of the First"),  # 416
+    (67879, "Two Sides of a Coin"),  # 417
+    (67880, "Unlikely Allies"),  # 418
+    (67881, "The Beast That Mourned at the Heart of the Mountain"),  # 419
+    (67882, "Beneath a Star-filled Sky"),  # 420
+    (67883, "When We Were Free"),  # 421
+    (67884, "Honorable Heroes"),  # 422
+    (67885, "One Life for One World"),  # 423
+    (67886, "An Ending to Mark a New Beginning"),  # 424
+    (67887, "Tidings from Gyr Abania"),  # 425
+    (67888, "An Envoy for Ishgard"),  # 426
+    (67889, "An Allied Decision"),  # 427
+    (67890, "Griffin, Griffin on the Wall"),  # 428
+    (67891, "Louisoix's Finest Student"),  # 429
+    (67892, "The Obvious Solution"),  # 430
+    (67893, "The Greater Obeisance"),  # 431
+    (67894, "Fly Free, My Pretty"),  # 432
+    (67895, "The Far Edge of Fate"),  # 433
+    (67982, "Beyond the Great Wall"),  # 434
+    (67983, "Lyse Takes the Lead"),  # 435
+    (67984, "The Promise of a New Beginning"),  # 436
+    (67985, "A Haven for the Bold"),  # 437
+    (67986, "A Bargain Struck"),  # 438
+    (67987, "A Friend of a Friend in Need"),  # 439
+    (67988, "Signed, Sealed, to Be Delivered"),  # 440
+    (67989, "Best Served with Cold Steel"),  # 441
+    (67990, "Let Fill Your Hearts with Pride"),  # 442
+    (67991, "A Familiar Face Forgotten"),  # 443
+    (67992, "The Prodigal Daughter"),  # 444
+    (67993, "A Life More Ordinary"),  # 445
+    (67994, "The Color of Angry Qiqirn"),  # 446
+    (67995, "The Black Wolf's Pups"),  # 447
+    (67996, "Homeward Bound"),  # 448
+    (67997, "Where Men Go as One"),  # 449
+    (67998, "Crossing the Velodyna"),  # 450
+    (67999, "In Crimson It Began"),  # 451
+    (68000, "The Fires Fade"),  # 452
+    (68001, "Bereft of Hearth and Home"),  # 453
+    (68002, "Divide and Conquer"),  # 454
+    (68003, "Lies, Damn Lies, and Pirates"),  # 455
+    (68004, "Tales from the Far East"),  # 456
+    (68005, "Not without Incident"),  # 457
+    (68006, "The Man from Ul'dah"),  # 458
+    (68007, "Where the Streets Are Paved with Koban"),  # 459
+    (68008, "By the Grace of Lord Lolorito"),  # 460
+    (68009, "A Good Samurai Is Hard to Find"),  # 461
+    (68010, "It's Probably a Trap"),  # 462
+    (68011, "Making the Catfish Sing"),  # 463
+    (68012, "Once More, to the Ruby Sea"),  # 464
+    (68013, "Open Water"),  # 465
+    (68014, "Boys with Boats"),  # 466
+    (68015, "To Bend with the Wind"),  # 467
+    (68016, "Confederate Consternation"),  # 468
+    (68017, "Alisaie's Stones"),  # 469
+    (68018, "Under the Sea"),  # 470
+    (68019, "Of Kojin and Kami"),  # 471
+    (68020, "In Soroban We Trust"),  # 472
+    (68021, "Forever and Ever Apart"),  # 473
+    (68022, "In Darkness the Magatama Dreams"),  # 474
+    (68023, "The Whims of the Divine"),  # 475
+    (68024, "Breaking and Delivering"),  # 476
+    (68025, "The Lord of the Revel"),  # 477
+    (68026, "Tide Goes in, Imperials Go Out"),  # 478
+    (68027, "A Silence in Three Parts"),  # 479
+    (68028, "Life after Doma"),  # 480
+    (68029, "The Stubborn Remainder"),  # 481
+    (68030, "The Ones We Leave Behind"),  # 482
+    (68031, "A New Ruby Tithe"),  # 483
+    (68032, "The Will to Live"),  # 484
+    (68033, "Daughter of the Deep"),  # 485
+    (68034, "The Time between the Seconds"),  # 486
+    (68035, "All the Little Angels"),  # 487
+    (68036, "The Search for Lord Hien"),  # 488
+    (68037, "A Season for War"),  # 489
+    (68038, "An Impossible Dream"),  # 490
+    (68039, "Stars in the Dark"),  # 491
+    (68040, "A Warrior's Welcome"),  # 492
+    (68041, "The Heart of Nations"),  # 493
+    (68042, "A Trial Before the Trial"),  # 494
+    (68043, "In the Footsteps of Bardam the Brave"),  # 495
+    (68044, "The Children of Azim"),  # 496
+    (68045, "The Labors of Magnai"),  # 497
+    (68046, "For Love of the Moon"),  # 498
+    (68047, "Sworn Enemies of the Sun"),  # 499
+    (68048, "The Undying Ones"),  # 500
+    (68049, "A Final Peace"),  # 501
+    (68050, "As the Gods Will"),  # 502
+    (68051, "Naadam"),  # 503
+    (68052, "Glory to the Khagan"),  # 504
+    (68053, "In Crimson They Walked"),  # 505
+    (68054, "The Hour of Reckoning"),  # 506
+    (68055, "The Room Where It Happened"),  # 507
+    (68056, "Seeds of Despair"),  # 508
+    (68057, "The Limits of Our Endurance"),  # 509
+    (68058, "The Doma Within"),  # 510
+    (68059, "On the Eve of Destiny"),  # 511
+    (68060, "The Die Is Cast"),  # 512
+    (68061, "The World Turned Upside Down"),  # 513
+    (68062, "A Swift and Secret Departure"),  # 514
+    (68063, "While You Were Away"),  # 515
+    (68064, "Rhalgr's Beacon"),  # 516
+    (68065, "The Fortunes of War"),  # 517
+    (68066, "Rising Fortunes, Rising Spirits"),  # 518
+    (68067, "The Lure of the Dream"),  # 519
+    (68068, "The Lady of Bliss"),  # 520
+    (68069, "The Silence of the Gods"),  # 521
+    (68070, "The First of Many"),  # 522
+    (68071, "Strong and Unified"),  # 523
+    (68072, "Hells Open"),  # 524
+    (68073, "Heavens Weep"),  # 525
+    (68074, "The Road Home"),  # 526
+    (68075, "For the Living and the Dead"),  # 527
+    (68076, "Above the Churning Waters"),  # 528
+    (68077, "The Path Forward"),  # 529
+    (68078, "With Tired Hands We Toil"),  # 530
+    (68079, "Where Courage Endures"),  # 531
+    (68080, "The Price of Freedom"),  # 532
+    (68081, "Raubahn's Invitation"),  # 533
+    (68082, "Liberty or Death"),  # 534
+    (68083, "The Lady in Red"),  # 535
+    (68084, "Upon the Great Loch's Shore"),  # 536
+    (68085, "The Key to Victory"),  # 537
+    (68086, "The Resonant"),  # 538
+    (68087, "The Legacy of Our Fathers"),  # 539
+    (68088, "The Measure of His Reach"),  # 540
+    (68089, "Stormblood"),  # 541
+    (68166, "Here There Be Xaela"),  # 542
+    (68171, "Future Rust, Future Dust"),  # 543
+    (68172, "A Dash of Green"),  # 544
+    (68173, "Ye Wayward Brothers"),  # 545
+    (68174, "Token of Faith"),  # 546
+    (68215, "The Last Voyage"),  # 547
+    (68217, "The Solace of the Sea"),  # 548
+    (68470, "A Glimpse of Madness"),  # 549
+    (68471, "Path of No Return"),  # 550
+    (68482, "How Tataru Got Her Groove Back"),  # 551
+    (68483, "Broken Steel, Broken Men"),  # 552
+    (68489, "The Arrows of Misfortune"),  # 553
+    (68490, "Hard Country"),  # 554
+    (68491, "Death by a Thousand Rocks"),  # 555
+    (68498, "Arenvald's Adventure"),  # 556
+    (68499, "The Darkness Below"),  # 557
+    (68500, "The Mad King's Trove"),  # 558
+    (68501, "The Butcher's Blood"),  # 559
+    (68502, "Echoes of an Echo"),  # 560
+    (68503, "A Sultana's Strings"),  # 561
+    (68504, "A Sultana's Duty"),  # 562
+    (68505, "A Sultana's Resolve"),  # 563
+    (68506, "Securing the Saltery"),  # 564
+    (68507, "A Blissful Arrival"),  # 565
+    (68508, "Return of the Bull"),  # 566
+    (68558, "Tidings from the East"),  # 567
+    (68559, "The Sword in the Store"),  # 568
+    (68560, "Hope on the Waves"),  # 569
+    (68561, "Elation and Trepidation"),  # 570
+    (68562, "Storm on the Horizon"),  # 571
+    (68563, "His Forgotten Home"),  # 572
+    (68564, "A Guilty Conscience"),  # 573
+    (68565, "Rise of a New Sun"),  # 574
+    (68606, "Gosetsu and Tsuyu"),  # 575
+    (68607, "Gone Like the Morning Dew"),  # 576
+    (68608, "Fruits of Her Labor"),  # 577
+    (68609, "Conscripts and Contingencies"),  # 578
+    (68610, "The Primary Agreement"),  # 579
+    (68611, "Under the Moonlight"),  # 580
+    (68612, "Emissary of the Dawn"),  # 581
+    (68679, "Sisterly Act"),  # 582
+    (68680, "Feel the Burn"),  # 583
+    (68681, "Shadows in the Empire"),  # 584
+    (68682, "A Power in Slumber"),  # 585
+    (68683, "The Will of the Moon"),  # 586
+    (68684, "The Call"),  # 587
+    (68685, "Prelude in Violet"),  # 588
+    (68715, "Soul Searching"),  # 589
+    (68716, "A Defector's Tidings"),  # 590
+    (68717, "Seiryu's Wall"),  # 591
+    (68718, "Parley on the Front Lines"),  # 592
+    (68719, "The Face of War"),  # 593
+    (68720, "A Brief Reprieve"),  # 594
+    (68721, "A Requiem for Heroes"),  # 595
+    (68815, "The Syrcus Trench"),  # 596
+    (68816, "City of the First"),  # 597
+    (68817, "Travelers of Norvrandt"),  # 598
+    (68818, "In Search of Alphinaud"),  # 599
+    (68819, "A Still Tide"),  # 600
+    (68820, "Open Arms, Closed Gate"),  # 601
+    (68821, "A Fickle Existence"),  # 602
+    (68822, "City of Final Pleasures"),  # 603
+    (68823, "Free to Sightsee"),  # 604
+    (68824, "A Taste of Honey"),  # 605
+    (68825, "A Blessed Instrument"),  # 606
+    (68826, "Emergent Splendor"),  # 607
+    (68827, "In Search of Alisaie"),  # 608
+    (68828, "City of the Mord"),  # 609
+    (68829, "Working Off the Meal"),  # 610
+    (68830, "A Desert Crossing"),  # 611
+    (68831, "Following in Her Footprints"),  # 612
+    (68832, "Culling Their Ranks"),  # 613
+    (68833, "A Purchase of Fruit"),  # 614
+    (68834, "The Time Left to Us"),  # 615
+    (68835, "Tears on the Sand"),  # 616
+    (68836, "The Lightwardens"),  # 617
+    (68837, "Warrior of Darkness"),  # 618
+    (68838, "An Unwelcome Guest"),  # 619
+    (68839, "The Crystarium's Resolve"),  # 620
+    (68840, "Logistics of War"),  # 621
+    (68841, "The Oracle of Light"),  # 622
+    (68842, "Il Mheg, the Faerie Kingdom"),  # 623
+    (68843, "Sul Uin's Request"),  # 624
+    (68844, "Ys Iala's Errand"),  # 625
+    (68845, "Oul Sigun's Plea"),  # 626
+    (68846, "Unto the Truth"),  # 627
+    (68847, "Courting Cooperation"),  # 628
+    (68848, "The Key to the Castle"),  # 629
+    (68849, "A Visit to the Nu Mou"),  # 630
+    (68850, "A Fitting Payment"),  # 631
+    (68851, "Spore Sweeper"),  # 632
+    (68852, "The Lawless Ones"),  # 633
+    (68853, "The Elder's Answer"),  # 634
+    (68854, "A Resounding Roar"),  # 635
+    (68855, "Memento of a Friend"),  # 636
+    (68856, "Acht-la Ormh Inn"),  # 637
+    (68857, "The Wheel Turns"),  # 638
+    (68858, "A Party Soon Divided"),  # 639
+    (68859, "A Little Faith"),  # 640
+    (68860, "Into the Dark"),  # 641
+    (68861, "A Day in the Neighborhood"),  # 642
+    (68862, "A Helping Hand"),  # 643
+    (68863, "Lost but Not Forgotten"),  # 644
+    (68864, "Saying Good-bye"),  # 645
+    (68865, "Stirring Up Trouble"),  # 646
+    (68866, "A Beeautiful Plan"),  # 647
+    (68867, "An Unwanted Proposal"),  # 648
+    (68868, "Put to the Proof"),  # 649
+    (68869, "Into the Wood"),  # 650
+    (68870, "Top of the Tree"),  # 651
+    (68871, "Look to the Stars"),  # 652
+    (68872, "Mi Casa, Toupasa"),  # 653
+    (68873, "Legend of the Not-so-hidden Temple"),  # 654
+    (68874, "The Aftermath"),  # 655
+    (68875, "In Good Faith"),  # 656
+    (68876, "The Burden of Knowledge"),  # 657
+    (68877, "Bearing with It"),  # 658
+    (68878, "Out of the Wood"),  # 659
+    (69142, "When It Rains"),  # 660
+    (69143, "Word from On High"),  # 661
+    (69144, "Small Favors"),  # 662
+    (69145, "The Best Way Out"),  # 663
+    (69146, "Free Trade"),  # 664
+    (69147, "The Trolley Problem"),  # 665
+    (69148, "Rust and Ruin"),  # 666
+    (69149, "On Track"),  # 667
+    (69150, "Down for Maintenance"),  # 668
+    (69151, "The Truth Hurts"),  # 669
+    (69152, "A Convenient Distraction"),  # 670
+    (69153, "A Dirty Job"),  # 671
+    (69154, "Have a Heart"),  # 672
+    (69155, "Full Steam Ahead"),  # 673
+    (69156, "Crossing Paths"),  # 674
+    (69157, "A Fresh Start"),  # 675
+    (69158, "More than a Hunch"),  # 676
+    (69166, "Return to Eulmore"),  # 677
+    (69167, "A Feast of Lies"),  # 678
+    (69168, "Paradise Fallen"),  # 679
+    (69169, "The Ladder"),  # 680
+    (69170, "The View from Above"),  # 681
+    (69171, "In Mt. Gulg's Shadow"),  # 682
+    (69172, "A Gigantic Undertaking"),  # 683
+    (69173, "Meet the Tholls"),  # 684
+    (69174, "A-Digging We Will Go"),  # 685
+    (69175, "The Duergar's Tewel"),  # 686
+    (69176, "Rich Veins of Hope"),  # 687
+    (69177, "That None Shall Ever Again"),  # 688
+    (69178, "A Breath of Respite"),  # 689
+    (69179, "Extinguishing the Last Light"),  # 690
+    (69180, "Reassuring the Masses"),  # 691
+    (69181, "In His Garden"),  # 692
+    (69182, "The Unbroken Thread"),  # 693
+    (69183, "To Storm-tossed Seas"),  # 694
+    (69184, "Waiting in the Depths"),  # 695
+    (69185, "City of the Ancients"),  # 696
+    (69186, "The Light of Inspiration"),  # 697
+    (69187, "The Illuminated Land"),  # 698
+    (69188, "The End of a World"),  # 699
+    (69189, "A Greater Purpose"),  # 700
+    (69190, "Shadowbringers"),  # 701
+    (69209, "Shaken Resolve"),  # 702
+    (69210, "A Grand Adventure"),  # 703
+    (69211, "A Welcome Guest"),  # 704
+    (69212, "Good for the Soul"),  # 705
+    (69213, "Nowhere to Turn"),  # 706
+    (69214, "A Notable Absence"),  # 707
+    (69215, "For the People"),  # 708
+    (69216, "Finding Good Help"),  # 709
+    (69217, "Moving Forward"),  # 710
+    (69218, "Vows of Virtue, Deeds of Cruelty"),  # 711
+    (69297, "Old Enemies, New Threats"),  # 712
+    (69298, "The Way Home"),  # 713
+    (69299, "Seeking Counsel"),  # 714
+    (69300, "Facing the Truth"),  # 715
+    (69301, "A Sleep Disturbed"),  # 716
+    (69302, "An Old Friend"),  # 717
+    (69303, "Deep Designs"),  # 718
+    (69304, "A Whale's Tale"),  # 719
+    (69305, "Beneath the Surface"),  # 720
+    (69306, "Echoes of a Fallen Star"),  # 721
+    (69307, "In the Name of the Light"),  # 722
+    (69308, "Heroic Dreams"),  # 723
+    (69309, "Fraying Threads"),  # 724
+    (69310, "Food for the Soul"),  # 725
+    (69311, "Faded Memories"),  # 726
+    (69312, "Etched in the Stars"),  # 727
+    (69313, "The Converging Light"),  # 728
+    (69314, "Hope's Confluence"),  # 729
+    (69315, "Nothing Unsaid"),  # 730
+    (69316, "The Journey Continues"),  # 731
+    (69317, "Unto the Morrow"),  # 732
+    (69318, "Reflections in Crystal"),  # 733
+    (69543, "Alisaie's Quest"),  # 734
+    (69544, "The Wisdom of Allag"),  # 735
+    (69545, "Reviving the Legacy"),  # 736
+    (69546, "Forget Us Not"),  # 737
+    (69547, "Like Master, Like Pupil"),  # 738
+    (69548, "The Admiral's Resolve"),  # 739
+    (69549, "The Search for Sicard"),  # 740
+    (69550, "On Rough Seas"),  # 741
+    (69551, "The Great Ship Vylbrand"),  # 742
+    (69552, "Futures Rewritten"),  # 743
+    (69594, "Unto the Breach"),  # 744
+    (69595, "Here Be Dragons"),  # 745
+    (69596, "Righteous Indignation"),  # 746
+    (69597, "For Vengeance"),  # 747
+    (69598, "The Flames of War"),  # 748
+    (69599, "When the Dust Settles"),  # 749
+    (69600, "The Company We Keep"),  # 750
+    (69601, "On Official Business"),  # 751
+    (69602, "Death Unto Dawn"),  # 752
+    (69893, "The Next Ship to Sail"),  # 753
+    (69894, "Old Sharlayan, New to You"),  # 754
+    (69895, "Hitting the Books"),  # 755
+    (69896, "A Seat at the Last Stand"),  # 756
+    (69897, "A Labyrinthine Descent"),  # 757
+    (69898, "Glorified Ratcatcher"),  # 758
+    (69899, "Deeper into the Maze"),  # 759
+    (69900, "The Medial Circuit"),  # 760
+    (69901, "The Full Report, Warts and All"),  # 761
+    (69902, "A Guide of Sorts"),  # 762
+    (69903, "Estate Visitor"),  # 763
+    (69904, "For Thavnair Bound"),  # 764
+    (69905, "On Low Tide"),  # 765
+    (69906, "A Fisherman's Friend"),  # 766
+    (69907, "House of Divinities"),  # 767
+    (69908, "The Great Work"),  # 768
+    (69909, "Shadowed Footsteps"),  # 769
+    (69910, "A Boy's Errand"),  # 770
+    (69911, "Tipping the Scale"),  # 771
+    (69912, "The Satrap of Radz-at-Han"),  # 772
+    (69913, "In the Dark of the Tower"),  # 773
+    (69914, "The Jewel of Thavnair"),  # 774
+    (69915, "The Color of Joy"),  # 775
+    (69916, "Sound the Bell, School's In"),  # 776
+    (69917, "A Capital Idea"),  # 777
+    (69918, "Best of the Best"),  # 778
+    (69919, "A Frosty Reception"),  # 779
+    (69920, "Tracks in the Snow"),  # 780
+    (69921, "How the Mighty Are Fallen"),  # 781
+    (69922, "At the End of the Trail"),  # 782
+    (69923, "A Way Forward"),  # 783
+    (69924, "The Last Bastion"),  # 784
+    (69925, "Personae non Gratae"),  # 785
+    (69926, "His Park Materials"),  # 786
+    (69927, "No Good Deed"),  # 787
+    (69928, "Alea Iacta Est"),  # 788
+    (69929, "Strange Bedfellows"),  # 789
+    (69930, "In from the Cold"),  # 790
+    (69931, "Gateway of the Gods"),  # 791
+    (69932, "A Trip to the Moon"),  # 792
+    (69933, "Sea of Sorrow"),  # 793
+    (69934, "The Martyr"),  # 794
+    (69935, "In Shadow's Wake"),  # 795
+    (69936, "Helping Hands"),  # 796
+    (69937, "A Harey Situation"),  # 797
+    (69938, "A Taste of the Moon"),  # 798
+    (69939, "Styled a Hero"),  # 799
+    (69940, "All's Vale That Endsvale"),  # 800
+    (69941, "Back to Old Tricks"),  # 801
+    (69942, "Setting Things Straight"),  # 802
+    (69943, "Heart of the Matter"),  # 803
+    (69944, "Returning Home"),  # 804
+    (69945, "Skies Aflame"),  # 805
+    (69946, "The Blasphemy Unmasked"),  # 806
+    (69947, "Amidst the Apocalypse"),  # 807
+    (69948, "Beyond the Depths of Despair"),  # 808
+    (69949, "That We Might Live"),  # 809
+    (69950, "When All Hope Seems Lost"),  # 810
+    (69951, "Warm Hearts, Rekindled Hopes"),  # 811
+    (69952, "Simple Pleasures"),  # 812
+    (69953, "Under His Wing"),  # 813
+    (69954, "At World's End"),  # 814
+    (69955, "Return to the Crystarium"),  # 815
+    (69956, "Hope Upon a Flower"),  # 816
+    (69957, "Petalouda Hunt"),  # 817
+    (69958, "In Search of Hermes"),  # 818
+    (69959, "Ponder, Warrant, Cherish, Welcome"),  # 819
+    (69960, "Lives Apart"),  # 820
+    (69961, "Their Greatest Contribution"),  # 821
+    (69962, "Aether to Aether"),  # 822
+    (69963, "A Sentimental Gift"),  # 823
+    (69964, "Verdict and Execution"),  # 824
+    (69965, "Travelers at the Crossroads"),  # 825
+    (69966, "A Past, Not Yet Come to Pass"),  # 826
+    (69967, "Witness to the Spectacle"),  # 827
+    (69968, "Worthy of His Back"),  # 828
+    (69969, "A Flower upon Your Return"),  # 829
+    (69970, "Hunger in the Garden"),  # 830
+    (69971, "Words without Sound"),  # 831
+    (69972, "Follow, Wander, Stumble, Listen"),  # 832
+    (69973, "Caging the Messenger"),  # 833
+    (69974, "Thou Must Live, Die, and Know"),  # 834
+    (69975, "As the Heavens Burn"),  # 835
+    (69976, "Outside Help"),  # 836
+    (69977, "Going Underground"),  # 837
+    (69978, "No Job Too Small"),  # 838
+    (69979, "Wise Guides"),  # 839
+    (69980, "Agriculture Shock"),  # 840
+    (69981, "Sage Council"),  # 841
+    (69982, "Hither and Yarns"),  # 842
+    (69983, "Once Forged"),  # 843
+    (69984, "Bonds of Adamant(ite)"),  # 844
+    (69985, "Her Children, One and All"),  # 845
+    (69986, "A Bold Decision"),  # 846
+    (69987, "Friends Gathered"),  # 847
+    (69988, "Unto the Heavens"),  # 848
+    (69989, "A §trαnge New World"),  # 849
+    (69990, "On Burdεned ωings"),  # 850
+    (69991, "Α Test of Wιll"),  # 851
+    (69992, "Roads Pαved││Sacri┣ice"),  # 852
+    (69993, "F//εsh AbanΔon┨Δ"),  # 853
+    (69994, "Where Kn∞wledge Leads"),  # 854
+    (69995, "Vic┨οry  ̈ ̈ ̈╳, │̆││ε Lost"),  # 855
+    (69996, "┣┨̈//̈ No┨ΦounΔ•••"),  # 856
+    (69997, "Hello, World"),  # 857
+    (69998, "Forge Ahead"),  # 858
+    (69999, "You're Not Alone"),  # 859
+    (70000, "Endwalker"),  # 860
+    (70062, "Newfound Adventure"),  # 861
+    (70063, "Bountiful Ruins"),  # 862
+    (70064, "Friends for the Road"),  # 863
+    (70065, "Alzadaal's Legacy"),  # 864
+    (70066, "A Brother's Grief"),  # 865
+    (70067, "Sharing the Wealth"),  # 866
+    (70068, "Bridging the Rift"),  # 867
+    (70069, "Restricted Reading"),  # 868
+    (70070, "Void Theory"),  # 869
+    (70071, "A Satrap's Duty"),  # 870
+    (70128, "In Search of Azdaja"),  # 871
+    (70129, "Shadowed Remnants"),  # 872
+    (70130, "Where Everything Begins"),  # 873
+    (70131, "Groping in the Dark"),  # 874
+    (70132, "Nowhere to Run"),  # 875
+    (70133, "The Wind Rises"),  # 876
+    (70134, "Return from the Void"),  # 877
+    (70135, "A World with Light and Life"),  # 878
+    (70136, "Buried Memory"),  # 879
+    (70206, "Once More unto the Void"),  # 880
+    (70207, "A Cold Reunion"),  # 881
+    (70208, "Kindled Spirit"),  # 882
+    (70209, "An Unforeseen Bargain"),  # 883
+    (70210, "King of the Mountain"),  # 884
+    (70211, "A Dragon's Resolve"),  # 885
+    (70212, "Paths Barred"),  # 886
+    (70213, "Desires Untold"),  # 887
+    (70214, "Gods Revel, Lands Tremble"),  # 888
+    (70271, "Currying Flavor"),  # 889
+    (70272, "Going Haam"),  # 890
+    (70273, "Like Fear to Flame"),  # 891
+    (70274, "The Fallen Empire"),  # 892
+    (70275, "Bonds of Trust"),  # 893
+    (70276, "Lunar Rendezvous"),  # 894
+    (70277, "The Red Side of the Moon"),  # 895
+    (70278, "Abyssal Dark"),  # 896
+    (70279, "The Dark Throne"),  # 897
+    (70280, "Seeking the Light"),  # 898
+    (70281, "Appealing to the Masses"),  # 899
+    (70282, "In Defiance of Fate"),  # 900
+    (70283, "Back to Action"),  # 901
+    (70284, "Down in the Dark"),  # 902
+    (70285, "Reunited at Last"),  # 903
+    (70286, "Growing Light"),  # 904
+    (70287, "When One Door Closes..."),  # 905
+    (70288, "The Game Is Afoot"),  # 906
+    (70289, "The Coming Dawn"),  # 907
+    (70396, "A New World to Explore"),  # 908
+    (70397, "The Nation of Tuliyollal"),  # 909
+    (70398, "A City of Stairs"),  # 910
+    (70399, "A Saga in Stone"),  # 911
+    (70400, "The Rite of Succession"),  # 912
+    (70401, "To Kozama'uka"),  # 913
+    (70402, "A Festive People"),  # 914
+    (70403, "The Feat of Reeds"),  # 915
+    (70404, "A Well-mannered Shipwright"),  # 916
+    (70405, "The Lifting of Wings"),  # 917
+    (70406, "Knowing the Hanuhanu"),  # 918
+    (70407, "To Urqopacha"),  # 919
+    (70408, "Traders of Happiness"),  # 920
+    (70409, "The Feat of Gold"),  # 921
+    (70410, "Mablu's Dream"),  # 922
+    (70411, "A Premium Deal"),  # 923
+    (70412, "Wuk Lamat in the Saddle"),  # 924
+    (70413, "Knowing the Pelupelu"),  # 925
+    (70414, "The Success of Others"),  # 926
+    (70415, "For All Turali"),  # 927
+    (70416, "A Leaking Workpot"),  # 928
+    (70417, "Lending a Helphand"),  # 929
+    (70418, "The Feat of Pots"),  # 930
+    (70419, "A Father First"),  # 931
+    (70420, "The Shape of Peace"),  # 932
+    (70421, "Lost Promise"),  # 933
+    (70422, "A Brother's Duty"),  # 934
+    (70423, "Feeding the River"),  # 935
+    (70424, "Sibling Rescue"),  # 936
+    (70425, "History's Keepers"),  # 937
+    (70426, "The Feat of Proof"),  # 938
+    (70427, "The High Luminary"),  # 939
+    (70428, "An Echo of Madness"),  # 940
+    (70429, "Pointing the Way"),  # 941
+    (70430, "The Skyruin"),  # 942
+    (70431, "The Feat of Ice"),  # 943
+    (70432, "The Promise of Peace"),  # 944
+    (70433, "The Leap to Yak T'el"),  # 945
+    (70434, "Village of the Hunt"),  # 946
+    (70435, "A History of Violence"),  # 947
+    (70436, "The Feat of Repast"),  # 948
+    (70437, "A Father's Grief"),  # 949
+    (70438, "Taking a Stand"),  # 950
+    (70439, "Into the Traverse"),  # 951
+    (70440, "City of Silence"),  # 952
+    (70441, "Blessed Siblings"),  # 953
+    (70442, "Scale of Trust"),  # 954
+    (70443, "Mamook Speaks"),  # 955
+    (70444, "The Feat of the Brotherhood"),  # 956
+    (70445, "Road to the Golden City"),  # 957
+    (70446, "Dawn of a New Tomorrow"),  # 958
+    (70447, "Ever Greater, Ever Brighter"),  # 959
+    (70448, "The Long Road to Xak Tural"),  # 960
+    (70449, "Saddled Up"),  # 961
+    (70450, "Braced for Trouble"),  # 962
+    (70451, "Blowing Smoke"),  # 963
+    (70452, "Law of the Land"),  # 964
+    (70453, "On Track"),  # 965
+    (70454, "One with Nature"),  # 966
+    (70455, "And the Land Would Tremble"),  # 967
+    (70456, "No Time for Tears"),  # 968
+    (70457, "Pick up the Pieces"),  # 969
+    (70458, "Together as One"),  # 970
+    (70459, "In Yyasulani's Shadow"),  # 971
+    (70460, "Putting Plans into Locomotion"),  # 972
+    (70461, "A Hot Commodity"),  # 973
+    (70462, "All Aboard"),  # 974
+    (70463, "The Land of Levin"),  # 975
+    (70464, "A Royal Welcome"),  # 976
+    (70465, "A Day in the Life"),  # 977
+    (70466, "On the Cloud"),  # 978
+    (70467, "Gone and Forgotten"),  # 979
+    (70468, "Embracing Oblivion"),  # 980
+    (70469, "Solution Nine"),  # 981
+    (70470, "The Queen's Tour"),  # 982
+    (70471, "Her People, Her Family"),  # 983
+    (70472, "Scales of Blue"),  # 984
+    (70473, "Gives You Teeth"),  # 985
+    (70474, "Little Footfalls"),  # 986
+    (70475, "Drowned Vestiges"),  # 987
+    (70476, "Memories of a Knight"),  # 988
+    (70477, "At a Crossroads"),  # 989
+    (70478, "The Protector and the Destroyer"),  # 990
+    (70479, "A Comforting Hand"),  # 991
+    (70480, "Unto the Summit"),  # 992
+    (70481, "The Resilient Son"),  # 993
+    (70482, "A New Family"),  # 994
+    (70483, "In Pursuit of Sphene"),  # 995
+    (70484, "Through the Gate of Gold"),  # 996
+    (70485, "Those Who Live Forever"),  # 997
+    (70486, "In Serenity and Sorrow"),  # 998
+    (70487, "The Land of Dreams"),  # 999
+    (70488, "A Knight of Alexandria"),  # 1000
+    (70489, "The Sanctuary of the Strong"),  # 1001
+    (70490, "The Taste of Family"),  # 1002
+    (70491, "Leafing through the Past"),  # 1003
+    (70492, "An Explorer's Delight"),  # 1004
+    (70493, "In Search of Discovery"),  # 1005
+    (70494, "A Journey Never-ending"),  # 1006
+    (70495, "Dawntrail"),  # 1007
+    (70780, "A Royal Invitation"),  # 1008
+    (70781, "Alexandria Mourns"),  # 1009
+    (70782, "In Search of the Past"),  # 1010
+    (70783, "Among the Abandoned"),  # 1011
+    (70784, "Guidance of the Hhetso"),  # 1012
+    (70785, "The Warmth of Family"),  # 1013
+    (70786, "Crossroads"),  # 1014
+    (70835, "A Glimmer of the Past"),  # 1015
+    (70836, "Memories of a Bygone Age"),  # 1016
+    (70837, "In Search of Meaning"),  # 1017
+    (70838, "A Jewel Shattered"),  # 1018
+    (70839, "The Meeting"),  # 1019
+    (70840, "Descent to the Foundation"),  # 1020
+    (70841, "Shared Paths"),  # 1021
+    (70842, "Seekers of Eternity"),  # 1022
+    (70900, "Targeted Tragedy"),  # 1023
+    (70901, "The Endless Choice"),  # 1024
+    (70902, "My Memories and Yours"),  # 1025
+    (70903, "A Darkness in the Heart"),  # 1026
+    (70904, "Preservation Their Purpose"),  # 1027
+    (70905, "A Calculated Evolution"),  # 1028
+    (70906, "One of Our Own"),  # 1029
+    (70907, "A Terminal Invitation"),  # 1030
+    (70908, "Blades in Waiting"),  # 1031
+    (70909, "The Promise of Tomorrow"),  # 1032
+    (70962, "With the Winds"),  # 1033
+    (70963, "Through the Thunder"),  # 1034
+    (70964, "Beyond the Mountains"),  # 1035
+    (70965, "Around the City"),  # 1036
+    (70966, "To Work"),  # 1037
+    (70967, "In Her Heart"),  # 1038
+    (70968, "Toward Trouble"),  # 1039
+    (70969, "Where We Call Home"),  # 1040
+    (70970, "Into the Mist"),  # 1041
+]
+# Total: 1041 trackable MSQ quests (ARR through Patch 7.4)
+
+# Build lookup maps for O(1) access
+MSQ_POSITION_MAP = {qid: pos for pos, (qid, name) in enumerate(MSQ_QUEST_DATA, 1)}
+MSQ_NAME_MAP = {qid: name for qid, name in MSQ_QUEST_DATA}
+
+# Load quest level requirements from cache (for validation)
+MSQ_LEVEL_MAP = {}
+try:
+    import json as _json
+    _cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'quest_cache.json')
+    if os.path.exists(_cache_path):
+        with open(_cache_path, 'r', encoding='utf-8') as _f:
+            _cache = _json.load(_f)
+            for qid, _ in MSQ_QUEST_DATA:
+                _quest = _cache.get(str(qid), {})
+                MSQ_LEVEL_MAP[qid] = _quest.get('class_level', 0)
+except Exception:
+    pass
+
+
+def calculate_msq_progress(quest_ids, max_job_level=100):
+    """
+    Calculate MSQ progress by finding the HIGHEST chronological position
+    of any MSQ quest the character has tracked.
+    
+    This works even if Altoholic only tracks partial quest history -
+    we just need ONE MSQ quest to determine where they are in the story.
+    
+    Args:
+        quest_ids: List of completed quest IDs
+        max_job_level: Character's highest job level (for validation)
+    
+    Returns: (percentage, highest_position, total_count, quest_name)
+    """
+    if not quest_ids:
+        return 0, 0, 0, ""
+    
+    total_msq = len(MSQ_QUEST_DATA)
+    if total_msq == 0:
+        return 0, 0, 0, ""
+    
+    # Find the highest MSQ position from the character's quests
+    # Only count quests where character's level meets the requirement
+    highest_pos = 0
+    highest_name = ""
+    for qid in quest_ids:
+        pos = MSQ_POSITION_MAP.get(qid, 0)
+        if pos > 0:
+            # Validate: character must be high enough level for this quest
+            required_level = MSQ_LEVEL_MAP.get(qid, 0)
+            if required_level > 0 and max_job_level < required_level:
+                continue  # Skip - character can't have done this quest
+            if pos > highest_pos:
+                highest_pos = pos
+                highest_name = MSQ_NAME_MAP.get(qid, "Unknown")
+    
+    if highest_pos == 0:
+        return 0, 0, total_msq, ""
+    
+    percentage = round((highest_pos / total_msq) * 100, 1)
+    return percentage, highest_pos, total_msq, highest_name
+
+
 def scan_altoholic_db(db_path):
     """
     Scan Altoholic DB and return comprehensive character data.
@@ -579,10 +1955,10 @@ def scan_altoholic_db(db_path):
         con = sqlite3.connect(db_path)
         cur = con.cursor()
         rows = cur.execute(
-            "SELECT CharacterId, Inventory, Saddle, ArmoryInventory, Retainers, Jobs, Currencies FROM characters"
+            "SELECT CharacterId, Inventory, Saddle, ArmoryInventory, Retainers, Jobs, Currencies, Quests FROM characters"
         ).fetchall()
         
-        for char_id, inv_json, saddle_json, armory_json, retainers_json, jobs_json, currencies_json in rows:
+        for char_id, inv_json, saddle_json, armory_json, retainers_json, jobs_json, currencies_json, quests_json in rows:
             treasure_value = 0
             coffer_dye_value = 0
             coffer_count = 0
@@ -645,19 +2021,23 @@ def scan_altoholic_db(db_path):
                         if isinstance(ret_inv, list):
                             consume(ret_inv)
             
-            # Parse Jobs to find current/highest level job
+            # Parse Jobs to find current/highest level job and all job levels
             current_job = ""
             current_level = 0
+            all_jobs = {}  # Store all job levels
             jobs = _safe_json_load(jobs_json)
             if isinstance(jobs, dict):
                 for job_name, job_data in jobs.items():
                     if isinstance(job_data, dict):
                         level = job_data.get("Level", 0)
+                        if isinstance(level, int) and level > 0:
+                            all_jobs[job_name] = level
                         if level > current_level:
                             current_level = level
                             current_job = JOB_ABBREVIATIONS.get(job_name, job_name[:3].upper())
             
-            # Parse Currencies to get Venture coins
+            # Parse Currencies to get Venture coins and all currencies
+            all_currencies = {}
             currencies = _safe_json_load(currencies_json)
             if isinstance(currencies, dict):
                 venture_coins = currencies.get("Venture", 0)
@@ -666,6 +2046,23 @@ def scan_altoholic_db(db_path):
                         venture_coins = int(venture_coins)
                     except Exception:
                         venture_coins = 0
+                # Capture all currencies with values > 0
+                for curr_name, curr_value in currencies.items():
+                    if isinstance(curr_value, int) and curr_value > 0:
+                        all_currencies[curr_name] = curr_value
+                    elif curr_value:
+                        try:
+                            val = int(curr_value)
+                            if val > 0:
+                                all_currencies[curr_name] = val
+                        except Exception:
+                            pass
+            
+            # Parse Quests to get completed quest IDs
+            completed_quests = []
+            quests = _safe_json_load(quests_json)
+            if isinstance(quests, list):
+                completed_quests = [int(q) for q in quests if isinstance(q, (int, str))]
             
             result[int(char_id)] = {
                 "treasure_value": int(treasure_value),
@@ -675,6 +2072,9 @@ def scan_altoholic_db(db_path):
                 "venture_coins": int(venture_coins),
                 "current_job": current_job,
                 "current_level": current_level,
+                "all_jobs": all_jobs,
+                "all_currencies": all_currencies,
+                "completed_quests": completed_quests,
             }
         
         con.close()
@@ -860,6 +2260,13 @@ def get_all_data():
     total_retainers_farming = 0
     min_restock_days = None  # Track lowest restock days across all accounts (excluding 0)
     
+    # MSQ Progress tracking
+    total_characters_with_msq = 0
+    msq_100_count = 0  # Characters at 100% MSQ
+    msq_90_count = 0   # Characters at 90%+ MSQ
+    msq_50_count = 0   # Characters at 50%+ MSQ
+    total_msq_percent = 0  # For calculating average
+    
     for account in account_locations:
         account_data = {
             "nickname": account["nickname"],
@@ -880,6 +2287,10 @@ def get_all_data():
             "subs_farming": 0,
             "retainers_leveling": 0,
             "retainers_farming": 0,
+            "msq_100_count": 0,
+            "msq_90_count": 0,
+            "msq_50_count": 0,
+            "characters_with_msq": 0,
         }
         
         auto_path = account["auto_path"]
@@ -964,6 +2375,9 @@ def get_all_data():
             venture_coins = 0
             current_job = ""
             current_level = 0
+            all_jobs = {}
+            all_currencies = {}
+            completed_quests = []
             if cid in alto_map:
                 treasure_value = alto_map[cid].get("treasure_value", 0)
                 coffer_dye_value = alto_map[cid].get("coffer_dye_value", 0)
@@ -972,6 +2386,9 @@ def get_all_data():
                 venture_coins = alto_map[cid].get("venture_coins", 0)
                 current_job = alto_map[cid].get("current_job", "")
                 current_level = alto_map[cid].get("current_level", 0)
+                all_jobs = alto_map[cid].get("all_jobs", {})
+                all_currencies = alto_map[cid].get("all_currencies", {})
+                completed_quests = alto_map[cid].get("completed_quests", [])
             
             # Get venture coffers from AutoRetainer if Altoholic doesn't have it
             venture_coffers_ar = char.get("VentureCoffers", 0)
@@ -1025,7 +2442,22 @@ def get_all_data():
                 "days_until_restock": days_until_restock,
                 "private_house": private_house,
                 "fc_house": fc_house,
+                "all_jobs": all_jobs,
+                "all_currencies": all_currencies,
+                "categorized_currencies": categorize_currencies(all_currencies) if all_currencies else {},
             }
+            
+            # Calculate MSQ progress (returns percentage, position, total, quest_name)
+            # Get max COMBAT job level for validation (MSQ requires combat jobs, not crafters)
+            max_combat_level = max((lv for job, lv in all_jobs.items() if job in COMBAT_JOBS), default=0) if all_jobs else 0
+            # Fallback to current_level only if it's a combat job
+            if max_combat_level == 0 and current_job in COMBAT_JOBS:
+                max_combat_level = current_level
+            msq_pct, msq_pos, msq_total, msq_quest_name = calculate_msq_progress(completed_quests, max_combat_level)
+            char_data["msq_percent"] = msq_pct
+            char_data["msq_completed"] = msq_pos
+            char_data["msq_total"] = msq_total
+            char_data["msq_quest_name"] = msq_quest_name
             
             # Count ready submarines and retainers
             char_ready_subs = sum(1 for s in submarines if s["is_ready"])
@@ -1066,6 +2498,21 @@ def get_all_data():
             account_data["subs_farming"] += char_subs_farming
             account_data["retainers_leveling"] += char_retainers_leveling
             account_data["retainers_farming"] += char_retainers_farming
+            
+            # Track MSQ progress stats
+            if char_data["msq_percent"] > 0:
+                account_data["characters_with_msq"] += 1
+                total_characters_with_msq += 1
+                total_msq_percent += char_data["msq_percent"]
+                if char_data["msq_percent"] >= 100:
+                    account_data["msq_100_count"] += 1
+                    msq_100_count += 1
+                if char_data["msq_percent"] >= 90:
+                    account_data["msq_90_count"] += 1
+                    msq_90_count += 1
+                if char_data["msq_percent"] >= 50:
+                    account_data["msq_50_count"] += 1
+                    msq_50_count += 1
             
             total_daily_income += sub_daily_income
             total_daily_cost += sub_daily_cost
@@ -1121,6 +2568,13 @@ def get_all_data():
             "daily_profit": total_daily_income - total_daily_cost,
             "monthly_profit": (total_daily_income - total_daily_cost) * 30,
             "min_restock_days": min_restock_days,
+            # MSQ Progress stats
+            "msq_100_count": msq_100_count,
+            "msq_90_count": msq_90_count,
+            "msq_50_count": msq_50_count,
+            "characters_with_msq": total_characters_with_msq,
+            "msq_avg_percent": round(total_msq_percent / total_characters_with_msq, 1) if total_characters_with_msq > 0 else 0,
+            "msq_total_quests": len(MSQ_QUEST_DATA),
         },
         "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
@@ -1487,6 +2941,7 @@ HTML_TEMPLATE = '''
             justify-content: space-between;
             padding: 8px 0;
             border-bottom: 1px solid var(--border);
+            align-items: flex-start;
         }
         
         .info-row:last-child {
@@ -1495,10 +2950,13 @@ HTML_TEMPLATE = '''
         
         .info-label {
             color: var(--text-secondary);
+            flex-shrink: 0;
+            margin-right: 10px;
         }
         
         .info-value {
             font-weight: 500;
+            text-align: right;
         }
         
         .info-value.success {
@@ -1535,6 +2993,151 @@ HTML_TEMPLATE = '''
         
         .sub-table tr:nth-child(even), .ret-table tr:nth-child(even) {
             background: rgba(255, 255, 255, 0.03);
+        }
+        
+        .job-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 10px 0;
+        }
+        
+        .job-column {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        
+        .job-category-title {
+            font-size: 0.85em;
+            color: var(--text-secondary);
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 4px;
+        }
+        
+        .job-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 2px 0;
+            font-size: 0.85em;
+        }
+        
+        .job-level {
+            min-width: 28px;
+            text-align: right;
+            color: var(--gold);
+            font-weight: bold;
+        }
+        
+        .job-level-zero {
+            color: var(--text-secondary);
+            font-weight: normal;
+        }
+        
+        .job-name {
+            color: var(--text-primary);
+        }
+        
+        .currency-section {
+            padding: 3px 0 20px 0;
+        }
+        
+        .currency-row-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 6px;
+            align-items: flex-start;
+        }
+        
+        .currency-row-group:last-child {
+            margin-bottom: 5px;
+            padding-bottom: 3px;
+        }
+        
+        .currency-category {
+            flex: 1;
+            min-width: 130px;
+            max-width: 180px;
+        }
+        
+        .currency-category-title {
+            color: var(--accent);
+            font-size: 0.75em;
+            font-weight: bold;
+            margin-bottom: 4px;
+            padding-bottom: 2px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .currency-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1px 0;
+            font-size: 0.75em;
+        }
+        
+        .currency-name {
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100px;
+        }
+        
+        .currency-value {
+            color: var(--gold);
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        
+        .currency-value-zero {
+            color: var(--text-secondary);
+            margin-left: 5px;
+        }
+        
+        .crystal-container {
+            width: fit-content;
+            margin-bottom: 6px;
+        }
+        
+        .crystal-container .currency-category-title {
+            width: 100%;
+        }
+        
+        .crystal-grid {
+            display: grid;
+            grid-template-columns: 60px repeat(3, 70px);
+            gap: 1px 5px;
+            font-size: 0.75em;
+        }
+        
+        .crystal-header {
+            color: var(--accent);
+            font-weight: bold;
+            text-align: right;
+            padding: 2px 0;
+        }
+        
+        .crystal-element {
+            color: var(--text-secondary);
+            padding: 1px 0;
+        }
+        
+        .crystal-value {
+            color: var(--gold);
+            font-weight: bold;
+            text-align: right;
+            padding: 1px 0;
+        }
+        
+        .crystal-value-zero {
+            color: var(--text-secondary);
+            text-align: right;
+            padding: 1px 0;
         }
         
         .status-ready {
@@ -1577,7 +3180,7 @@ HTML_TEMPLATE = '''
         }
         
         .collapse-content {
-            max-height: 500px;
+            max-height: 800px;
             overflow: hidden;
             transition: max-height 0.3s ease-out;
         }
@@ -1692,6 +3295,7 @@ HTML_TEMPLATE = '''
                     <span class="{% if account.ready_subs > 0 %}stat-ready{% endif %}">🚢 <span class="acc-ready-subs">{{ account.ready_subs }}</span>/<span class="acc-subs">{{ account.total_subs }}</span> subs</span>
                     <span class="{% if account.ready_retainers > 0 %}stat-ready{% endif %}">👤 <span class="acc-ready-retainers">{{ account.ready_retainers }}</span>/<span class="acc-retainers">{{ account.total_retainers }}</span> retainers</span>
                     <span>📦 <span class="acc-mb">{{ account.total_mb_items }}</span>/<span class="acc-max-mb">{{ "{:,}".format(account.max_mb_items) }}</span> MB</span>
+                    <span>📜 <span class="acc-msq-100">{{ account.msq_100_count }}</span>/<span class="acc-msq-tracked">{{ account.characters_with_msq }}</span> MSQ</span>
                 </div>
             </div>
             
@@ -1713,12 +3317,14 @@ HTML_TEMPLATE = '''
                 <button class="sort-btn" data-sort="retainer_level" data-order="desc" onclick="sortCharacters(this)" title="Retainer Level">👤 Lv ▼</button>
                 <button class="sort-btn" data-sort="subs" data-order="desc" onclick="sortCharacters(this)" title="Submarines">🚢 ▼</button>
                 <button class="sort-btn" data-sort="sub_level" data-order="desc" onclick="sortCharacters(this)" title="Submarine Level">🚢 Lv ▼</button>
+                <button class="sort-btn" data-sort="msq_percent" data-order="asc" onclick="sortCharacters(this)" title="MSQ Progress (least to most)">📜 ▲</button>
                 <span style="flex-grow: 1;"></span>
                 <button class="filter-btn anon-btn" onclick="toggleAnonymize(this)" title="Anonymize">🔒</button>
                 <button class="filter-btn" data-filter="personal-house" onclick="toggleFilter(this)" title="Show only characters with Personal House">🏠</button>
                 <button class="filter-btn" data-filter="fc-house" onclick="toggleFilter(this)" title="Show only characters with FC House">🏨</button>
                 <button class="filter-btn" data-filter="retainers" onclick="toggleFilter(this)" title="Show only characters with Retainers">👤</button>
                 <button class="filter-btn" data-filter="subs" onclick="toggleFilter(this)" title="Show only characters with Submarines">🚢</button>
+                <button class="filter-btn" data-filter="msq" onclick="toggleFilter(this)" title="Hide characters with 0% MSQ">📜</button>
                 <button class="filter-btn" onclick="expandAllChars(this)" title="Expand All">▼</button>
                 <button class="filter-btn" onclick="collapseAllChars(this)" title="Collapse All">▲</button>
             </div>
@@ -1730,10 +3336,10 @@ HTML_TEMPLATE = '''
             {% else %}
             <div class="character-grid">
                 {% for char in account.characters %}
-                <div class="character-card" data-char="{{ char.cid }}" data-level="{{ char.current_level }}" data-gil="{{ char.total_gil }}" data-treasure="{{ char.treasure_value }}" data-fc-points="{{ char.fc_points }}" data-venture-coins="{{ char.venture_coins }}" data-coffers="{{ char.coffer_count }}" data-dyes="{{ char.dye_count }}" data-tanks="{{ char.ceruleum }}" data-kits="{{ char.repair_kits }}" data-restock="{{ char.days_until_restock if char.days_until_restock is not none else 9999 }}" data-retainers="{{ char.ready_retainers }}" data-total-retainers="{{ char.total_retainers }}" data-subs="{{ char.ready_subs }}" data-total-subs="{{ char.total_subs }}" data-inventory="{{ 140 - char.inventory_space }}" data-has-personal-house="{{ 'true' if char.private_house else 'false' }}" data-has-fc-house="{{ 'true' if char.fc_house else 'false' }}" data-retainer-level="{{ char.max_retainer_level }}" data-sub-level="{{ char.max_sub_level }}">
+                <div class="character-card" data-char="{{ char.cid }}" data-level="{{ char.current_level }}" data-gil="{{ char.total_gil }}" data-treasure="{{ char.treasure_value }}" data-fc-points="{{ char.fc_points }}" data-venture-coins="{{ char.venture_coins }}" data-coffers="{{ char.coffer_count }}" data-dyes="{{ char.dye_count }}" data-tanks="{{ char.ceruleum }}" data-kits="{{ char.repair_kits }}" data-restock="{{ char.days_until_restock if char.days_until_restock is not none else 9999 }}" data-retainers="{{ char.ready_retainers }}" data-total-retainers="{{ char.total_retainers }}" data-subs="{{ char.ready_subs }}" data-total-subs="{{ char.total_subs }}" data-inventory="{{ 140 - char.inventory_space }}" data-has-personal-house="{{ 'true' if char.private_house else 'false' }}" data-has-fc-house="{{ 'true' if char.fc_house else 'false' }}" data-retainer-level="{{ char.max_retainer_level }}" data-sub-level="{{ char.max_sub_level }}" data-msq-percent="{{ char.msq_percent }}">
                     <div class="character-header collapsed {% if char.ready_retainers > 0 or char.ready_subs > 0 %}has-available{% endif %}" onclick="toggleCharacter(this)">
                         <div class="char-header-row name-row">
-                            <span class="character-name">{{ char.name }}{% if char.current_level > 0 %} <span style="font-size: 0.8em; color: var(--text-secondary);">(Lv {{ char.current_level }}, {{ char.current_job }})</span>{% endif %}{% if char.private_house %} <span style="font-size: 0.8em;" title="Personal House: {{ char.private_house }}">🏠</span>{% endif %}{% if char.fc_house %} <span style="font-size: 0.8em;" title="FC House: {{ char.fc_house }}">🏨</span>{% endif %}</span>
+                            <span class="character-name">{{ char.name }}{% if char.current_level > 0 %} <span style="font-size: 0.8em; color: var(--text-secondary);">(Lv {{ char.current_level }}, {{ char.current_job }})</span>{% endif %}{% if char.msq_completed >= min_msq_quests %} <span style="font-size: 0.8em; {% if char.msq_percent >= 90 %}color: #4ade80;{% elif char.msq_percent >= 50 %}color: #fbbf24;{% else %}color: #94a3b8;{% endif %}" title="MSQ Progress: {{ char.msq_completed }}/{{ char.msq_total }}{% if char.msq_quest_name %} - {{ char.msq_quest_name }}{% endif %}">MSQ: {{ char.msq_percent }}%</span>{% endif %}{% if char.private_house %} <span style="font-size: 0.8em;" title="Personal House: {{ char.private_house }}">🏠</span>{% endif %}{% if char.fc_house %} <span style="font-size: 0.8em;" title="FC House: {{ char.fc_house }}">🏨</span>{% endif %}</span>
                             <span class="char-status {% if char.ready_retainers > 0 %}available{% else %}all-sent{% endif %}">👤 {{ char.ready_retainers }}/{{ char.total_retainers }}</span>
                         </div>
                         <div class="char-header-row">
@@ -1750,6 +3356,10 @@ HTML_TEMPLATE = '''
                         </div>
                     </div>
                     <div class="character-body collapsed">
+                        <div class="info-row">
+                            <span class="info-label">Player</span>
+                            <span class="info-value player-name-world">{{ char.name }}@{{ char.world }}</span>
+                        </div>
                         {% if char.current_level > 0 %}
                         <div class="info-row">
                             <span class="info-label">Current Class</span>
@@ -1792,6 +3402,12 @@ HTML_TEMPLATE = '''
                             <span class="info-label">Inventory 🎒</span>
                             <span class="info-value" style="{% if (140 - char.inventory_space) >= 130 %}color: var(--accent);{% elif (140 - char.inventory_space) >= 100 %}color: var(--warning);{% endif %}">{{ 140 - char.inventory_space }}/140</span>
                         </div>
+                        {% if char.msq_completed >= min_msq_quests %}
+                        <div class="info-row">
+                            <span class="info-label">MSQ Progress 📜</span>
+                            <span class="info-value" style="{% if char.msq_percent >= 90 %}color: #4ade80;{% elif char.msq_percent >= 50 %}color: #fbbf24;{% else %}color: #94a3b8;{% endif %}">{{ char.msq_percent }}% ({{ char.msq_completed }}/{{ char.msq_total }}){% if char.msq_quest_name %} - {{ char.msq_quest_name }}{% endif %}</span>
+                        </div>
+                        {% endif %}
                         {% if char.private_house %}
                         <div class="info-row">
                             <span class="info-label">Personal House 🏠</span>
@@ -1880,6 +3496,189 @@ HTML_TEMPLATE = '''
                             </table>
                         </div>
                         {% endif %}
+                        
+                        {% if show_classes and char.all_jobs %}
+                        <div class="section-title collapsible collapsed" onclick="toggleCollapse(this)">⚔️ DoW/DoM</div>
+                        <div class="collapse-content collapsed">
+                            <div class="job-grid">
+                                <div class="job-column">
+                                    <div class="job-category-title">🛡️ Tank</div>
+                                    {% for job in job_categories.Tank %}
+                                    {% set job_level = char.all_jobs.get(job, 0) %}
+                                    {% if job_level == 0 and job in job_base_class %}
+                                    {% set job_level = char.all_jobs.get(job_base_class[job], 0) %}
+                                    {% endif %}
+                                    <div class="job-row">
+                                        <span class="job-level {% if job_level == 0 %}job-level-zero{% endif %}">{{ job_level }}</span>
+                                        <span class="job-name">{{ job_display_names.get(job, job) }}</span>
+                                    </div>
+                                    {% endfor %}
+                                    <div class="job-category-title" style="margin-top: 10px;">⚔️ Melee DPS</div>
+                                    {% for job in job_categories.MeleeDPS %}
+                                    {% set job_level = char.all_jobs.get(job, 0) %}
+                                    {% if job_level == 0 and job in job_base_class %}
+                                    {% set job_level = char.all_jobs.get(job_base_class[job], 0) %}
+                                    {% endif %}
+                                    <div class="job-row">
+                                        <span class="job-level {% if job_level == 0 %}job-level-zero{% endif %}">{{ job_level }}</span>
+                                        <span class="job-name">{{ job_display_names.get(job, job) }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="job-column">
+                                    <div class="job-category-title">💚 Healer</div>
+                                    {% for job in job_categories.Healer %}
+                                    {% set job_level = char.all_jobs.get(job, 0) %}
+                                    {% if job_level == 0 and job in job_base_class %}
+                                    {% set job_level = char.all_jobs.get(job_base_class[job], 0) %}
+                                    {% endif %}
+                                    <div class="job-row">
+                                        <span class="job-level {% if job_level == 0 %}job-level-zero{% endif %}">{{ job_level }}</span>
+                                        <span class="job-name">{{ job_display_names.get(job, job) }}</span>
+                                    </div>
+                                    {% endfor %}
+                                    <div class="job-category-title" style="margin-top: 10px;">🏹 Physical Ranged DPS</div>
+                                    {% for job in job_categories.PhysRangedDPS %}
+                                    {% set job_level = char.all_jobs.get(job, 0) %}
+                                    {% if job_level == 0 and job in job_base_class %}
+                                    {% set job_level = char.all_jobs.get(job_base_class[job], 0) %}
+                                    {% endif %}
+                                    <div class="job-row">
+                                        <span class="job-level {% if job_level == 0 %}job-level-zero{% endif %}">{{ job_level }}</span>
+                                        <span class="job-name">{{ job_display_names.get(job, job) }}</span>
+                                    </div>
+                                    {% endfor %}
+                                    <div class="job-category-title" style="margin-top: 10px;">✨ Magical Ranged DPS</div>
+                                    {% for job in job_categories.MagicRangedDPS %}
+                                    {% set job_level = char.all_jobs.get(job, 0) %}
+                                    {% if job_level == 0 and job in job_base_class %}
+                                    {% set job_level = char.all_jobs.get(job_base_class[job], 0) %}
+                                    {% endif %}
+                                    <div class="job-row">
+                                        <span class="job-level {% if job_level == 0 %}job-level-zero{% endif %}">{{ job_level }}</span>
+                                        <span class="job-name">{{ job_display_names.get(job, job) }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="section-title collapsible collapsed" onclick="toggleCollapse(this)">🔨 DoH/DoL</div>
+                        <div class="collapse-content collapsed">
+                            <div class="job-grid">
+                                <div class="job-column">
+                                    <div class="job-category-title">🔨 Disciples of the Hand</div>
+                                    {% for job in job_categories.DoH %}
+                                    {% set job_level = char.all_jobs.get(job, 0) %}
+                                    <div class="job-row">
+                                        <span class="job-level {% if job_level == 0 %}job-level-zero{% endif %}">{{ job_level }}</span>
+                                        <span class="job-name">{{ job_display_names.get(job, job) }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="job-column">
+                                    <div class="job-category-title">⛏️ Disciples of the Land</div>
+                                    {% for job in job_categories.DoL %}
+                                    {% set job_level = char.all_jobs.get(job, 0) %}
+                                    <div class="job-row">
+                                        <span class="job-level {% if job_level == 0 %}job-level-zero{% endif %}">{{ job_level }}</span>
+                                        <span class="job-name">{{ job_display_names.get(job, job) }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if show_currencies and char.categorized_currencies %}
+                        <div class="section-title collapsible collapsed" onclick="toggleCollapse(this)">💰 Currencies</div>
+                        <div class="collapse-content collapsed">
+                            <div class="currency-section">
+                                {% if char.categorized_currencies.crystal_grid %}
+                                <div class="crystal-container">
+                                <div class="currency-category-title">💎 Crystals</div>
+                                <div class="crystal-grid">
+                                    <div></div>
+                                    <div class="crystal-header">Shards</div>
+                                    <div class="crystal-header">Crystals</div>
+                                    <div class="crystal-header">Clusters</div>
+                                    {% for elem in char.categorized_currencies.crystal_elements %}
+                                    <div class="crystal-element">{{ elem }}</div>
+                                    <div class="{% if char.categorized_currencies.crystal_grid[elem].Shard > 0 %}crystal-value{% else %}crystal-value-zero{% endif %}">{{ "{:,}".format(char.categorized_currencies.crystal_grid[elem].Shard) }}</div>
+                                    <div class="{% if char.categorized_currencies.crystal_grid[elem].Crystal > 0 %}crystal-value{% else %}crystal-value-zero{% endif %}">{{ "{:,}".format(char.categorized_currencies.crystal_grid[elem].Crystal) }}</div>
+                                    <div class="{% if char.categorized_currencies.crystal_grid[elem].Cluster > 0 %}crystal-value{% else %}crystal-value-zero{% endif %}">{{ "{:,}".format(char.categorized_currencies.crystal_grid[elem].Cluster) }}</div>
+                                    {% endfor %}
+                                </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if char.categorized_currencies.categories.Common or char.categorized_currencies.categories.Tomestones %}
+                                <div class="currency-row-group">
+                                    {% if char.categorized_currencies.categories.Common %}
+                                    <div class="currency-category">
+                                        <div class="currency-category-title">Common</div>
+                                        {% for display_name, value in char.categorized_currencies.categories.Common %}
+                                        <div class="currency-row">
+                                            <span class="currency-name">{{ display_name }}</span>
+                                            <span class="currency-value">{{ "{:,}".format(value) }}</span>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    {% if char.categorized_currencies.categories.Tomestones %}
+                                    <div class="currency-category">
+                                        <div class="currency-category-title">Tomestones</div>
+                                        {% for display_name, value in char.categorized_currencies.categories.Tomestones %}
+                                        <div class="currency-row">
+                                            <span class="currency-name">{{ display_name }}</span>
+                                            <span class="currency-value">{{ "{:,}".format(value) }}</span>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                                
+                                {% if char.categorized_currencies.categories.Battle or char.categorized_currencies.categories.Societies or char.categorized_currencies.categories.Other %}
+                                <div class="currency-row-group">
+                                    {% if char.categorized_currencies.categories.Battle %}
+                                    <div class="currency-category">
+                                        <div class="currency-category-title">Battle</div>
+                                        {% for display_name, value in char.categorized_currencies.categories.Battle %}
+                                        <div class="currency-row">
+                                            <span class="currency-name">{{ display_name }}</span>
+                                            <span class="currency-value">{{ "{:,}".format(value) }}</span>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    {% if char.categorized_currencies.categories.Societies %}
+                                    <div class="currency-category">
+                                        <div class="currency-category-title">Societies</div>
+                                        {% for display_name, value in char.categorized_currencies.categories.Societies %}
+                                        <div class="currency-row">
+                                            <span class="currency-name">{{ display_name }}</span>
+                                            <span class="currency-value">{{ "{:,}".format(value) }}</span>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    {% if char.categorized_currencies.categories.Other %}
+                                    <div class="currency-category">
+                                        <div class="currency-category-title">Other</div>
+                                        {% for display_name, value in char.categorized_currencies.categories.Other %}
+                                        <div class="currency-row">
+                                            <span class="currency-name">{{ display_name }}</span>
+                                            <span class="currency-value">{{ "{:,}".format(value) }}</span>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
@@ -1890,7 +3689,7 @@ HTML_TEMPLATE = '''
         {% endfor %}
         
         <div class="footer">
-            FFXIV AutoRetainer Dashboard v1.08 | Data sourced from AutoRetainer DefaultConfig.json, Altoholic & Lifestream<br>
+            FFXIV AutoRetainer Dashboard v1.11 | Data sourced from AutoRetainer DefaultConfig.json, Altoholic & Lifestream<br>
             <a href="https://github.com/xa-io/ffxiv-tools/tree/main/FFXIV-AutoRetainer-Dashboard" target="_blank" style="color: var(--accent); text-decoration: none;">github.com/xa-io/ffxiv-tools</a>
         </div>
     </div>
@@ -1984,7 +3783,8 @@ HTML_TEMPLATE = '''
                 'retainers': 'retainers',
                 'retainer_level': 'retainer-level',
                 'subs': 'subs',
-                'sub_level': 'sub-level'
+                'sub_level': 'sub-level',
+                'msq_percent': 'msq-percent'
             };
             
             const attr = attrMap[sortKey];
@@ -2019,11 +3819,13 @@ HTML_TEMPLATE = '''
             const subsBtn = sortBar.querySelector('.filter-btn[data-filter="subs"]');
             const personalHouseBtn = sortBar.querySelector('.filter-btn[data-filter="personal-house"]');
             const fcHouseBtn = sortBar.querySelector('.filter-btn[data-filter="fc-house"]');
+            const msqBtn = sortBar.querySelector('.filter-btn[data-filter="msq"]');
             
             const hideNoRetainers = retainersBtn && retainersBtn.classList.contains('active');
             const hideNoSubs = subsBtn && subsBtn.classList.contains('active');
             const showOnlyPersonalHouse = personalHouseBtn && personalHouseBtn.classList.contains('active');
             const showOnlyFcHouse = fcHouseBtn && fcHouseBtn.classList.contains('active');
+            const hideNoMsq = msqBtn && msqBtn.classList.contains('active');
             
             // Apply all filters
             cards.forEach(card => {
@@ -2031,12 +3833,14 @@ HTML_TEMPLATE = '''
                 const totalSubs = parseInt(card.dataset.totalSubs) || 0;
                 const hasPersonalHouse = card.dataset.hasPersonalHouse === 'true';
                 const hasFcHouse = card.dataset.hasFcHouse === 'true';
+                const msqPercent = parseFloat(card.dataset.msqPercent) || 0;
                 
                 let shouldHide = false;
                 
                 // Hide filters (hide if condition not met)
                 if (hideNoRetainers && totalRetainers === 0) shouldHide = true;
                 if (hideNoSubs && totalSubs === 0) shouldHide = true;
+                if (hideNoMsq && msqPercent === 0) shouldHide = true;
                 
                 // Show-only filters (hide if doesn't have the feature)
                 if (showOnlyPersonalHouse && !hasPersonalHouse) shouldHide = true;
@@ -2159,6 +3963,15 @@ HTML_TEMPLATE = '''
                         }
                     }
                 });
+                
+                // Anonymize Player Name @ World
+                const playerNameWorld = card.querySelector('.player-name-world');
+                if (playerNameWorld) {
+                    if (!originalData.has(playerNameWorld)) {
+                        originalData.set(playerNameWorld, { text: playerNameWorld.textContent });
+                    }
+                    playerNameWorld.textContent = 'Toon ' + (cardIndex + 1) + '@Eorzea';
+                }
             });
         }
         
@@ -2174,6 +3987,9 @@ HTML_TEMPLATE = '''
                     } else {
                         element.removeAttribute('style');
                     }
+                } else if (typeof value === 'object' && value.text !== undefined) {
+                    // Restore player name with original text
+                    element.textContent = value.text;
                 } else {
                     element.textContent = value;
                 }
@@ -2327,7 +4143,10 @@ HTML_TEMPLATE = '''
 def index():
     """Main dashboard page"""
     data = get_all_data()
-    return render_template_string(HTML_TEMPLATE, data=data, auto_refresh=AUTO_REFRESH)
+    return render_template_string(HTML_TEMPLATE, data=data, auto_refresh=AUTO_REFRESH, 
+                                  job_categories=JOB_CATEGORIES, job_display_names=JOB_DISPLAY_NAMES,
+                                  job_base_class=JOB_BASE_CLASS, min_msq_quests=MINIMUM_MSQ_QUESTS,
+                                  show_classes=SHOW_CLASSES, show_currencies=SHOW_CURRENCIES)
 
 
 @app.route('/api/data')
@@ -2351,7 +4170,7 @@ if __name__ == "__main__":
     load_external_config()
     
     print("=" * 60)
-    print("  FFXIV AutoRetainer Dashboard v1.08")
+    print("  FFXIV AutoRetainer Dashboard v1.11")
     print("=" * 60)
     print(f"  Server: http://{HOST}:{PORT}")
     print(f"  Accounts: {len(account_locations)}")
