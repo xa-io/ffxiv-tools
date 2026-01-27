@@ -1,8 +1,8 @@
-# FFXIV AutoRetainer Dashboard v1.08
+# FFXIV AutoRetainer Dashboard v1.11
 
-A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, income/cost calculations, and comprehensive supply tracking.
+A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression, job levels, currencies, income/cost calculations, and comprehensive supply tracking.
 
-<img width="1368" height="1742" alt="image" src="https://github.com/user-attachments/assets/36cd10a4-38c5-4cc5-87d7-14fd7b3b29b8" />
+<img width="1451" height="3385" alt="image" src="https://github.com/user-attachments/assets/244642b1-2b1f-44f4-a4bf-cf3260c17223" />
 
 ## Features
 
@@ -15,7 +15,11 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 - **Supply Tracking**: Displays ceruleum tanks, repair kits, and days until restocking needed
 - **Inventory Tracking**: Shows inventory space used per character with color-coded warnings
 - **Multi-Account Support**: Configure multiple accounts via config.json
-- **Sorting**: Sort characters by level, gil, treasure, FC points, ventures, inventory, retainer/submarine levels
+- **MSQ Progression Tracking**: Shows MSQ completion percentage with color coding (green ≥90%, yellow ≥50%, gray <50%)
+- **Job Level Display**: Collapsible DoW/DoM and DoH/DoL sections showing all job levels
+- **Currency Tracking**: Categorized currency display (Crystals, Common, Tomestones, Battle, Societies)
+- **Player Name Copy**: Easy copy/paste of Name@World format
+- **Sorting**: Sort characters by level, gil, treasure, FC points, ventures, inventory, MSQ%, retainer/submarine levels
 - **Filtering**: Filter characters by retainers, submarines, personal house, or FC house
 - **Anonymize**: Hides personal data for screenshots (names, worlds, FCs, housing addresses show TOP SECRET)
 - **Expand All / Collapse All**: Expand or collapse all character cards
@@ -42,6 +46,8 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 
 - Character name, world, and FC
 - Current class and level (from Altoholic)
+- MSQ progress percentage with quest count and current quest name
+- Player Name@World (for easy copy/paste)
 - Personal House and FC House locations (from Lifestream)
 - Character gil + Retainer gil
 - Treasure value (salvaged rings, bracelets, etc.)
@@ -68,6 +74,24 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 - Marketboard items count
 - Venture status
 - Leveling/Farming status (Level <100 = Leveling, Level 100 = Farming)
+
+#### Job Levels (DoW/DoM & DoH/DoL)
+
+- Collapsible sections showing all job levels
+- Combat jobs: Tank, Healer, Melee DPS, Physical Ranged DPS, Magical Ranged DPS
+- Crafters: All 8 Disciples of the Hand
+- Gatherers: All 3 Disciples of the Land
+- Base class levels mapped to final jobs (e.g., Gladiator → Paladin)
+
+#### Currencies
+
+- Categorized display with compact layout
+- **Crystals**: Grid showing Shards, Crystals, Clusters for all 6 elements
+- **Common**: Gil, Ventures, MGP, Bicolor Gemstones
+- **Tomestones**: Poetics, Aesthetics, Heliometry
+- **Battle**: Wolf Marks, Trophy Crystals, Allied Seals
+- **Societies**: Tribal currencies, Skybuilders' Scrips
+- Shortened verbose names for readability
 
 ## Installation
 
@@ -105,6 +129,9 @@ account_locations = [
     "PORT": 1234,
     "DEBUG": false,
     "AUTO_REFRESH": 60,
+    "MINIMUM_MSQ_QUESTS": 5,
+    "SHOW_CLASSES": true,
+    "SHOW_CURRENCIES": true,
     "account_locations": [
         {
             "enabled": true,
@@ -195,6 +222,9 @@ http://127.0.0.1:1234
 | `PORT` | `1234` | Server port number |
 | `DEBUG` | `false` | Flask debug mode |
 | `AUTO_REFRESH` | `60` | Auto-refresh interval in seconds (0 to disable) |
+| `MINIMUM_MSQ_QUESTS` | `5` | Min MSQ quests completed to show MSQ progress (0 = always show) |
+| `SHOW_CLASSES` | `true` | Show DoW/DoM and DoH/DoL job sections |
+| `SHOW_CURRENCIES` | `true` | Show Currencies section |
 
 ## Income/Cost Calculations
 
@@ -253,6 +283,33 @@ FFXIV - Landing Page/
 Created by: https://github.com/xa-io
 
 ## Version History
+
+### v1.11 (2026-01-26)
+
+- **Improved Currencies Display**: Categorized currencies (Crystals, Common, Tomestones, Battle, Societies, Other)
+- **Shortened Currency Names**: Verbose names shortened for readability (e.g., "Allagan_Tomestone_Of_Poetics" → "Poetics")
+- **Compact Flexbox Layout**: Currency display prevents overflow and saves space
+- **Configurable Display Options**: New config parameters for controlling UI sections:
+  - `MINIMUM_MSQ_QUESTS`: Control threshold for showing MSQ progress (default: 5)
+  - `SHOW_CLASSES`: Toggle DoW/DoM and DoH/DoL sections (default: true)
+  - `SHOW_CURRENCIES`: Toggle Currencies section (default: true)
+
+### v1.10 (2026-01-26)
+
+- **MSQ Progression Tracking**: Shows MSQ completion percentage after Lv/Class in character header
+- **Color-Coded Progress**: Green (≥90%), Yellow (≥50%), Gray (<50%)
+- **Quest Details**: Tooltip shows completed/total quest count and current quest name
+- **Comprehensive Quest Data**: 1,041 trackable MSQ quests from ARR through Patch 7.4
+- **Altoholic Integration**: Extracts completed quests from Altoholic database
+
+### v1.09 (2026-01-26)
+
+- **Player Name@World**: Added copyable Name@World row in expanded character section
+- **DoW/DoM Section**: Collapsible section showing all combat job levels (Tank, Healer, Melee/Ranged/Magic DPS)
+- **DoH/DoL Section**: Collapsible section showing all crafter and gatherer levels
+- **Currencies Section**: Collapsible section showing all currencies the character has
+- **Job Level Mapping**: Base class levels mapped to final jobs (e.g., Gladiator → Paladin)
+- **Anonymize Enhancement**: Player name field shows "Toon X@Eorzea" when anonymized
 
 ### v1.08 (2026-01-26)
 
