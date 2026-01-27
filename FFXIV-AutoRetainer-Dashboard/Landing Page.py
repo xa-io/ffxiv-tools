@@ -31,13 +31,17 @@
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.11
+# Landing Page v1.12
 # FFXIV AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-26 21:00:00
+# Last Updated: 2026-01-27 12:00:00
 #
 # ## Release Notes ##
 #
+# v1.12 - Added Hide Money Stats button to privatize earnings for screenshots
+#         Hides: gil, treasure, FC points, venture coins, coffers, dyes, subs, retainers, MB items
+#         Hides: monthly/annual income/cost/profit, retainer levels/gil, submarine levels/builds
+#         Displays asterisks (*****) in place of hidden values, currencies section unaffected
 # v1.11 - Improved Currencies display with categories and shortened names
 #         Categories: Crystals, Common, Tomestones, Battle, Societies, Other
 #         Shortened verbose names (e.g., "Allagan_Tomestone_Of_Poetics" → "Poetics")
@@ -104,8 +108,8 @@ AUTO_REFRESH = 60       # Auto-refresh interval in seconds (0 to disable)
 
 # Display options
 MINIMUM_MSQ_QUESTS = 5  # Minimum MSQ quests to show MSQ progress (0 to always show)
-SHOW_CLASSES = True     # Show DoW/DoM and DoH/DoL job sections
-SHOW_CURRENCIES = True  # Show currencies section
+SHOW_CLASSES = True     # Show DoW/DoM and DoH/DoL job sections, disable to speed up page load
+SHOW_CURRENCIES = True  # Show currencies section, disable to speed up page load
 
 # ===============================================
 # External config file (optional)
@@ -3319,6 +3323,7 @@ HTML_TEMPLATE = '''
                 <button class="sort-btn" data-sort="sub_level" data-order="desc" onclick="sortCharacters(this)" title="Submarine Level">🚢 Lv ▼</button>
                 <button class="sort-btn" data-sort="msq_percent" data-order="asc" onclick="sortCharacters(this)" title="MSQ Progress (least to most)">📜 ▲</button>
                 <span style="flex-grow: 1;"></span>
+                <button class="filter-btn money-btn" onclick="toggleHideMoney(this)" title="Hide Money Stats">💰</button>
                 <button class="filter-btn anon-btn" onclick="toggleAnonymize(this)" title="Anonymize">🔒</button>
                 <button class="filter-btn" data-filter="personal-house" onclick="toggleFilter(this)" title="Show only characters with Personal House">🏠</button>
                 <button class="filter-btn" data-filter="fc-house" onclick="toggleFilter(this)" title="Show only characters with FC House">🏨</button>
@@ -3689,7 +3694,7 @@ HTML_TEMPLATE = '''
         {% endfor %}
         
         <div class="footer">
-            FFXIV AutoRetainer Dashboard v1.11 | Data sourced from AutoRetainer DefaultConfig.json, Altoholic & Lifestream<br>
+            FFXIV AutoRetainer Dashboard v1.12 | Data sourced from AutoRetainer DefaultConfig.json, Altoholic & Lifestream<br>
             <a href="https://github.com/xa-io/ffxiv-tools/tree/main/FFXIV-AutoRetainer-Dashboard" target="_blank" style="color: var(--accent); text-decoration: none;">github.com/xa-io/ffxiv-tools</a>
         </div>
     </div>
@@ -3851,7 +3856,9 @@ HTML_TEMPLATE = '''
         }
         
         let isAnonymized = false;
+        let isMoneyHidden = false;
         const originalData = new Map();
+        const originalMoneyData = new Map();
         
         function toggleAnonymize(btn) {
             isAnonymized = !isAnonymized;
@@ -3997,6 +4004,204 @@ HTML_TEMPLATE = '''
             originalData.clear();
         }
         
+        function toggleHideMoney(btn) {
+            isMoneyHidden = !isMoneyHidden;
+            btn.classList.toggle('active', isMoneyHidden);
+            btn.textContent = isMoneyHidden ? '💸' : '💰';
+            
+            // Toggle all money buttons across all accounts
+            document.querySelectorAll('.money-btn').forEach(b => {
+                b.classList.toggle('active', isMoneyHidden);
+                b.textContent = isMoneyHidden ? '💸' : '💰';
+            });
+            
+            if (isMoneyHidden) {
+                hideMoneyAll();
+            } else {
+                restoreMoneyAll();
+            }
+        }
+        
+        function hideMoneyAll(forceRefresh = false) {
+            const HIDDEN = '*****';
+            
+            // Hide summary cards (top section)
+            const summarySelectors = [
+                '#sum-total-gil', '#sum-treasure', '#sum-with-treasure', '#sum-coffer-dye',
+                '#sum-ready-subs', '#sum-total-subs', '#sum-ready-retainers', '#sum-total-retainers',
+                '#sum-total-mb', '#sum-max-mb', '#sum-monthly-income', '#sum-monthly-cost',
+                '#sum-monthly-profit', '#sum-annual-income'
+            ];
+            summarySelectors.forEach(sel => {
+                const el = document.querySelector(sel);
+                if (el && (forceRefresh || !originalMoneyData.has(el))) {
+                    if (!forceRefresh) originalMoneyData.set(el, el.textContent);
+                    el.textContent = HIDDEN;
+                }
+            });
+            
+            // Hide FC Points sublabel and restock days sublabel in summary cards
+            document.querySelectorAll('.summary-card .sublabel').forEach(el => {
+                if (el.textContent.includes('FC') || el.textContent.includes('📦') || el.textContent.includes('🎨') || el.textContent.includes('lowest')) {
+                    if (forceRefresh || !originalMoneyData.has(el)) {
+                        if (!forceRefresh) originalMoneyData.set(el, { html: el.innerHTML });
+                        el.innerHTML = HIDDEN;
+                    }
+                }
+            });
+            
+            // Hide leveling/farming stats in summary cards
+            document.querySelectorAll('.summary-card .value div').forEach(el => {
+                if (el.textContent.includes('Lvl:') || el.textContent.includes('Farm:')) {
+                    if (forceRefresh || !originalMoneyData.has(el)) {
+                        if (!forceRefresh) originalMoneyData.set(el, { html: el.innerHTML });
+                        el.innerHTML = HIDDEN;
+                    }
+                }
+            });
+            
+            // Hide account tab stats
+            document.querySelectorAll('.account-stats span').forEach(el => {
+                const text = el.textContent;
+                if (text.includes('💰') || text.includes('💎') || text.includes('🚢') || 
+                    text.includes('👤') || text.includes('📦')) {
+                    if (forceRefresh || !originalMoneyData.has(el)) {
+                        if (!forceRefresh) originalMoneyData.set(el, { html: el.innerHTML });
+                        // Keep emoji, hide values
+                        const emoji = text.match(/^[^\d]*/)[0].trim();
+                        el.innerHTML = emoji + ' ' + HIDDEN;
+                    }
+                }
+            });
+            
+            // Hide character card header stats
+            document.querySelectorAll('.character-card').forEach(card => {
+                // Character gil (in header)
+                const gilEl = card.querySelector('.character-gil');
+                if (gilEl && (forceRefresh || !originalMoneyData.has(gilEl))) {
+                    if (!forceRefresh) originalMoneyData.set(gilEl, gilEl.textContent);
+                    gilEl.textContent = HIDDEN + ' gil';
+                }
+                
+                // Treasure value in header
+                card.querySelectorAll('.char-header-row span').forEach(span => {
+                    const text = span.textContent;
+                    if (span.style.color && span.style.color.includes('gold') && text.includes('💎')) {
+                        if (forceRefresh || !originalMoneyData.has(span)) {
+                            if (!forceRefresh) originalMoneyData.set(span, { html: span.innerHTML });
+                            span.innerHTML = '💎 ' + HIDDEN;
+                        }
+                    }
+                    // FC points, venture coins, coffers, dyes row
+                    if (text.includes('🪙') && text.includes('🛒') && text.includes('📦') && text.includes('🎨')) {
+                        if (forceRefresh || !originalMoneyData.has(span)) {
+                            if (!forceRefresh) originalMoneyData.set(span, { html: span.innerHTML });
+                            span.innerHTML = '🪙 ' + HIDDEN + ' | 🛒 ' + HIDDEN + ' | 📦 ' + HIDDEN + ' | 🎨 ' + HIDDEN;
+                        }
+                    }
+                    // Tanks, kits, restock row
+                    if (text.includes('⛽') && text.includes('🔧')) {
+                        if (forceRefresh || !originalMoneyData.has(span)) {
+                            if (!forceRefresh) originalMoneyData.set(span, { html: span.innerHTML });
+                            span.innerHTML = '⛽ ' + HIDDEN + ' | 🔧 ' + HIDDEN + (text.includes('🔄') ? ' | 🔄 ' + HIDDEN : '');
+                        }
+                    }
+                });
+                
+                // Expanded section info rows
+                card.querySelectorAll('.info-row').forEach(row => {
+                    const label = row.querySelector('.info-label');
+                    const value = row.querySelector('.info-value');
+                    if (label && value) {
+                        const labelText = label.textContent;
+                        const moneyLabels = [
+                            'Character Gil', 'Retainer Gil', 'Treasure Value', 'Coffer + Dye Value',
+                            'FC Points', 'Venture Coins', 'Coffers', 'Ceruleum Tanks', 'Repair Kits',
+                            'Days Until Restock', 'Daily Income', 'Daily Cost'
+                        ];
+                        if (moneyLabels.some(ml => labelText.includes(ml))) {
+                            if (forceRefresh || !originalMoneyData.has(value)) {
+                                if (!forceRefresh) originalMoneyData.set(value, { html: value.innerHTML, style: value.getAttribute('style') });
+                                value.innerHTML = HIDDEN;
+                            }
+                        }
+                    }
+                });
+                
+                // Retainer table - hide level, gil, and MB columns
+                const retTable = card.querySelector('.ret-table');
+                if (retTable) {
+                    retTable.querySelectorAll('tr').forEach((row, rowIndex) => {
+                        if (rowIndex === 0) return; // Skip header
+                        // Level (2nd column)
+                        const levelCell = row.querySelector('td:nth-child(2)');
+                        if (levelCell && (forceRefresh || !originalMoneyData.has(levelCell))) {
+                            if (!forceRefresh) originalMoneyData.set(levelCell, levelCell.textContent);
+                            levelCell.textContent = HIDDEN;
+                        }
+                        // Gil (3rd column)
+                        const gilCell = row.querySelector('td:nth-child(3)');
+                        if (gilCell && (forceRefresh || !originalMoneyData.has(gilCell))) {
+                            if (!forceRefresh) originalMoneyData.set(gilCell, gilCell.textContent);
+                            gilCell.textContent = HIDDEN;
+                        }
+                        // MB items (4th column)
+                        const mbCell = row.querySelector('td:nth-child(4)');
+                        if (mbCell && (forceRefresh || !originalMoneyData.has(mbCell))) {
+                            if (!forceRefresh) originalMoneyData.set(mbCell, mbCell.textContent);
+                            mbCell.textContent = HIDDEN;
+                        }
+                    });
+                }
+                
+                // Submarine table - hide level, build, and status columns
+                const subTable = card.querySelector('.sub-table');
+                if (subTable) {
+                    subTable.querySelectorAll('tr').forEach((row, rowIndex) => {
+                        if (rowIndex === 0) return; // Skip header
+                        // Level (2nd column)
+                        const levelCell = row.querySelector('td:nth-child(2)');
+                        if (levelCell && (forceRefresh || !originalMoneyData.has(levelCell))) {
+                            if (!forceRefresh) originalMoneyData.set(levelCell, levelCell.textContent);
+                            levelCell.textContent = HIDDEN;
+                        }
+                        // Build (3rd column)
+                        const buildCell = row.querySelector('td:nth-child(3)');
+                        if (buildCell && (forceRefresh || !originalMoneyData.has(buildCell))) {
+                            if (!forceRefresh) originalMoneyData.set(buildCell, buildCell.textContent);
+                            buildCell.textContent = HIDDEN;
+                        }
+                        // Status (5th column)
+                        const statusCell = row.querySelector('td:nth-child(5)');
+                        if (statusCell && (forceRefresh || !originalMoneyData.has(statusCell))) {
+                            if (!forceRefresh) originalMoneyData.set(statusCell, { html: statusCell.innerHTML, className: statusCell.className });
+                            statusCell.textContent = HIDDEN;
+                            statusCell.className = '';
+                        }
+                    });
+                }
+            });
+        }
+        
+        function restoreMoneyAll() {
+            originalMoneyData.forEach((value, element) => {
+                if (typeof value === 'object' && value.html !== undefined) {
+                    element.innerHTML = value.html;
+                    if (value.style) {
+                        element.setAttribute('style', value.style);
+                    } else if (value.style === null) {
+                        element.removeAttribute('style');
+                    }
+                    if (value.className !== undefined) {
+                        element.className = value.className;
+                    }
+                } else {
+                    element.textContent = value;
+                }
+            });
+            originalMoneyData.clear();
+        }
+        
         function expandAllChars(btn) {
             const accountSection = btn.closest('.account-section');
             const cards = accountSection.querySelectorAll('.character-card');
@@ -4084,36 +4289,46 @@ HTML_TEMPLATE = '''
                 const response = await fetch('/api/data');
                 const data = await response.json();
                 
-                // Update summary cards
+                // Update timestamp always
                 document.getElementById('last-updated').textContent = data.last_updated;
-                document.getElementById('sum-total-gil').textContent = formatNumber(data.summary.total_gil);
-                document.getElementById('sum-treasure').textContent = formatNumber(data.summary.total_treasure);
-                document.getElementById('sum-with-treasure').textContent = formatNumber(data.summary.total_with_treasure);
-                document.getElementById('sum-ready-subs').textContent = data.summary.ready_subs;
-                document.getElementById('sum-total-subs').textContent = data.summary.total_subs;
-                document.getElementById('sum-ready-retainers').textContent = data.summary.ready_retainers;
-                document.getElementById('sum-total-retainers').textContent = data.summary.total_retainers;
-                document.getElementById('sum-total-mb').textContent = data.summary.total_mb_items;
-                document.getElementById('sum-max-mb').textContent = formatNumber(data.summary.max_mb_items);
-                document.getElementById('sum-monthly-income').textContent = formatNumber(Math.floor(data.summary.monthly_income));
-                document.getElementById('sum-monthly-cost').textContent = formatNumber(Math.floor(data.summary.monthly_cost));
-                document.getElementById('sum-monthly-profit').textContent = formatNumber(Math.floor(data.summary.monthly_profit));
-                document.getElementById('sum-annual-income').textContent = formatNumber(Math.floor(data.summary.annual_income));
                 
-                // Update account stats
-                data.accounts.forEach(account => {
-                    const section = document.querySelector(`[data-account="${account.nickname}"]`);
-                    if (section) {
-                        section.querySelector('.acc-gil').textContent = formatNumber(account.total_gil);
-                        section.querySelector('.acc-treasure').textContent = formatNumber(account.total_treasure);
-                        section.querySelector('.acc-ready-subs').textContent = account.ready_subs;
-                        section.querySelector('.acc-subs').textContent = account.total_subs;
-                        section.querySelector('.acc-ready-retainers').textContent = account.ready_retainers;
-                        section.querySelector('.acc-retainers').textContent = account.total_retainers;
-                        section.querySelector('.acc-mb').textContent = account.total_mb_items;
-                        section.querySelector('.acc-max-mb').textContent = formatNumber(account.max_mb_items);
-                    }
-                });
+                // Only update summary cards and account stats if money is NOT hidden
+                if (!isMoneyHidden) {
+                    document.getElementById('sum-total-gil').textContent = formatNumber(data.summary.total_gil);
+                    document.getElementById('sum-treasure').textContent = formatNumber(data.summary.total_treasure);
+                    document.getElementById('sum-with-treasure').textContent = formatNumber(data.summary.total_with_treasure);
+                    document.getElementById('sum-ready-subs').textContent = data.summary.ready_subs;
+                    document.getElementById('sum-total-subs').textContent = data.summary.total_subs;
+                    document.getElementById('sum-ready-retainers').textContent = data.summary.ready_retainers;
+                    document.getElementById('sum-total-retainers').textContent = data.summary.total_retainers;
+                    document.getElementById('sum-total-mb').textContent = data.summary.total_mb_items;
+                    document.getElementById('sum-max-mb').textContent = formatNumber(data.summary.max_mb_items);
+                    document.getElementById('sum-monthly-income').textContent = formatNumber(Math.floor(data.summary.monthly_income));
+                    document.getElementById('sum-monthly-cost').textContent = formatNumber(Math.floor(data.summary.monthly_cost));
+                    document.getElementById('sum-monthly-profit').textContent = formatNumber(Math.floor(data.summary.monthly_profit));
+                    document.getElementById('sum-annual-income').textContent = formatNumber(Math.floor(data.summary.annual_income));
+                    
+                    // Update account stats
+                    data.accounts.forEach(account => {
+                        const section = document.querySelector(`[data-account="${account.nickname}"]`);
+                        if (section) {
+                            section.querySelector('.acc-gil').textContent = formatNumber(account.total_gil);
+                            section.querySelector('.acc-treasure').textContent = formatNumber(account.total_treasure);
+                            section.querySelector('.acc-ready-subs').textContent = account.ready_subs;
+                            section.querySelector('.acc-subs').textContent = account.total_subs;
+                            section.querySelector('.acc-ready-retainers').textContent = account.ready_retainers;
+                            section.querySelector('.acc-retainers').textContent = account.total_retainers;
+                            section.querySelector('.acc-mb').textContent = account.total_mb_items;
+                            section.querySelector('.acc-max-mb').textContent = formatNumber(account.max_mb_items);
+                        }
+                    });
+                }
+                
+                // Re-apply anonymize if active
+                if (isAnonymized) {
+                    originalData.clear();
+                    anonymizeAll();
+                }
                 
                 console.log('Data refreshed at', data.last_updated);
             } catch (error) {
@@ -4170,7 +4385,7 @@ if __name__ == "__main__":
     load_external_config()
     
     print("=" * 60)
-    print("  FFXIV AutoRetainer Dashboard v1.11")
+    print("  FFXIV AutoRetainer Dashboard v1.12")
     print("=" * 60)
     print(f"  Server: http://{HOST}:{PORT}")
     print(f"  Accounts: {len(account_locations)}")
