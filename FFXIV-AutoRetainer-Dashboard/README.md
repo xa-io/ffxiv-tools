@@ -144,6 +144,7 @@ account_locations = [
     "MINIMUM_MSQ_QUESTS": 5,
     "SHOW_CLASSES": true,
     "SHOW_CURRENCIES": true,
+    "DEFAULT_THEME": "default",
     "account_locations": [
         {
             "enabled": true,
