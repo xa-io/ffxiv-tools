@@ -1,8 +1,16 @@
-# FFXIV AutoRetainer Dashboard v1.12
+# FFXIV AutoRetainer Dashboard v1.15
 
 A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression, job levels, currencies, income/cost calculations, and comprehensive supply tracking.
 
-<img width="1446" height="2153" alt="image" src="https://github.com/user-attachments/assets/34d11957-3de8-48c9-a906-18ebc7285f8e" />
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/cacd796e-2a01-45ab-938b-06ba9621446c" alt="3MnKqYLQaN">
+</p>
+
+<p align="center">
+  <img width="1481" height="2238" alt="image" src="https://github.com/user-attachments/assets/4b4efbbd-99c6-4a06-ad08-fe1ee5c6235a" />
+</p>
+
 
 ## Features
 
@@ -24,6 +32,9 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 - **Hide Money Stats**: Privatize earnings for screenshots (replaces financial data with *****)
 - **Anonymize**: Hides personal data for screenshots (names, worlds, FCs, housing addresses show TOP SECRET)
 - **Expand All / Collapse All**: Expand or collapse all character cards
+- **Character Search**: Search bar to filter characters by name across all accounts
+- **Loading Overlay**: Animated progress bar during page load for large character counts
+- **Color Themes**: 10 theme presets (Default, Ultra Dark, Dark Gray, Ocean Blue, Forest Green, Crimson Red, Purple Haze, Pastel Pink, Dark Orange, Brown)
 - **Auto-Refresh**: Configurable auto-refresh interval (default: 60 seconds)
 - **Modern UI**: Dark-themed responsive design with collapsible sections
 - **Ready Status Indicators**: Visual highlighting when retainers/submarines are ready
@@ -226,6 +237,7 @@ http://127.0.0.1:1234
 | `MINIMUM_MSQ_QUESTS` | `5` | Min MSQ quests completed to show MSQ progress (0 = always show) |
 | `SHOW_CLASSES` | `true` | Show DoW/DoM and DoH/DoL job sections |
 | `SHOW_CURRENCIES` | `true` | Show Currencies section |
+| `DEFAULT_THEME` | `default` | Color theme (see Available Themes below) |
 
 ## Income/Cost Calculations
 
@@ -284,6 +296,44 @@ FFXIV - Landing Page/
 Created by: https://github.com/xa-io
 
 ## Version History
+
+### v1.15 (2026-01-27)
+
+- **Color Theme System**: Added 10 color theme presets with theme selector buttons under search bar
+- **Theme Presets**: Default (Blue), Ultra Dark, Dark Gray, Ocean Blue, Forest Green, Crimson Red, Purple Haze, Pastel Pink, Dark Orange, Brown
+- **DEFAULT_THEME Config**: New configuration option to set default theme in script and config.json
+
+#### Available Themes
+
+| Theme | Description |
+|-------|-------------|
+| `default` | Blue accent (original) |
+| `ultra-dark` | Near-black with subtle gray |
+| `dark-gray` | Neutral grays |
+| `ocean-blue` | Deep blues with cyan accent |
+| `forest-green` | Dark greens |
+| `crimson-red` | Dark reds |
+| `purple-haze` | Dark purples |
+| `pastel-pink` | Soft pink with hot pink accent |
+| `dark-orange` | Warm orange/amber tones |
+| `brown` | Earthy brown/sienna tones |
+
+### v1.14 (2026-01-27)
+
+- **Character Search Bar**: Added search input in header to filter characters by name across all accounts
+- **Loading Overlay**: Full-screen loading overlay with animated progress bar for large character counts (1000+)
+- **Loading Hint**: Header subtitle shows "Please wait for page to load, may take longer if importing hundreds of characters"
+- **Anchor Favicon**: Added ⚓ emoji favicon for browser tab
+- **Search Error Message**: Shows "No results match your search..." when no characters match
+- **Auto-Expand on Search**: Accounts with matching characters automatically expand during search
+- **Search Clear**: Clearing search restores original collapse states
+
+### v1.13 (2026-01-27)
+
+- **Current Class Fix**: Fixed to show last played job using LastJob/LastJobLevel from Altoholic
+- **Lowest/Highest Class**: Added fields that only show when level differs from Current
+- **Classes Sort Button**: Added "Classes" sort button (after Level, before Gil) - requires SHOW_CLASSES=true
+- **Individual Dye Counts**: Shows Pure White, Jet Black, Pastel Pink counts after total dyes
 
 ### v1.12 (2026-01-27)
 
