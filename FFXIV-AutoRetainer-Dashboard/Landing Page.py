@@ -31,13 +31,26 @@
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.12
+# Landing Page v1.15
 # FFXIV AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-27 12:00:00
+# Last Updated: 2026-01-27 17:00:00
 #
 # ## Release Notes ##
 #
+# v1.15 - Added 10 color theme presets with theme selector buttons under search bar
+#         Themes: Default (Blue), Ultra Dark, Dark Gray, Ocean Blue, Forest Green,
+#                 Crimson Red, Purple Haze, Pastel Pink, Dark Orange, Brown
+#         DEFAULT_THEME config option in script and config.json
+# v1.14 - Added character search bar in header (filters characters by name across all accounts)
+#         Added loading overlay with animated progress bar for large character counts
+#         Added anchor emoji favicon for browser tab
+#         Shows "No results match your search..." error when no characters found
+#         Auto-expands accounts with matching characters during search
+# v1.13 - Fixed Current Class to show last played job (using LastJob/LastJobLevel from Altoholic)
+#         Added Lowest/Highest Class fields - only show when level differs from Current
+#         Added "Classes" sort button - requires SHOW_CLASSES=true
+#         Added individual dye counts (Pure White, Jet Black, Pastel Pink)
 # v1.12 - Added Hide Money Stats button to privatize earnings for screenshots
 #         Hides: gil, treasure, FC points, venture coins, coffers, dyes, subs, retainers, MB items
 #         Hides: monthly/annual income/cost/profit, retainer levels/gil, submarine levels/builds
@@ -110,6 +123,18 @@ AUTO_REFRESH = 60       # Auto-refresh interval in seconds (0 to disable)
 MINIMUM_MSQ_QUESTS = 5  # Minimum MSQ quests to show MSQ progress (0 to always show)
 SHOW_CLASSES = True     # Show DoW/DoM and DoH/DoL job sections, disable to speed up page load
 SHOW_CURRENCIES = True  # Show currencies section, disable to speed up page load
+DEFAULT_THEME = "default"  # Theme preset for dashboard
+# Available themes:
+#   default      - Blue accent (original)
+#   ultra-dark   - Near-black with subtle gray
+#   dark-gray    - Neutral grays
+#   ocean-blue   - Deep blues with cyan accent
+#   forest-green - Dark greens
+#   crimson-red  - Dark reds
+#   purple-haze  - Dark purples
+#   pastel-pink  - Soft pink with hot pink accent
+#   dark-orange  - Warm orange/amber tones
+#   brown        - Earthy brown/sienna tones
 
 # ===============================================
 # External config file (optional)
@@ -316,6 +341,18 @@ JOB_ABBREVIATIONS = {
     "Carpenter": "CRP", "Blacksmith": "BSM", "Armorer": "ARM", "Goldsmith": "GSM",
     "Leatherworker": "LTW", "Weaver": "WVR", "Alchemist": "ALC", "Culinarian": "CUL",
     "Miner": "MIN", "Botanist": "BTN", "Fisher": "FSH",
+}
+
+# ClassJob ID to Abbreviation mapping (FFXIV internal job IDs)
+CLASSJOB_ID_TO_ABBR = {
+    0: "ADV",   # Adventurer
+    1: "GLA", 2: "PGL", 3: "MRD", 4: "LNC", 5: "ARC", 6: "CNJ", 7: "THM",
+    8: "CRP", 9: "BSM", 10: "ARM", 11: "GSM", 12: "LTW", 13: "WVR", 14: "ALC", 15: "CUL",
+    16: "MIN", 17: "BTN", 18: "FSH",
+    19: "PLD", 20: "MNK", 21: "WAR", 22: "DRG", 23: "BRD", 24: "WHM", 25: "BLM",
+    26: "ACN", 27: "SMN", 28: "SCH", 29: "ROG", 30: "NIN", 31: "MCH", 32: "DRK",
+    33: "AST", 34: "SAM", 35: "RDM", 36: "BLU", 37: "GNB", 38: "DNC", 39: "RPR",
+    40: "SGE", 41: "VPR", 42: "PCT",
 }
 
 # ===============================================
@@ -653,7 +690,7 @@ def load_external_config():
     """Load external config file if it exists"""
     global HOST, PORT, DEBUG, AUTO_REFRESH, account_locations
     global submarine_plans, retainer_plans, item_values
-    global MINIMUM_MSQ_QUESTS, SHOW_CLASSES, SHOW_CURRENCIES
+    global MINIMUM_MSQ_QUESTS, SHOW_CLASSES, SHOW_CURRENCIES, DEFAULT_THEME
     
     config_path = Path(__file__).parent / CONFIG_FILE
     if not config_path.exists():
@@ -670,6 +707,7 @@ def load_external_config():
         MINIMUM_MSQ_QUESTS = config.get("MINIMUM_MSQ_QUESTS", MINIMUM_MSQ_QUESTS)
         SHOW_CLASSES = config.get("SHOW_CLASSES", SHOW_CLASSES)
         SHOW_CURRENCIES = config.get("SHOW_CURRENCIES", SHOW_CURRENCIES)
+        DEFAULT_THEME = config.get("DEFAULT_THEME", DEFAULT_THEME)
         
         if "account_locations" in config:
             new_locations = []
@@ -1959,18 +1997,21 @@ def scan_altoholic_db(db_path):
         con = sqlite3.connect(db_path)
         cur = con.cursor()
         rows = cur.execute(
-            "SELECT CharacterId, Inventory, Saddle, ArmoryInventory, Retainers, Jobs, Currencies, Quests FROM characters"
+            "SELECT CharacterId, Inventory, Saddle, ArmoryInventory, Retainers, Jobs, Currencies, Quests, LastJob, LastJobLevel FROM characters"
         ).fetchall()
         
-        for char_id, inv_json, saddle_json, armory_json, retainers_json, jobs_json, currencies_json, quests_json in rows:
+        for char_id, inv_json, saddle_json, armory_json, retainers_json, jobs_json, currencies_json, quests_json, last_job_id, last_job_level in rows:
             treasure_value = 0
             coffer_dye_value = 0
             coffer_count = 0
             dye_count = 0
+            dye_pure_white = 0
+            dye_jet_black = 0
+            dye_pastel_pink = 0
             venture_coins = 0
             
             def consume(items):
-                nonlocal treasure_value, coffer_dye_value, coffer_count, dye_count
+                nonlocal treasure_value, coffer_dye_value, coffer_count, dye_count, dye_pure_white, dye_jet_black, dye_pastel_pink
                 if not items:
                     return
                 for it in items:
@@ -1993,12 +2034,15 @@ def scan_altoholic_db(db_path):
                         elif iid == 13114:  # Pure White Dye
                             coffer_dye_value += qty * item_values.get("pure_white_dye", COFFER_DYE_VALUES[iid])
                             dye_count += qty
+                            dye_pure_white += qty
                         elif iid == 13115:  # Jet Black Dye
                             coffer_dye_value += qty * item_values.get("jet_black_dye", COFFER_DYE_VALUES[iid])
                             dye_count += qty
+                            dye_jet_black += qty
                         elif iid == 13708:  # Pastel Pink Dye
                             coffer_dye_value += qty * item_values.get("pastel_pink_dye", COFFER_DYE_VALUES[iid])
                             dye_count += qty
+                            dye_pastel_pink += qty
                         else:
                             coffer_dye_value += qty * COFFER_DYE_VALUES[iid]
             
@@ -2025,9 +2069,15 @@ def scan_altoholic_db(db_path):
                         if isinstance(ret_inv, list):
                             consume(ret_inv)
             
-            # Parse Jobs to find current/highest level job and all job levels
-            current_job = ""
-            current_level = 0
+            # Use LastJob and LastJobLevel for current class (last played job)
+            current_job = CLASSJOB_ID_TO_ABBR.get(last_job_id, "") if last_job_id else ""
+            current_level = int(last_job_level) if last_job_level else 0
+            
+            # Parse Jobs to find highest/lowest level jobs and all job levels
+            highest_job = ""
+            highest_level = 0
+            lowest_job = ""
+            lowest_level = 999  # Start high to find minimum
             all_jobs = {}  # Store all job levels
             jobs = _safe_json_load(jobs_json)
             if isinstance(jobs, dict):
@@ -2036,9 +2086,17 @@ def scan_altoholic_db(db_path):
                         level = job_data.get("Level", 0)
                         if isinstance(level, int) and level > 0:
                             all_jobs[job_name] = level
-                        if level > current_level:
-                            current_level = level
-                            current_job = JOB_ABBREVIATIONS.get(job_name, job_name[:3].upper())
+                            # Track lowest level job (must be > 0)
+                            if level < lowest_level:
+                                lowest_level = level
+                                lowest_job = JOB_ABBREVIATIONS.get(job_name, job_name[:3].upper())
+                        if level > highest_level:
+                            highest_level = level
+                            highest_job = JOB_ABBREVIATIONS.get(job_name, job_name[:3].upper())
+            # Reset lowest if no jobs found
+            if lowest_level == 999:
+                lowest_level = 0
+                lowest_job = ""
             
             # Parse Currencies to get Venture coins and all currencies
             all_currencies = {}
@@ -2073,9 +2131,16 @@ def scan_altoholic_db(db_path):
                 "coffer_dye_value": int(coffer_dye_value),
                 "coffer_count": int(coffer_count),
                 "dye_count": int(dye_count),
+                "dye_pure_white": int(dye_pure_white),
+                "dye_jet_black": int(dye_jet_black),
+                "dye_pastel_pink": int(dye_pastel_pink),
                 "venture_coins": int(venture_coins),
                 "current_job": current_job,
                 "current_level": current_level,
+                "highest_job": highest_job,
+                "highest_level": highest_level,
+                "lowest_job": lowest_job,
+                "lowest_level": lowest_level,
                 "all_jobs": all_jobs,
                 "all_currencies": all_currencies,
                 "completed_quests": completed_quests,
@@ -2376,9 +2441,16 @@ def get_all_data():
             coffer_dye_value = 0
             coffer_count = 0
             dye_count = 0
+            dye_pure_white = 0
+            dye_jet_black = 0
+            dye_pastel_pink = 0
             venture_coins = 0
             current_job = ""
             current_level = 0
+            highest_job = ""
+            highest_level = 0
+            lowest_job = ""
+            lowest_level = 0
             all_jobs = {}
             all_currencies = {}
             completed_quests = []
@@ -2387,9 +2459,16 @@ def get_all_data():
                 coffer_dye_value = alto_map[cid].get("coffer_dye_value", 0)
                 coffer_count = alto_map[cid].get("coffer_count", 0)
                 dye_count = alto_map[cid].get("dye_count", 0)
+                dye_pure_white = alto_map[cid].get("dye_pure_white", 0)
+                dye_jet_black = alto_map[cid].get("dye_jet_black", 0)
+                dye_pastel_pink = alto_map[cid].get("dye_pastel_pink", 0)
                 venture_coins = alto_map[cid].get("venture_coins", 0)
                 current_job = alto_map[cid].get("current_job", "")
                 current_level = alto_map[cid].get("current_level", 0)
+                highest_job = alto_map[cid].get("highest_job", "")
+                highest_level = alto_map[cid].get("highest_level", 0)
+                lowest_job = alto_map[cid].get("lowest_job", "")
+                lowest_level = alto_map[cid].get("lowest_level", 0)
                 all_jobs = alto_map[cid].get("all_jobs", {})
                 all_currencies = alto_map[cid].get("all_currencies", {})
                 completed_quests = alto_map[cid].get("completed_quests", [])
@@ -2422,6 +2501,9 @@ def get_all_data():
                 "coffer_dye_value": coffer_dye_value,
                 "coffer_count": coffer_count,
                 "dye_count": dye_count,
+                "dye_pure_white": dye_pure_white,
+                "dye_jet_black": dye_jet_black,
+                "dye_pastel_pink": dye_pastel_pink,
                 "venture_coins": venture_coins,
                 "total_with_treasure": char_gil + retainer_gil + treasure_value,
                 "submarines": submarines,
@@ -2450,6 +2532,12 @@ def get_all_data():
                 "all_currencies": all_currencies,
                 "categorized_currencies": categorize_currencies(all_currencies) if all_currencies else {},
             }
+            
+            # Add highest/lowest job (already extracted from alto_map)
+            char_data["highest_job"] = highest_job
+            char_data["highest_level"] = highest_level
+            char_data["lowest_job"] = lowest_job
+            char_data["lowest_level"] = lowest_level
             
             # Calculate MSQ progress (returns percentage, position, total, quest_name)
             # Get max COMBAT job level for validation (MSQ requires combat jobs, not crafters)
@@ -2579,6 +2667,7 @@ def get_all_data():
             "characters_with_msq": total_characters_with_msq,
             "msq_avg_percent": round(total_msq_percent / total_characters_with_msq, 1) if total_characters_with_msq > 0 else 0,
             "msq_total_quests": len(MSQ_QUEST_DATA),
+            "total_characters": sum(len(acc.get("characters", [])) for acc in all_accounts),
         },
         "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
@@ -2594,20 +2683,167 @@ HTML_TEMPLATE = '''
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FFXIV AutoRetainer Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
     <style>
-        :root {
+        :root, [data-theme="default"] {
             --bg-primary: #1a1a2e;
             --bg-secondary: #16213e;
             --bg-card: #0f3460;
             --bg-hover: #1a4a7a;
             --text-primary: #e8e8e8;
             --text-secondary: #a0a0a0;
-            --accent: #e94560;
-            --accent-light: #ff6b6b;
+            --accent: #3a7aaa;
+            --accent-light: #4a9aca;
+            --accent-highlight: #e94560;
             --success: #00d26a;
             --warning: #ffc107;
             --border: #2a2a4a;
             --gold: #ffd700;
+            --theme-btn: #3a7aaa;
+        }
+        
+        [data-theme="dark-gray"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #252525;
+            --bg-card: #2d2d2d;
+            --bg-hover: #3a3a3a;
+            --text-primary: #e8e8e8;
+            --text-secondary: #a0a0a0;
+            --accent: #808080;
+            --accent-light: #a0a0a0;
+            --success: #00d26a;
+            --warning: #ffc107;
+            --border: #404040;
+            --gold: #ffd700;
+            --theme-btn: #606060;
+        }
+        
+        [data-theme="ocean-blue"] {
+            --bg-primary: #0a1628;
+            --bg-secondary: #0d1f3c;
+            --bg-card: #132744;
+            --bg-hover: #1a3a5c;
+            --text-primary: #e8f4fc;
+            --text-secondary: #8eb8d8;
+            --accent: #00b4d8;
+            --accent-light: #48cae4;
+            --success: #00d26a;
+            --warning: #ffc107;
+            --border: #1e4976;
+            --gold: #ffd700;
+            --theme-btn: #0077b6;
+        }
+        
+        [data-theme="forest-green"] {
+            --bg-primary: #0d1f0d;
+            --bg-secondary: #142814;
+            --bg-card: #1a3a1a;
+            --bg-hover: #2d5a2d;
+            --text-primary: #e8f5e8;
+            --text-secondary: #a0c8a0;
+            --accent: #2ecc71;
+            --accent-light: #58d68d;
+            --success: #00d26a;
+            --warning: #ffc107;
+            --border: #2d5a2d;
+            --gold: #ffd700;
+            --theme-btn: #27ae60;
+        }
+        
+        [data-theme="crimson-red"] {
+            --bg-primary: #1a0a0a;
+            --bg-secondary: #2d1414;
+            --bg-card: #3d1a1a;
+            --bg-hover: #5a2d2d;
+            --text-primary: #f5e8e8;
+            --text-secondary: #c8a0a0;
+            --accent: #dc3545;
+            --accent-light: #e74c5c;
+            --success: #00d26a;
+            --warning: #ffc107;
+            --border: #5a2d2d;
+            --gold: #ffd700;
+            --theme-btn: #c82333;
+        }
+        
+        [data-theme="purple-haze"] {
+            --bg-primary: #1a0a2e;
+            --bg-secondary: #251440;
+            --bg-card: #2d1a4a;
+            --bg-hover: #3d2a5a;
+            --text-primary: #f0e8f8;
+            --text-secondary: #b8a0d0;
+            --accent: #9b59b6;
+            --accent-light: #bb77d6;
+            --success: #00d26a;
+            --warning: #ffc107;
+            --border: #4a2d6a;
+            --gold: #ffd700;
+            --theme-btn: #8e44ad;
+        }
+        
+        [data-theme="dark-orange"] {
+            --bg-primary: #1a1008;
+            --bg-secondary: #2a1a0a;
+            --bg-card: #3a2510;
+            --bg-hover: #4a3520;
+            --text-primary: #f8f0e8;
+            --text-secondary: #d0b8a0;
+            --accent: #e67e22;
+            --accent-light: #f39c12;
+            --success: #00d26a;
+            --warning: #ffc107;
+            --border: #5a4020;
+            --gold: #ffd700;
+            --theme-btn: #d35400;
+        }
+        
+        [data-theme="pastel-pink"] {
+            --bg-primary: #2e1a2a;
+            --bg-secondary: #3d2538;
+            --bg-card: #4a2d42;
+            --bg-hover: #5a3d52;
+            --text-primary: #fff0f5;
+            --text-secondary: #e8c0d0;
+            --accent: #ff69b4;
+            --accent-light: #ffb6c1;
+            --success: #00d26a;
+            --warning: #ffc107;
+            --border: #6a4d5a;
+            --gold: #ffd700;
+            --theme-btn: #ff1493;
+        }
+        
+        [data-theme="brown"] {
+            --bg-primary: #1a1410;
+            --bg-secondary: #2a2018;
+            --bg-card: #3a2d20;
+            --bg-hover: #4a3d30;
+            --text-primary: #f5f0e8;
+            --text-secondary: #c8b8a0;
+            --accent: #8b4513;
+            --accent-light: #a0522d;
+            --success: #00d26a;
+            --warning: #ffc107;
+            --border: #5a4a38;
+            --gold: #ffd700;
+            --theme-btn: #6b3410;
+        }
+        
+        [data-theme="ultra-dark"] {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #0f0f0f;
+            --bg-card: #141414;
+            --bg-hover: #1a1a1a;
+            --text-primary: #c0c0c0;
+            --text-secondary: #808080;
+            --accent: #404040;
+            --accent-light: #505050;
+            --success: #00d26a;
+            --warning: #ffc107;
+            --border: #252525;
+            --gold: #ffd700;
+            --theme-btn: #303030;
         }
         
         * {
@@ -2648,6 +2884,170 @@ HTML_TEMPLATE = '''
         header .subtitle {
             color: var(--text-secondary);
             font-size: 0.9em;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .header-left {
+            flex: 1;
+        }
+        
+        .header-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+        }
+        
+        .search-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        
+        .search-error {
+            color: var(--danger);
+            font-size: 0.85em;
+            margin-bottom: 5px;
+            display: none;
+        }
+        
+        .search-error.visible {
+            display: block;
+        }
+        
+        .search-input {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: var(--text-primary);
+            font-size: 0.9em;
+            width: 200px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 8px rgba(0, 180, 216, 0.3);
+        }
+        
+        .search-input::placeholder {
+            color: var(--text-secondary);
+        }
+        
+        .search-hidden {
+            display: none !important;
+        }
+        
+        /* Theme selector */
+        .theme-selector {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+        }
+        
+        .theme-btn {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        
+        .theme-btn:hover {
+            transform: scale(1.15);
+        }
+        
+        .theme-btn.active {
+            border-color: var(--text-primary);
+        }
+        
+        .theme-btn[data-theme="default"] { background: linear-gradient(135deg, #1a1a2e, #3a7aaa); }
+        .theme-btn[data-theme="ultra-dark"] { background: linear-gradient(135deg, #0a0a0a, #303030); }
+        .theme-btn[data-theme="dark-gray"] { background: linear-gradient(135deg, #1a1a1a, #606060); }
+        .theme-btn[data-theme="ocean-blue"] { background: linear-gradient(135deg, #0a1628, #00b4d8); }
+        .theme-btn[data-theme="forest-green"] { background: linear-gradient(135deg, #0d1f0d, #2ecc71); }
+        .theme-btn[data-theme="crimson-red"] { background: linear-gradient(135deg, #1a0a0a, #dc3545); }
+        .theme-btn[data-theme="purple-haze"] { background: linear-gradient(135deg, #1a0a2e, #9b59b6); }
+        .theme-btn[data-theme="pastel-pink"] { background: linear-gradient(135deg, #2e1a2a, #ff69b4); }
+        .theme-btn[data-theme="dark-orange"] { background: linear-gradient(135deg, #1a1008, #e67e22); }
+        .theme-btn[data-theme="brown"] { background: linear-gradient(135deg, #1a1410, #8b4513); }
+        
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-primary);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+        
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loading-text {
+            color: var(--accent);
+            font-size: 1.5em;
+            margin-bottom: 20px;
+        }
+        
+        .loading-subtext {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+            margin-bottom: 30px;
+        }
+        
+        .progress-container {
+            width: 300px;
+            height: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #00d4ff);
+            border-radius: 4px;
+            animation: loading 2s ease-in-out infinite;
+            width: 30%;
+        }
+        
+        @keyframes loading {
+            0% { transform: translateX(-100%); }
+            50% { transform: translateX(250%); }
+            100% { transform: translateX(-100%); }
+        }
+        
+        .loading-hint {
+            color: var(--text-secondary);
+            font-size: 0.8em;
+            margin-top: 15px;
+            font-style: italic;
         }
         
         .summary-grid {
@@ -2708,7 +3108,7 @@ HTML_TEMPLATE = '''
         }
         
         .account-header {
-            background: linear-gradient(90deg, #2a5a8a 0%, #3a7aaa 100%);
+            background: linear-gradient(90deg, var(--bg-card) 0%, var(--accent) 100%);
             padding: 15px 25px;
             display: flex;
             justify-content: space-between;
@@ -3219,10 +3619,42 @@ HTML_TEMPLATE = '''
     </style>
 </head>
 <body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-text">⚓ FFXIV AutoRetainer Dashboard</div>
+        <div class="loading-subtext">Loading {{ data.summary.total_characters }} characters across {{ data.accounts|length }} account(s)...</div>
+        <div class="progress-container">
+            <div class="progress-bar"></div>
+        </div>
+        <div class="loading-hint">This may take a few seconds for large character counts</div>
+    </div>
+    
     <div class="container">
         <header>
-            <h1>⚓ FFXIV AutoRetainer Dashboard</h1>
-            <div class="subtitle">Last Updated: <span id="last-updated">{{ data.last_updated }}</span> | Auto-refresh: {{ auto_refresh }}s</div>
+            <div class="header-content">
+                <div class="header-left">
+                    <h1>⚓ FFXIV AutoRetainer Dashboard</h1>
+                    <div class="subtitle">Last Updated: <span id="last-updated">{{ data.last_updated }}</span> | Auto-refresh: {{ auto_refresh }}s</div>
+                </div>
+                <div class="header-right">
+                    <div class="search-container">
+                        <div class="search-error" id="search-error">No results match your search...</div>
+                        <input type="text" class="search-input" id="character-search" placeholder="🔍 Search character..." oninput="searchCharacters(this.value)">
+                        <div class="theme-selector">
+                            <button class="theme-btn" data-theme="default" title="Default (Blue)" onclick="setTheme('default')">♻️</button>
+                            <button class="theme-btn" data-theme="ultra-dark" title="Ultra Dark" onclick="setTheme('ultra-dark')"></button>
+                            <button class="theme-btn" data-theme="dark-gray" title="Dark Gray" onclick="setTheme('dark-gray')"></button>
+                            <button class="theme-btn" data-theme="ocean-blue" title="Ocean Blue" onclick="setTheme('ocean-blue')"></button>
+                            <button class="theme-btn" data-theme="forest-green" title="Forest Green" onclick="setTheme('forest-green')"></button>
+                            <button class="theme-btn" data-theme="crimson-red" title="Crimson Red" onclick="setTheme('crimson-red')"></button>
+                            <button class="theme-btn" data-theme="purple-haze" title="Purple Haze" onclick="setTheme('purple-haze')"></button>
+                            <button class="theme-btn" data-theme="pastel-pink" title="Pastel Pink" onclick="setTheme('pastel-pink')"></button>
+                            <button class="theme-btn" data-theme="dark-orange" title="Dark Orange" onclick="setTheme('dark-orange')"></button>
+                            <button class="theme-btn" data-theme="brown" title="Brown" onclick="setTheme('brown')"></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </header>
         
         <!-- Summary Cards -->
@@ -3306,8 +3738,9 @@ HTML_TEMPLATE = '''
             {% if not account.error %}
             <div class="sort-bar collapsed">
                 <span class="sort-label">Sort by:</span>
-                <button class="sort-btn" data-sort="level" data-order="desc" onclick="sortCharacters(this)" title="Level">Level ▼</button>
-                <button class="sort-btn" data-sort="gil" data-order="desc" onclick="sortCharacters(this)" title="Gil">Gil ▼</button>
+                <button class="sort-btn" data-sort="level" data-order="desc" onclick="sortCharacters(this)" title="Level">🎚️ ▼</button>
+                {% if show_classes %}<button class="sort-btn" data-sort="classes" data-order="asc" onclick="sortCharacters(this)" title="Classes (Lowest → Highest)">📖 ▲</button>{% endif %}
+                <button class="sort-btn" data-sort="gil" data-order="desc" onclick="sortCharacters(this)" title="Gil">💰 ▼</button>
                 <button class="sort-btn" data-sort="treasure" data-order="desc" onclick="sortCharacters(this)" title="Treasure">💎 ▼</button>
                 <button class="sort-btn" data-sort="fc_points" data-order="desc" onclick="sortCharacters(this)" title="FC Points">🪙 ▼</button>
                 <button class="sort-btn" data-sort="venture_coins" data-order="desc" onclick="sortCharacters(this)" title="Ventures">🛒 ▼</button>
@@ -3341,7 +3774,7 @@ HTML_TEMPLATE = '''
             {% else %}
             <div class="character-grid">
                 {% for char in account.characters %}
-                <div class="character-card" data-char="{{ char.cid }}" data-level="{{ char.current_level }}" data-gil="{{ char.total_gil }}" data-treasure="{{ char.treasure_value }}" data-fc-points="{{ char.fc_points }}" data-venture-coins="{{ char.venture_coins }}" data-coffers="{{ char.coffer_count }}" data-dyes="{{ char.dye_count }}" data-tanks="{{ char.ceruleum }}" data-kits="{{ char.repair_kits }}" data-restock="{{ char.days_until_restock if char.days_until_restock is not none else 9999 }}" data-retainers="{{ char.ready_retainers }}" data-total-retainers="{{ char.total_retainers }}" data-subs="{{ char.ready_subs }}" data-total-subs="{{ char.total_subs }}" data-inventory="{{ 140 - char.inventory_space }}" data-has-personal-house="{{ 'true' if char.private_house else 'false' }}" data-has-fc-house="{{ 'true' if char.fc_house else 'false' }}" data-retainer-level="{{ char.max_retainer_level }}" data-sub-level="{{ char.max_sub_level }}" data-msq-percent="{{ char.msq_percent }}">
+                <div class="character-card" data-char="{{ char.cid }}" data-level="{{ char.current_level }}" data-lowest-level="{{ char.lowest_level }}" data-highest-level="{{ char.highest_level }}" data-gil="{{ char.total_gil }}" data-treasure="{{ char.treasure_value }}" data-fc-points="{{ char.fc_points }}" data-venture-coins="{{ char.venture_coins }}" data-coffers="{{ char.coffer_count }}" data-dyes="{{ char.dye_count }}" data-tanks="{{ char.ceruleum }}" data-kits="{{ char.repair_kits }}" data-restock="{{ char.days_until_restock if char.days_until_restock is not none else 9999 }}" data-retainers="{{ char.ready_retainers }}" data-total-retainers="{{ char.total_retainers }}" data-subs="{{ char.ready_subs }}" data-total-subs="{{ char.total_subs }}" data-inventory="{{ 140 - char.inventory_space }}" data-has-personal-house="{{ 'true' if char.private_house else 'false' }}" data-has-fc-house="{{ 'true' if char.fc_house else 'false' }}" data-retainer-level="{{ char.max_retainer_level }}" data-sub-level="{{ char.max_sub_level }}" data-msq-percent="{{ char.msq_percent }}">
                     <div class="character-header collapsed {% if char.ready_retainers > 0 or char.ready_subs > 0 %}has-available{% endif %}" onclick="toggleCharacter(this)">
                         <div class="char-header-row name-row">
                             <span class="character-name">{{ char.name }}{% if char.current_level > 0 %} <span style="font-size: 0.8em; color: var(--text-secondary);">(Lv {{ char.current_level }}, {{ char.current_job }})</span>{% endif %}{% if char.msq_completed >= min_msq_quests %} <span style="font-size: 0.8em; {% if char.msq_percent >= 90 %}color: #4ade80;{% elif char.msq_percent >= 50 %}color: #fbbf24;{% else %}color: #94a3b8;{% endif %}" title="MSQ Progress: {{ char.msq_completed }}/{{ char.msq_total }}{% if char.msq_quest_name %} - {{ char.msq_quest_name }}{% endif %}">MSQ: {{ char.msq_percent }}%</span>{% endif %}{% if char.private_house %} <span style="font-size: 0.8em;" title="Personal House: {{ char.private_house }}">🏠</span>{% endif %}{% if char.fc_house %} <span style="font-size: 0.8em;" title="FC House: {{ char.fc_house }}">🏨</span>{% endif %}</span>
@@ -3352,7 +3785,7 @@ HTML_TEMPLATE = '''
                             <span class="char-status {% if char.ready_subs > 0 %}available{% else %}all-sent{% endif %}">🚢 {{ char.ready_subs }}/{{ char.total_subs }}</span>
                         </div>
                         <div class="char-header-row">
-                            <span style="font-size: 0.8em; color: var(--text-secondary);">🪙 {{ "{:,}".format(char.fc_points) }} | 🛒 {{ char.venture_coins }} | 📦 {{ char.coffer_count }} | 🎨 {{ char.dye_count }}</span>
+                            <span style="font-size: 0.8em; color: var(--text-secondary);">🪙 {{ "{:,}".format(char.fc_points) }} | 🛒 {{ char.venture_coins }} | 📦 {{ char.coffer_count }} | 🎨 {{ char.dye_count }}{% if char.dye_count > 0 %} 🤍{{ char.dye_pure_white }} 🖤{{ char.dye_jet_black }} 🩷{{ char.dye_pastel_pink }}{% endif %}</span>
                             <span class="character-gil">{{ "{:,}".format(char.total_gil) }} gil</span>
                         </div>
                         <div class="char-header-row">
@@ -3369,6 +3802,18 @@ HTML_TEMPLATE = '''
                         <div class="info-row">
                             <span class="info-label">Current Class</span>
                             <span class="info-value">{{ char.current_job }} Lv {{ char.current_level }}</span>
+                        </div>
+                        {% endif %}
+                        {% if char.lowest_level > 0 and char.lowest_level < char.current_level %}
+                        <div class="info-row">
+                            <span class="info-label">Lowest Class</span>
+                            <span class="info-value">{{ char.lowest_job }} Lv {{ char.lowest_level }}</span>
+                        </div>
+                        {% endif %}
+                        {% if char.highest_level > 0 and char.highest_level > char.current_level %}
+                        <div class="info-row">
+                            <span class="info-label">Highest Class</span>
+                            <span class="info-value">{{ char.highest_job }} Lv {{ char.highest_level }}</span>
                         </div>
                         {% endif %}
                         <div class="info-row">
@@ -3694,16 +4139,122 @@ HTML_TEMPLATE = '''
         {% endfor %}
         
         <div class="footer">
-            FFXIV AutoRetainer Dashboard v1.12 | Data sourced from AutoRetainer DefaultConfig.json, Altoholic & Lifestream<br>
+            Please wait for page to load, may take longer if importing hundreds of characters, disable classes and/or currencies to generate faster.<br>
+            FFXIV AutoRetainer Dashboard v1.15 | Data sourced from AutoRetainer, Lifestream, & Altoholic<br>
             <a href="https://github.com/xa-io/ffxiv-tools/tree/main/FFXIV-AutoRetainer-Dashboard" target="_blank" style="color: var(--accent); text-decoration: none;">github.com/xa-io/ffxiv-tools</a>
         </div>
     </div>
     
     <script>
         const REFRESH_INTERVAL = {{ auto_refresh }} * 1000;
+        const DEFAULT_THEME = '{{ default_theme }}';
+        
+        // Theme switching functionality
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('dashboard-theme', theme);
+            updateThemeButtons(theme);
+        }
+        
+        function updateThemeButtons(activeTheme) {
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === activeTheme);
+            });
+        }
+        
+        function initTheme() {
+            const savedTheme = localStorage.getItem('dashboard-theme') || DEFAULT_THEME;
+            setTheme(savedTheme);
+        }
+        
+        // Initialize theme immediately (before page fully loads)
+        initTheme();
+        
+        // Hide loading overlay when page is fully loaded
+        window.addEventListener('load', function() {
+            const loadingOverlay = document.getElementById('loading-overlay');
+            if (loadingOverlay) {
+                loadingOverlay.classList.add('hidden');
+                // Remove from DOM after fade animation
+                setTimeout(() => {
+                    loadingOverlay.remove();
+                }, 500);
+            }
+        });
         
         function formatNumber(num) {
             return num.toLocaleString('en-US');
+        }
+        
+        // Character search functionality
+        let currentSearchTerm = '';
+        
+        function searchCharacters(searchTerm) {
+            currentSearchTerm = searchTerm.toLowerCase().trim();
+            const searchError = document.getElementById('search-error');
+            let totalMatches = 0;
+            
+            // Process all account sections
+            document.querySelectorAll('.account-section').forEach(accountSection => {
+                const accountHeader = accountSection.querySelector('.account-header');
+                const sortBar = accountSection.querySelector('.sort-bar');
+                const accountContent = accountSection.querySelector('.account-content');
+                const grid = accountSection.querySelector('.character-grid');
+                
+                if (!grid) return;
+                
+                const cards = grid.querySelectorAll('.character-card');
+                let accountMatches = 0;
+                
+                cards.forEach(card => {
+                    const charName = card.querySelector('.character-name');
+                    if (!charName) return;
+                    
+                    // Get the character name text (just the name part, not the level/job spans)
+                    const nameText = charName.childNodes[0].textContent.toLowerCase().trim();
+                    
+                    if (currentSearchTerm === '' || nameText.includes(currentSearchTerm)) {
+                        card.classList.remove('search-hidden');
+                        if (currentSearchTerm !== '') {
+                            accountMatches++;
+                            totalMatches++;
+                        }
+                    } else {
+                        card.classList.add('search-hidden');
+                    }
+                });
+                
+                // If searching and this account has matches, expand it
+                if (currentSearchTerm !== '' && accountMatches > 0) {
+                    accountHeader.classList.remove('collapsed');
+                    if (sortBar) sortBar.classList.remove('collapsed');
+                    if (accountContent) accountContent.classList.remove('collapsed');
+                }
+                
+                // If searching and no matches in this account, collapse it
+                if (currentSearchTerm !== '' && accountMatches === 0) {
+                    accountHeader.classList.add('collapsed');
+                    if (sortBar) sortBar.classList.add('collapsed');
+                    if (accountContent) accountContent.classList.add('collapsed');
+                }
+                
+                // If search cleared, restore original collapse state
+                if (currentSearchTerm === '') {
+                    const collapsedAccounts = JSON.parse(localStorage.getItem('collapsedAccounts') || '{}');
+                    const accountName = accountSection.dataset.account;
+                    const shouldBeCollapsed = collapsedAccounts[accountName] !== false;
+                    accountHeader.classList.toggle('collapsed', shouldBeCollapsed);
+                    if (sortBar) sortBar.classList.toggle('collapsed', shouldBeCollapsed);
+                    if (accountContent) accountContent.classList.toggle('collapsed', shouldBeCollapsed);
+                }
+            });
+            
+            // Show/hide error message
+            if (currentSearchTerm !== '' && totalMatches === 0) {
+                searchError.classList.add('visible');
+            } else {
+                searchError.classList.remove('visible');
+            }
         }
         
         function toggleCollapse(element) {
@@ -3792,19 +4343,37 @@ HTML_TEMPLATE = '''
                 'msq_percent': 'msq-percent'
             };
             
-            const attr = attrMap[sortKey];
-            
             // Sort cards
-            cards.sort((a, b) => {
-                const aVal = parseFloat(a.dataset[attr.replace(/-([a-z])/g, (g) => g[1].toUpperCase())]) || 0;
-                const bVal = parseFloat(b.dataset[attr.replace(/-([a-z])/g, (g) => g[1].toUpperCase())]) || 0;
-                
-                if (order === 'asc') {
-                    return aVal - bVal;
-                } else {
-                    return bVal - aVal;
-                }
-            });
+            if (sortKey === 'classes') {
+                // Special sorting for classes: sort by lowest level, then by highest level
+                cards.sort((a, b) => {
+                    const aLowest = parseFloat(a.dataset.lowestLevel) || 0;
+                    const bLowest = parseFloat(b.dataset.lowestLevel) || 0;
+                    const aHighest = parseFloat(a.dataset.highestLevel) || 0;
+                    const bHighest = parseFloat(b.dataset.highestLevel) || 0;
+                    
+                    // Primary sort by lowest level
+                    let diff = aLowest - bLowest;
+                    // Secondary sort by highest level if lowest is same
+                    if (diff === 0) {
+                        diff = aHighest - bHighest;
+                    }
+                    
+                    return order === 'asc' ? diff : -diff;
+                });
+            } else {
+                const attr = attrMap[sortKey];
+                cards.sort((a, b) => {
+                    const aVal = parseFloat(a.dataset[attr.replace(/-([a-z])/g, (g) => g[1].toUpperCase())]) || 0;
+                    const bVal = parseFloat(b.dataset[attr.replace(/-([a-z])/g, (g) => g[1].toUpperCase())]) || 0;
+                    
+                    if (order === 'asc') {
+                        return aVal - bVal;
+                    } else {
+                        return bVal - aVal;
+                    }
+                });
+            }
             
             // Re-append in sorted order
             cards.forEach(card => grid.appendChild(card));
@@ -4092,11 +4661,17 @@ HTML_TEMPLATE = '''
                             span.innerHTML = '💎 ' + HIDDEN;
                         }
                     }
-                    // FC points, venture coins, coffers, dyes row
+                    // FC points, venture coins, coffers, dyes row (including individual dye counts)
                     if (text.includes('🪙') && text.includes('🛒') && text.includes('📦') && text.includes('🎨')) {
                         if (forceRefresh || !originalMoneyData.has(span)) {
                             if (!forceRefresh) originalMoneyData.set(span, { html: span.innerHTML });
-                            span.innerHTML = '🪙 ' + HIDDEN + ' | 🛒 ' + HIDDEN + ' | 📦 ' + HIDDEN + ' | 🎨 ' + HIDDEN;
+                            // Check if individual dyes are shown (🤍🖤🩷)
+                            const hasIndividualDyes = text.includes('🤍') || text.includes('🖤') || text.includes('🩷');
+                            if (hasIndividualDyes) {
+                                span.innerHTML = '🪙 ' + HIDDEN + ' | 🛒 ' + HIDDEN + ' | 📦 ' + HIDDEN + ' | 🎨 ' + HIDDEN + ' 🤍' + HIDDEN + ' 🖤' + HIDDEN + ' 🩷' + HIDDEN;
+                            } else {
+                                span.innerHTML = '🪙 ' + HIDDEN + ' | 🛒 ' + HIDDEN + ' | 📦 ' + HIDDEN + ' | 🎨 ' + HIDDEN;
+                            }
                         }
                     }
                     // Tanks, kits, restock row
@@ -4361,7 +4936,8 @@ def index():
     return render_template_string(HTML_TEMPLATE, data=data, auto_refresh=AUTO_REFRESH, 
                                   job_categories=JOB_CATEGORIES, job_display_names=JOB_DISPLAY_NAMES,
                                   job_base_class=JOB_BASE_CLASS, min_msq_quests=MINIMUM_MSQ_QUESTS,
-                                  show_classes=SHOW_CLASSES, show_currencies=SHOW_CURRENCIES)
+                                  show_classes=SHOW_CLASSES, show_currencies=SHOW_CURRENCIES,
+                                  default_theme=DEFAULT_THEME)
 
 
 @app.route('/api/data')
@@ -4385,7 +4961,7 @@ if __name__ == "__main__":
     load_external_config()
     
     print("=" * 60)
-    print("  FFXIV AutoRetainer Dashboard v1.12")
+    print("  FFXIV AutoRetainer Dashboard v1.15")
     print("=" * 60)
     print(f"  Server: http://{HOST}:{PORT}")
     print(f"  Accounts: {len(account_locations)}")
