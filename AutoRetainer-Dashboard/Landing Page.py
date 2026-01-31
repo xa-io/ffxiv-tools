@@ -11,7 +11,7 @@
 #
 # A comprehensive web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream.
 # Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers,
-# housing locations, marketboard items, gil totals, inventory tracking, MSQ progression, job levels,
+# housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels,
 # currencies, income/cost calculations, and comprehensive supply tracking.
 #
 # Core Features:
@@ -31,13 +31,41 @@
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.15
-# FFXIV AutoRetainer Dashboard
+# Landing Page v1.20
+# AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-27 17:00:00
+# Last Updated: 2026-01-31 09:00:00
 #
 # ## Release Notes ##
 #
+# v1.20 - Major UI/UX enhancement release
+#         STICKY HEADER & GLOBAL CONTROLS:
+#         • Sticky header with summary cards fixed at top when scrolling
+#         • Global filter buttons in header: hide money, anonymize, houses, retainers, subs, MSQ
+#         • Expand/collapse all accounts button (▶/▼) for quick navigation
+#         • Mass hide buttons: ✏️ Player Stats, 🐋 Submarines, 🛎️ Retainers, 📖 Classes, 🪶 Currencies
+#         NEW SUMMARY CARDS & TRACKING:
+#         • Characters summary card showing total chars, Lv 25+, Lv 100, personal/FC plots
+#         • Consolidated summary cards (Treasure shows combined total, Annual Income shows profit)
+#         • Max MB listings indicator with gold outline highlight
+#         • Idle retainer tracking with cyan highlight, idle submarine tracking with pink highlight
+#         ENHANCED FILTERING:
+#         • Region filter buttons (NA, EU, JP, OCE) to filter by data center region
+#         • New filter buttons: 📦 Coffers, 🎨 Dyes, 💎 Treasure, 🪧 MB items
+#         • Changed MB icon from 📦 to 🪧 (placard) for clarity
+#         UI IMPROVEMENTS:
+#         • Collapsible Player Stats section (📊) with comprehensive character data
+#         • "None" in Venture/Plan columns shows bold for visibility
+#         • Fixed rounded corners on account tabs (collapsed and sticky states)
+#         • Hide Money mode preserves labels with asterisks for privacy screenshots
+#         CONFIG ENHANCEMENTS:
+#         • Custom build gil rates and consumption rates via config.json
+#         • Supply cost overrides (ceruleum_tank_cost, repair_kit_cost)
+#         • SHOW_MSQ_PROGRESSION toggle (disabled until Altoholic tracking fixed)
+#         BUG FIXES:
+#         • Fixed plot counting to avoid duplicates from shared houses
+#         • Fixed dye/coffer scanning to include retainer MarketInventory
+#         • Fixed anonymize toggle with proper error handling
 # v1.15 - Added 10 color theme presets with theme selector buttons under search bar
 #         Themes: Default (Blue), Ultra Dark, Dark Gray, Ocean Blue, Forest Green,
 #                 Crimson Red, Purple Haze, Pastel Pink, Dark Orange, Brown
@@ -45,57 +73,21 @@
 # v1.14 - Added character search bar in header (filters characters by name across all accounts)
 #         Added loading overlay with animated progress bar for large character counts
 #         Added anchor emoji favicon for browser tab
-#         Shows "No results match your search..." error when no characters found
-#         Auto-expands accounts with matching characters during search
 # v1.13 - Fixed Current Class to show last played job (using LastJob/LastJobLevel from Altoholic)
-#         Added Lowest/Highest Class fields - only show when level differs from Current
-#         Added "Classes" sort button - requires SHOW_CLASSES=true
-#         Added individual dye counts (Pure White, Jet Black, Pastel Pink)
+#         Added Lowest/Highest Class fields, "Classes" sort button, individual dye counts
 # v1.12 - Added Hide Money Stats button to privatize earnings for screenshots
-#         Hides: gil, treasure, FC points, venture coins, coffers, dyes, subs, retainers, MB items
-#         Hides: monthly/annual income/cost/profit, retainer levels/gil, submarine levels/builds
-#         Displays asterisks (*****) in place of hidden values, currencies section unaffected
 # v1.11 - Improved Currencies display with categories and shortened names
-#         Categories: Crystals, Common, Tomestones, Battle, Societies, Other
-#         Shortened verbose names (e.g., "Allagan_Tomestone_Of_Poetics" → "Poetics")
-#         Compact flexbox layout prevents overflow and saves space
-# v1.10 - Added MSQ (Main Scenario Quest) progression percentage display
-#         Shows "MSQ: X%" after Lv/Class, before housing icons
-#         Color coded: green (≥90%), yellow (≥50%), gray (<50%)
-#         Tooltip shows completed/total quest count
-#         Quest data fetched from XIVAPI and cached locally
-#         Extracts completed quests from Altoholic database
-# v1.09 - Added Player Name@World row in expanded section for easy copy/paste
-#         Added DoW/DoM collapsible section showing all combat job levels (final jobs only)
-#         Added DoH/DoL collapsible section showing all crafter/gatherer levels
-#         Added Currencies collapsible section showing all currencies character has
-# v1.08 - Added Personal House and FC House filter buttons (show only characters with houses)
-#         Added Retainer Lv and Submarine Lv sort buttons for min/max levels
-#         Renamed sort buttons to emojis for compact display
-#         Anonymize now hides housing addresses with TOP SECRET in expanded section
+# v1.10 - Added MSQ progression percentage display with color coding
+# v1.09 - Added Player Name@World, DoW/DoM, DoH/DoL, and Currencies collapsible sections
+# v1.08 - Added housing filters, level sorting, anonymization improvements
 # v1.07 - Added Housing information from Lifestream DefaultConfig.json
-#         Added Personal House and FC House display after Lv/Class in character header
-#         Format: "Mist W1 P15" for Ward 1, Plot 15 in Mist district
-# v1.06 - Added Inventory Space tracking from AutoRetainer DefaultConfig.json
-#         Added Inventory row in character expanded breakdown with color coding (red >= 130, yellow >= 100)
-#         Added Inventory sort button to sort characters by inventory usage
-# v1.05 - Added Anonymize button to hide personal data for screenshots (names, worlds, FCs, retainers, subs)
-#         Added Expand All / Collapse All buttons for character cards
-# v1.04 - Added character filtering options to hide characters without submarines or retainers
-# v1.03 - Major feature update with Altoholic integration and enhanced submarine tracking
-#         Added submarine plan detection (leveling vs farming) from AutoRetainer config
-#         Added FC Points, Venture Coins, Coffers to character title bar
-#         Added Coffer + Dyes estimated value button at top
-#         Added character class/level display from Altoholic
-#         Added Leveling/Farming stats at top for submarines and retainers
+# v1.06 - Added Inventory Space tracking with color coding
+# v1.05 - Added Anonymize mode and Expand/Collapse All buttons
+# v1.04 - Added character filtering (hide no retainers/submarines)
+# v1.03 - Major Altoholic integration: submarine plans, FC Points, Coffers, class/level display
 # v1.02 - UI color refinements: blue account headers, red highlights for ready items
-# v1.01 - Fixed stale submarine display bug (validates AdditionalSubmarineData against OfflineSubmarineData)
-# v1.00 - Initial release with comprehensive dashboard features
-#         Flask-based web server with configurable host/port
-#         AutoRetainer DefaultConfig.json parsing
-#         Character, submarine, and retainer data display
-#         Income and cost calculations
-#         Modern dark-themed responsive UI
+# v1.01 - Fixed stale submarine display bug
+# v1.00 - Initial release with Flask web server, AutoRetainer parsing, dark-themed UI
 #
 ############################################################################################################################
 
@@ -123,6 +115,7 @@ AUTO_REFRESH = 60       # Auto-refresh interval in seconds (0 to disable)
 MINIMUM_MSQ_QUESTS = 5  # Minimum MSQ quests to show MSQ progress (0 to always show)
 SHOW_CLASSES = True     # Show DoW/DoM and DoH/DoL job sections, disable to speed up page load
 SHOW_CURRENCIES = True  # Show currencies section, disable to speed up page load
+SHOW_MSQ_PROGRESSION = False  # Show MSQ progression (disabled until Altoholic tracking works)
 DEFAULT_THEME = "default"  # Theme preset for dashboard
 # Available themes:
 #   default      - Blue accent (original)
@@ -325,6 +318,38 @@ COFFER_DYE_VALUES = {
     13708: 40000,   # General-purpose Pastel Pink Dye
 }
 COFFER_DYE_IDS = set(COFFER_DYE_VALUES.keys())
+
+# ===============================================
+# World Region Mappings (for region filtering)
+# ===============================================
+NA_WORLDS = {
+    "adamantoise","cactuar","faerie","gilgamesh","jenova","midgardsormr","sargatanas","siren",
+    "balmung","brynhildr","coeurl","diabolos","goblin","malboro","mateus","zalera",
+    "behemoth","excalibur","exodus","famfrit","hyperion","lamia","leviathan","ultros",
+    "cuchulainn","golem","halicarnassus","kraken","maduin","marilith","rafflesia","seraph"
+}
+EU_WORLDS = {
+    "cerberus","louisoix","moogle","omega","phantom","ragnarok","sagittarius","spriggan",
+    "alpha","lich","odin","phoenix","raiden","shiva","twintania","zodiark"
+}
+OCE_WORLDS = {"bismarck","ravana","sephirot","sophia","zurvan"}
+JP_WORLDS = {
+    "aegis","atomos","carbuncle","garuda","gungnir","kujata","tonberry","typhon",
+    "alexander","bahamut","durandal","fenrir","ifrit","ridill","tiamat","ultima",
+    "anima","asura","chocobo","hades","ixion","masamune","pandaemonium","titan",
+    "belias","mandragora","ramuh","shinryu","unicorn","valefor","yojimbo","zeromus"
+}
+
+def region_from_world(world: str) -> str:
+    """Return region code (NA/EU/OCE/JP) for a given world name."""
+    if not world:
+        return ""
+    w = str(world).strip().lower()
+    if w in NA_WORLDS: return "NA"
+    if w in EU_WORLDS: return "EU"
+    if w in OCE_WORLDS: return "OCE"
+    if w in JP_WORLDS: return "JP"
+    return ""
 
 # ===============================================
 # Job Class Abbreviations (for character class display)
@@ -690,7 +715,9 @@ def load_external_config():
     """Load external config file if it exists"""
     global HOST, PORT, DEBUG, AUTO_REFRESH, account_locations
     global submarine_plans, retainer_plans, item_values
-    global MINIMUM_MSQ_QUESTS, SHOW_CLASSES, SHOW_CURRENCIES, DEFAULT_THEME
+    global MINIMUM_MSQ_QUESTS, SHOW_CLASSES, SHOW_CURRENCIES, SHOW_MSQ_PROGRESSION, DEFAULT_THEME
+    global BUILD_GIL_RATES, BUILD_CONSUMPTION_RATES
+    global CERULEUM_TANK_COST, REPAIR_KIT_COST
     
     config_path = Path(__file__).parent / CONFIG_FILE
     if not config_path.exists():
@@ -707,6 +734,7 @@ def load_external_config():
         MINIMUM_MSQ_QUESTS = config.get("MINIMUM_MSQ_QUESTS", MINIMUM_MSQ_QUESTS)
         SHOW_CLASSES = config.get("SHOW_CLASSES", SHOW_CLASSES)
         SHOW_CURRENCIES = config.get("SHOW_CURRENCIES", SHOW_CURRENCIES)
+        SHOW_MSQ_PROGRESSION = config.get("SHOW_MSQ_PROGRESSION", SHOW_MSQ_PROGRESSION)
         DEFAULT_THEME = config.get("DEFAULT_THEME", DEFAULT_THEME)
         
         if "account_locations" in config:
@@ -726,6 +754,20 @@ def load_external_config():
             submarine_plans.update(config["submarine_plans"])
         if "item_values" in config:
             item_values.update(config["item_values"])
+        
+        # Load custom build rates (optional - merges with built-in rates)
+        if "build_gil_rates" in config:
+            BUILD_GIL_RATES.update(config["build_gil_rates"])
+            print(f"[CONFIG] Loaded {len(config['build_gil_rates'])} custom build gil rates")
+        if "build_consumption_rates" in config:
+            BUILD_CONSUMPTION_RATES.update(config["build_consumption_rates"])
+            print(f"[CONFIG] Loaded {len(config['build_consumption_rates'])} custom build consumption rates")
+        
+        # Load supply cost overrides (optional)
+        if "ceruleum_tank_cost" in config:
+            CERULEUM_TANK_COST = config["ceruleum_tank_cost"]
+        if "repair_kit_cost" in config:
+            REPAIR_KIT_COST = config["repair_kit_cost"]
         
         print(f"[CONFIG] Loaded configuration from {config_path}")
     except Exception as e:
@@ -2060,7 +2102,7 @@ def scan_altoholic_db(db_path):
                     if isinstance(slot_items, list):
                         consume(slot_items)
             
-            # Process Retainers inventories
+            # Process Retainers inventories (both Inventory and MarketInventory)
             retainers = _safe_json_load(retainers_json)
             if isinstance(retainers, list):
                 for retainer in retainers:
@@ -2068,6 +2110,10 @@ def scan_altoholic_db(db_path):
                         ret_inv = retainer.get("Inventory", [])
                         if isinstance(ret_inv, list):
                             consume(ret_inv)
+                        # Also check MarketInventory (items listed on marketboard)
+                        ret_market_inv = retainer.get("MarketInventory", [])
+                        if isinstance(ret_market_inv, list):
+                            consume(ret_market_inv)
             
             # Use LastJob and LastJobLevel for current class (last played job)
             current_job = CLASSJOB_ID_TO_ABBR.get(last_job_id, "") if last_job_id else ""
@@ -2325,9 +2371,17 @@ def get_all_data():
     total_fc_points = 0
     total_subs_leveling = 0
     total_subs_farming = 0
+    total_idle_subs = 0
     total_retainers_leveling = 0
     total_retainers_farming = 0
+    total_idle_retainers = 0
     min_restock_days = None  # Track lowest restock days across all accounts (excluding 0)
+    
+    # Character stats tracking
+    total_chars_lv25_plus = 0
+    total_chars_lv100 = 0
+    unique_personal_plots = set()  # Track unique plots by world+district+ward+plot
+    unique_fc_plots = set()  # Track unique FC plots by world+district+ward+plot
     
     # MSQ Progress tracking
     total_characters_with_msq = 0
@@ -2354,12 +2408,18 @@ def get_all_data():
             "total_fc_points": 0,
             "subs_leveling": 0,
             "subs_farming": 0,
+            "idle_subs": 0,
+            "has_idle_sub": False,
             "retainers_leveling": 0,
             "retainers_farming": 0,
+            "idle_retainers": 0,
+            "has_idle_retainer": False,
             "msq_100_count": 0,
             "msq_90_count": 0,
             "msq_50_count": 0,
             "characters_with_msq": 0,
+            "has_max_mb_retainer": False,  # Track if any character has a retainer with 20 MB items
+            "max_mb_retainer_count": 0,  # Count of retainers with 20 MB items
         }
         
         auto_path = account["auto_path"]
@@ -2420,14 +2480,23 @@ def get_all_data():
             char_subs_leveling = sum(1 for s in submarines if s.get("is_leveling", False))
             char_subs_farming = sum(1 for s in submarines if s.get("is_farming", False))
             
+            # Count idle submarines (no plan, not leveling, not farming)
+            char_idle_subs = sum(1 for s in submarines if not s.get("plan_name") and not s.get("is_farming", False) and not s.get("is_leveling", False))
+            has_idle_sub = char_idle_subs > 0
+            
             # Parse retainers
             retainers = parse_retainer_data(char)
             retainer_gil = sum(r["gil"] for r in retainers)
             mb_items = sum(r["mb_items"] for r in retainers)
+            has_max_mb_retainer = any(r["mb_items"] >= 20 for r in retainers)  # Track if any retainer has max listings
             
             # Count leveling vs farming retainers (< 100 = leveling, 100 = farming)
             char_retainers_leveling = sum(1 for r in retainers if r["level"] < 100)
             char_retainers_farming = sum(1 for r in retainers if r["level"] >= 100)
+            
+            # Count idle retainers (no venture assigned)
+            char_idle_retainers = sum(1 for r in retainers if not r["has_venture"])
+            has_idle_retainer = char_idle_retainers > 0
             
             # Get FC info and FC points
             fc_name = ""
@@ -2494,6 +2563,7 @@ def get_all_data():
                 "cid": cid,
                 "name": char.get("Name", "Unknown"),
                 "world": char.get("World", "Unknown"),
+                "region": region_from_world(char.get("World", "")),
                 "gil": char_gil,
                 "retainer_gil": retainer_gil,
                 "total_gil": char_gil + retainer_gil,
@@ -2523,8 +2593,12 @@ def get_all_data():
                 "current_level": current_level,
                 "subs_leveling": char_subs_leveling,
                 "subs_farming": char_subs_farming,
+                "idle_subs": char_idle_subs,
+                "has_idle_sub": has_idle_sub,
                 "retainers_leveling": char_retainers_leveling,
                 "retainers_farming": char_retainers_farming,
+                "idle_retainers": char_idle_retainers,
+                "has_idle_retainer": has_idle_retainer,
                 "days_until_restock": days_until_restock,
                 "private_house": private_house,
                 "fc_house": fc_house,
@@ -2566,6 +2640,7 @@ def get_all_data():
             char_data["total_retainers"] = len(retainers)
             char_data["max_retainer_level"] = max_retainer_level
             char_data["max_sub_level"] = max_sub_level
+            char_data["has_max_mb_retainer"] = has_max_mb_retainer
             
             account_data["characters"].append(char_data)
             account_data["total_gil"] += char_data["total_gil"]
@@ -2588,8 +2663,19 @@ def get_all_data():
             
             account_data["subs_leveling"] += char_subs_leveling
             account_data["subs_farming"] += char_subs_farming
+            account_data["idle_subs"] += char_idle_subs
+            if has_idle_sub:
+                account_data["has_idle_sub"] = True
             account_data["retainers_leveling"] += char_retainers_leveling
             account_data["retainers_farming"] += char_retainers_farming
+            account_data["idle_retainers"] += char_idle_retainers
+            if has_idle_retainer:
+                account_data["has_idle_retainer"] = True
+            
+            # Track max MB retainers (20 items = max)
+            if has_max_mb_retainer:
+                account_data["has_max_mb_retainer"] = True
+                account_data["max_mb_retainer_count"] += sum(1 for r in retainers if r["mb_items"] >= 20)
             
             # Track MSQ progress stats
             if char_data["msq_percent"] > 0:
@@ -2605,6 +2691,23 @@ def get_all_data():
                 if char_data["msq_percent"] >= 50:
                     account_data["msq_50_count"] += 1
                     msq_50_count += 1
+            
+            # Track character level stats and housing plots
+            if highest_level >= 25:
+                total_chars_lv25_plus += 1
+            if highest_level >= 100:
+                total_chars_lv100 += 1
+            # Track unique plots (world+location to avoid counting shared houses)
+            char_world = char.get("World", "")
+            if cid in housing_map:
+                private_data = housing_map[cid].get('private')
+                fc_data_house = housing_map[cid].get('fc')
+                if private_data:
+                    plot_key = f"{char_world}_{private_data['district']}_W{private_data['ward']}_P{private_data['plot']}"
+                    unique_personal_plots.add(plot_key)
+                if fc_data_house:
+                    plot_key = f"{char_world}_{fc_data_house['district']}_W{fc_data_house['ward']}_P{fc_data_house['plot']}"
+                    unique_fc_plots.add(plot_key)
             
             total_daily_income += sub_daily_income
             total_daily_cost += sub_daily_cost
@@ -2626,8 +2729,10 @@ def get_all_data():
         total_fc_points += account_data["total_fc_points"]
         total_subs_leveling += account_data["subs_leveling"]
         total_subs_farming += account_data["subs_farming"]
+        total_idle_subs += account_data["idle_subs"]
         total_retainers_leveling += account_data["retainers_leveling"]
         total_retainers_farming += account_data["retainers_farming"]
+        total_idle_retainers += account_data["idle_retainers"]
         
         all_accounts.append(account_data)
     
@@ -2650,8 +2755,10 @@ def get_all_data():
             "total_fc_points": total_fc_points,
             "subs_leveling": total_subs_leveling,
             "subs_farming": total_subs_farming,
+            "idle_subs": total_idle_subs,
             "retainers_leveling": total_retainers_leveling,
             "retainers_farming": total_retainers_farming,
+            "idle_retainers": total_idle_retainers,
             "daily_income": total_daily_income,
             "monthly_income": total_daily_income * 30,
             "annual_income": total_daily_income * 365,
@@ -2659,6 +2766,7 @@ def get_all_data():
             "monthly_cost": total_daily_cost * 30,
             "daily_profit": total_daily_income - total_daily_cost,
             "monthly_profit": (total_daily_income - total_daily_cost) * 30,
+            "annual_profit": (total_daily_income - total_daily_cost) * 365,
             "min_restock_days": min_restock_days,
             # MSQ Progress stats
             "msq_100_count": msq_100_count,
@@ -2668,6 +2776,13 @@ def get_all_data():
             "msq_avg_percent": round(total_msq_percent / total_characters_with_msq, 1) if total_characters_with_msq > 0 else 0,
             "msq_total_quests": len(MSQ_QUEST_DATA),
             "total_characters": sum(len(acc.get("characters", [])) for acc in all_accounts),
+            # Character stats
+            "chars_lv25_plus": total_chars_lv25_plus,
+            "chars_lv100": total_chars_lv100,
+            "personal_plots": len(unique_personal_plots),
+            "fc_plots": len(unique_fc_plots),
+            # Max MB retainer tracking
+            "max_mb_retainer_count": sum(acc.get("max_mb_retainer_count", 0) for acc in all_accounts),
         },
         "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
@@ -2682,7 +2797,7 @@ HTML_TEMPLATE = '''
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FFXIV AutoRetainer Dashboard</title>
+    <title>AutoRetainer Dashboard</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
     <style>
         :root, [data-theme="default"] {
@@ -2854,7 +2969,7 @@ HTML_TEMPLATE = '''
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
             line-height: 1.6;
@@ -2866,12 +2981,22 @@ HTML_TEMPLATE = '''
             padding: 20px;
         }
         
+        /* Sticky top section wrapper - height ~125px */
+        .sticky-top-section {
+            position: sticky;
+            top: 0;
+            z-index: 500;
+            background: var(--bg-primary);
+            padding-bottom: 8px;
+            margin: -20px -20px 10px -20px;
+            padding: 15px 20px 8px 20px;
+        }
+        
         header {
             background: var(--bg-card);
-            padding: 20px 30px;
-            border-radius: 12px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin-bottom: 8px;
             border: 1px solid var(--border);
         }
         
@@ -2954,6 +3079,12 @@ HTML_TEMPLATE = '''
             margin-top: 8px;
         }
         
+        .global-filters {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+        }
+        
         .theme-btn {
             width: 20px;
             height: 20px;
@@ -2973,7 +3104,7 @@ HTML_TEMPLATE = '''
         }
         
         .theme-btn.active {
-            border-color: var(--text-primary);
+            /* No visual indicator for active theme */
         }
         
         .theme-btn[data-theme="default"] { background: linear-gradient(135deg, #1a1a2e, #3a7aaa); }
@@ -3054,7 +3185,7 @@ HTML_TEMPLATE = '''
             display: flex;
             flex-wrap: wrap;
             gap: 6px;
-            margin-bottom: 20px;
+            margin-bottom: 0;
         }
         
         .summary-card {
@@ -3109,7 +3240,7 @@ HTML_TEMPLATE = '''
         
         .account-header {
             background: linear-gradient(90deg, var(--bg-card) 0%, var(--accent) 100%);
-            padding: 15px 25px;
+            padding: 12px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -3117,9 +3248,10 @@ HTML_TEMPLATE = '''
             user-select: none;
             transition: opacity 0.2s;
             position: sticky;
-            top: 0;
-            z-index: 100;
+            top: 115px;
+            z-index: 400;
             border-radius: 12px 12px 0 0;
+            overflow: hidden;
         }
         
         .account-header:hover {
@@ -3142,6 +3274,10 @@ HTML_TEMPLATE = '''
         
         .account-header.collapsed h2::before {
             transform: rotate(-90deg);
+        }
+        
+        .account-header.collapsed {
+            border-radius: 12px;
         }
         
         .account-content {
@@ -3170,14 +3306,14 @@ HTML_TEMPLATE = '''
             display: flex;
             flex-wrap: wrap;
             gap: 6px;
-            padding: 10px;
+            padding: 8px;
             margin-top: 5px;
             background: var(--bg-secondary);
             border-radius: 8px;
             align-items: center;
             position: sticky;
-            top: 59px;
-            z-index: 99;
+            top: 164px;
+            z-index: 300;
         }
         
         .sort-bar.collapsed {
@@ -3234,6 +3370,18 @@ HTML_TEMPLATE = '''
             border-color: var(--warning);
         }
         
+        .region-btn {
+            font-weight: bold;
+            min-width: 32px;
+            text-align: center;
+        }
+        
+        .region-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+        
         .character-card.filtered-hidden {
             display: none;
         }
@@ -3277,6 +3425,31 @@ HTML_TEMPLATE = '''
         
         .account-stats .stat-ready {
             color: #000000 !important;
+        }
+        
+        /* Max MB listings indicators */
+        .account-stats .mb-max,
+        .account-stats .mb-max span {
+            color: var(--danger) !important;
+            font-weight: 600;
+        }
+        
+        .character-card.has-max-mb {
+            outline: 4px solid #FFD700;
+            outline-offset: -4px;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.7), inset 0 0 10px rgba(255, 215, 0, 0.2);
+        }
+        
+        .character-card.has-idle-retainer {
+            outline: 4px solid cyan;
+            outline-offset: -4px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.7), inset 0 0 10px rgba(0, 255, 255, 0.2);
+        }
+        
+        .character-card.has-idle-sub {
+            outline: 4px solid #FFB6C1;
+            outline-offset: -4px;
+            box-shadow: 0 0 20px rgba(255, 182, 193, 0.7), inset 0 0 10px rgba(255, 182, 193, 0.2);
         }
         
         .char-header-row {
@@ -3330,9 +3503,10 @@ HTML_TEMPLATE = '''
         }
         
         .character-body {
-            padding: 15px 20px;
+            padding: 10px 15px;
             overflow: hidden;
             transition: max-height 0.3s ease-out;
+            font-size: 0.85em;
         }
         
         .character-body.collapsed {
@@ -3343,7 +3517,7 @@ HTML_TEMPLATE = '''
         .info-row {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
+            padding: 4px 0;
             border-bottom: 1px solid var(--border);
             align-items: flex-start;
         }
@@ -3549,6 +3723,16 @@ HTML_TEMPLATE = '''
             font-weight: bold;
         }
         
+        .status-none {
+            color: var(--danger) !important;
+            font-weight: bold;
+        }
+        
+        td.status-none {
+            color: var(--danger) !important;
+            font-weight: bold;
+        }
+        
         .status-voyaging {
             color: var(--warning);
         }
@@ -3621,7 +3805,7 @@ HTML_TEMPLATE = '''
 <body>
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loading-overlay">
-        <div class="loading-text">⚓ FFXIV AutoRetainer Dashboard</div>
+        <div class="loading-text">⚓ AutoRetainer Dashboard</div>
         <div class="loading-subtext">Loading {{ data.summary.total_characters }} characters across {{ data.accounts|length }} account(s)...</div>
         <div class="progress-container">
             <div class="progress-bar"></div>
@@ -3630,59 +3814,89 @@ HTML_TEMPLATE = '''
     </div>
     
     <div class="container">
-        <header>
-            <div class="header-content">
-                <div class="header-left">
-                    <h1>⚓ FFXIV AutoRetainer Dashboard</h1>
-                    <div class="subtitle">Last Updated: <span id="last-updated">{{ data.last_updated }}</span> | Auto-refresh: {{ auto_refresh }}s</div>
-                </div>
-                <div class="header-right">
-                    <div class="search-container">
-                        <div class="search-error" id="search-error">No results match your search...</div>
-                        <input type="text" class="search-input" id="character-search" placeholder="🔍 Search character..." oninput="searchCharacters(this.value)">
-                        <div class="theme-selector">
-                            <button class="theme-btn" data-theme="default" title="Default (Blue)" onclick="setTheme('default')">♻️</button>
-                            <button class="theme-btn" data-theme="ultra-dark" title="Ultra Dark" onclick="setTheme('ultra-dark')"></button>
-                            <button class="theme-btn" data-theme="dark-gray" title="Dark Gray" onclick="setTheme('dark-gray')"></button>
-                            <button class="theme-btn" data-theme="ocean-blue" title="Ocean Blue" onclick="setTheme('ocean-blue')"></button>
-                            <button class="theme-btn" data-theme="forest-green" title="Forest Green" onclick="setTheme('forest-green')"></button>
-                            <button class="theme-btn" data-theme="crimson-red" title="Crimson Red" onclick="setTheme('crimson-red')"></button>
-                            <button class="theme-btn" data-theme="purple-haze" title="Purple Haze" onclick="setTheme('purple-haze')"></button>
-                            <button class="theme-btn" data-theme="pastel-pink" title="Pastel Pink" onclick="setTheme('pastel-pink')"></button>
-                            <button class="theme-btn" data-theme="dark-orange" title="Dark Orange" onclick="setTheme('dark-orange')"></button>
-                            <button class="theme-btn" data-theme="brown" title="Brown" onclick="setTheme('brown')"></button>
+        <!-- Sticky Top Section: Header + Summary Cards -->
+        <div class="sticky-top-section">
+            <header>
+                <div class="header-content">
+                    <div class="header-left">
+                        <h1>⚓ AutoRetainer Dashboard</h1>
+                        <div class="subtitle">Last Updated: <span id="last-updated">{{ data.last_updated }}</span> | Auto-refresh: {{ auto_refresh }}s</div>
+                    </div>
+                    <div class="header-right">
+                        <div class="search-container">
+                            <div class="search-error" id="search-error">No results match your search...</div>
+                            <input type="text" class="search-input" id="character-search" placeholder="🔍 Search character..." oninput="searchCharacters(this.value)">
+                            <div class="theme-selector">
+                                <button class="filter-btn region-btn" id="region-na-btn" onclick="toggleRegionFilter('NA')" title="Show NA characters only">NA</button>
+                                <button class="filter-btn region-btn" id="region-eu-btn" onclick="toggleRegionFilter('EU')" title="Show EU characters only">EU</button>
+                                <button class="filter-btn region-btn" id="region-jp-btn" onclick="toggleRegionFilter('JP')" title="Show JP characters only">JP</button>
+                                <button class="filter-btn region-btn" id="region-oce-btn" onclick="toggleRegionFilter('OCE')" title="Show OCE characters only">OCE</button>
+                                <button class="theme-btn" data-theme="default" title="Default (Blue)" onclick="setTheme('default')">♻️</button>
+                                <button class="theme-btn" data-theme="ultra-dark" title="Ultra Dark" onclick="setTheme('ultra-dark')"></button>
+                                <button class="theme-btn" data-theme="dark-gray" title="Dark Gray" onclick="setTheme('dark-gray')"></button>
+                                <button class="theme-btn" data-theme="ocean-blue" title="Ocean Blue" onclick="setTheme('ocean-blue')"></button>
+                                <button class="theme-btn" data-theme="forest-green" title="Forest Green" onclick="setTheme('forest-green')"></button>
+                                <button class="theme-btn" data-theme="crimson-red" title="Crimson Red" onclick="setTheme('crimson-red')"></button>
+                                <button class="theme-btn" data-theme="purple-haze" title="Purple Haze" onclick="setTheme('purple-haze')"></button>
+                                <button class="theme-btn" data-theme="pastel-pink" title="Pastel Pink" onclick="setTheme('pastel-pink')"></button>
+                                <button class="theme-btn" data-theme="dark-orange" title="Dark Orange" onclick="setTheme('dark-orange')"></button>
+                                <button class="theme-btn" data-theme="brown" title="Brown" onclick="setTheme('brown')"></button>
+                            </div>
+                            <div class="global-filters">
+                                <button class="filter-btn" id="global-accounts-btn" onclick="toggleAllAccounts()" title="Expand/Collapse All Accounts">▶</button>
+                                <button class="filter-btn money-btn" id="global-money-btn" onclick="toggleHideMoneyGlobal()" title="Hide Money Stats">💰</button>
+                                <button class="filter-btn anon-btn" id="global-anon-btn" onclick="toggleAnonymizeGlobal()" title="Anonymize (if sorting after using, you may have to refresh the page to recover names.)">🔒</button>
+                                <button class="filter-btn" id="global-hide-stats-btn" onclick="toggleHidePlayerStatsGlobal()" title="Hide Player Stats">✏️</button>
+                                <button class="filter-btn" id="global-hide-subs-btn" onclick="toggleHideSubsGlobal()" title="Hide Submarines">🐋</button>
+                                <button class="filter-btn" id="global-hide-retainers-btn" onclick="toggleHideRetainersGlobal()" title="Hide Retainers">🛎️</button>
+                                {% if show_classes %}<button class="filter-btn" id="global-hide-classes-btn" onclick="toggleHideClassesGlobal()" title="Show DoW/DoM & DoH/DoL">📖</button>{% endif %}
+                                {% if show_currencies %}<button class="filter-btn" id="global-hide-currencies-btn" onclick="toggleHideCurrenciesGlobal()" title="Show Currencies">🪶</button>{% endif %}
+                                <button class="filter-btn" id="global-house-btn" onclick="toggleFilterGlobal('personal-house')" title="Show only characters with Personal House">🏠</button>
+                                <button class="filter-btn" id="global-fc-btn" onclick="toggleFilterGlobal('fc-house')" title="Show only characters with FC House">🏨</button>
+                                <button class="filter-btn" id="global-coffers-btn" onclick="toggleFilterGlobal('coffers')" title="Show only characters with Coffers">📦</button>
+                                <button class="filter-btn" id="global-dyes-btn" onclick="toggleFilterGlobal('dyes')" title="Show only characters with Dyes">🎨</button>
+                                <button class="filter-btn" id="global-mb-btn" onclick="toggleFilterGlobal('mb')" title="Show only characters with MB Items">🪧</button>
+                                <button class="filter-btn" id="global-retainers-btn" onclick="toggleFilterGlobal('retainers')" title="Show only characters with Retainers">👤</button>
+                                <button class="filter-btn" id="global-treasure-btn" onclick="toggleFilterGlobal('treasure')" title="Show only characters with Treasure">💎</button>
+                                <button class="filter-btn" id="global-subs-btn" onclick="toggleFilterGlobal('subs')" title="Show only characters with Submarines">🚢</button>
+                                {% if show_msq_progression %}<button class="filter-btn" id="global-msq-btn" onclick="toggleFilterGlobal('msq')" title="Hide characters with 0% MSQ">📜</button>{% endif %}
+                                <button class="filter-btn" id="global-expand-btn" onclick="expandAllCharsGlobal()" title="Expand All Characters">▼</button>
+                                <button class="filter-btn" id="global-collapse-btn" onclick="collapseAllCharsGlobal()" title="Collapse All Characters">▲</button>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </header>
+            
+            <!-- Summary Cards -->
+            <div class="summary-grid">
+            <div class="summary-card">
+                <div class="value" id="sum-total-chars">👥 {{ data.summary.total_characters }}</div>
+                <div class="sublabel" id="sum-char-levels">{{ data.summary.chars_lv25_plus }} Lv 25+ | {{ data.summary.chars_lv100 }} Lv 100</div>
+                <div class="sublabel" id="sum-plots">🏠 {{ data.summary.personal_plots }} | 🏨 {{ data.summary.fc_plots }}</div>
             </div>
-        </header>
-        
-        <!-- Summary Cards -->
-        <div class="summary-grid">
             <div class="summary-card">
                 <div class="value" id="sum-total-gil">{{ "{:,}".format(data.summary.total_gil) }}</div>
                 <div class="label">💰 Total Gil</div>
-                <div class="sublabel">🪙 {{ "{:,}".format(data.summary.total_fc_points) }} FC</div>
+                <div class="sublabel" id="sum-fc-points">🪙 {{ "{:,}".format(data.summary.total_fc_points) }} FC</div>
             </div>
             <div class="summary-card">
                 <div class="value" id="sum-treasure">{{ "{:,}".format(data.summary.total_treasure) }}</div>
                 <div class="label">💎 Treasure Value</div>
-            </div>
-            <div class="summary-card">
-                <div class="value profit" id="sum-with-treasure">{{ "{:,}".format(data.summary.total_with_treasure) }}</div>
-                <div class="label">🏆 Gil + Treasure</div>
+                <div class="sublabel">💰+💎= <span id="sum-with-treasure">{{ "{:,}".format(data.summary.total_with_treasure) }}</span></div>
             </div>
             <div class="summary-card">
                 <div class="value" id="sum-coffer-dye">{{ "{:,}".format(data.summary.total_coffer_dye_value) }}</div>
                 <div class="label">📦 Coffer + Dyes</div>
-                <div class="sublabel">📦 {{ data.summary.total_coffer_count }} | 🎨 {{ data.summary.total_dye_count }}</div>
+                <div class="sublabel" id="sum-coffer-dye-counts">📦 {{ data.summary.total_coffer_count }} | 🎨 {{ data.summary.total_dye_count }}</div>
             </div>
             <div class="summary-card">
                 <div class="value">
                     <span id="sum-ready-subs">{{ data.summary.ready_subs }}</span>/<span id="sum-total-subs">{{ data.summary.total_subs }}</span>
-                    <div style="font-size: 0.7em; color: var(--text-secondary);">
+                    <div id="sum-subs-stats" style="font-size: 0.7em; color: var(--text-secondary);">
                         <span style="color: var(--warning);">Lvl: {{ data.summary.subs_leveling }}</span> |
-                        <span style="color: var(--success);">Farm: {{ data.summary.subs_farming }}</span>
+                        <span style="color: var(--success);">Farm: {{ data.summary.subs_farming }}</span>{% if data.summary.idle_subs > 0 %} |
+                        <span style="color: #FFB6C1;">Idle: {{ data.summary.idle_subs }}</span>{% endif %}
                     </div>
                 </div>
                 <div class="label">🚢 Submarines</div>
@@ -3690,34 +3904,37 @@ HTML_TEMPLATE = '''
             <div class="summary-card">
                 <div class="value">
                     <span id="sum-ready-retainers">{{ data.summary.ready_retainers }}</span>/<span id="sum-total-retainers">{{ data.summary.total_retainers }}</span>
-                    <div style="font-size: 0.7em; color: var(--text-secondary);">
+                    <div id="sum-retainers-stats" style="font-size: 0.7em; color: var(--text-secondary);">
                         <span style="color: var(--warning);">Lvl: {{ data.summary.retainers_leveling }}</span> |
-                        <span style="color: var(--success);">Farm: {{ data.summary.retainers_farming }}</span>
+                        <span style="color: var(--success);">Farm: {{ data.summary.retainers_farming }}</span>{% if data.summary.idle_retainers > 0 %} |
+                        <span style="color: cyan;">Idle: {{ data.summary.idle_retainers }}</span>{% endif %}
                     </div>
                 </div>
                 <div class="label">👤 Retainers</div>
             </div>
             <div class="summary-card">
                 <div class="value"><span id="sum-total-mb">{{ data.summary.total_mb_items }}</span>/<span id="sum-max-mb">{{ "{:,}".format(data.summary.max_mb_items) }}</span></div>
-                <div class="label">📦 MB Items</div>
+                <div class="label">🪧 MB Items</div>
+                {% if data.summary.max_mb_retainer_count > 0 %}
+                <div class="sublabel" id="sum-mb-max" style="color: var(--danger);">{{ data.summary.max_mb_retainer_count }} Max</div>
+                {% endif %}
             </div>
             <div class="summary-card">
                 <div class="value profit" id="sum-monthly-income">{{ "{:,}".format(data.summary.monthly_income|int) }}</div>
                 <div class="label">📈 Monthly Income</div>
+                <div class="sublabel" id="sum-daily-income">📅 {{ "{:,}".format((data.summary.monthly_income / 30)|int) }}/day</div>
             </div>
             <div class="summary-card">
                 <div class="value cost" id="sum-monthly-cost">{{ "{:,}".format(data.summary.monthly_cost|int) }}</div>
                 <div class="label">📉 Monthly Cost</div>
-                <div class="sublabel" style="{% if data.summary.min_restock_days is not none and data.summary.min_restock_days < 7 %}color: var(--danger);{% elif data.summary.min_restock_days is not none and data.summary.min_restock_days < 14 %}color: var(--warning);{% endif %}">🔄 {% if data.summary.min_restock_days is not none %}{{ data.summary.min_restock_days }}d lowest{% else %}N/A{% endif %}</div>
-            </div>
-            <div class="summary-card">
-                <div class="value profit" id="sum-monthly-profit">{{ "{:,}".format(data.summary.monthly_profit|int) }}</div>
-                <div class="label">💎 Monthly Profit</div>
+                <div class="sublabel" id="sum-restock" style="{% if data.summary.min_restock_days is not none and data.summary.min_restock_days < 7 %}color: var(--danger);{% elif data.summary.min_restock_days is not none and data.summary.min_restock_days < 14 %}color: var(--warning);{% endif %}">♻️ {% if data.summary.min_restock_days is not none %}{{ data.summary.min_restock_days }}d lowest{% else %}N/A{% endif %}</div>
             </div>
             <div class="summary-card">
                 <div class="value profit" id="sum-annual-income">{{ "{:,}".format(data.summary.annual_income|int) }}</div>
                 <div class="label">🏆 Annual Income</div>
+                <div class="sublabel profit">💎 <span id="sum-annual-profit">{{ "{:,}".format(data.summary.annual_profit|int) }}</span> Profit</div>
             </div>
+        </div>
         </div>
         
         <!-- Account Sections -->
@@ -3730,8 +3947,8 @@ HTML_TEMPLATE = '''
                     <span>💎 <span class="acc-treasure">{{ "{:,}".format(account.total_treasure) }}</span> treasure</span>
                     <span class="{% if account.ready_subs > 0 %}stat-ready{% endif %}">🚢 <span class="acc-ready-subs">{{ account.ready_subs }}</span>/<span class="acc-subs">{{ account.total_subs }}</span> subs</span>
                     <span class="{% if account.ready_retainers > 0 %}stat-ready{% endif %}">👤 <span class="acc-ready-retainers">{{ account.ready_retainers }}</span>/<span class="acc-retainers">{{ account.total_retainers }}</span> retainers</span>
-                    <span>📦 <span class="acc-mb">{{ account.total_mb_items }}</span>/<span class="acc-max-mb">{{ "{:,}".format(account.max_mb_items) }}</span> MB</span>
-                    <span>📜 <span class="acc-msq-100">{{ account.msq_100_count }}</span>/<span class="acc-msq-tracked">{{ account.characters_with_msq }}</span> MSQ</span>
+                    <span class="{% if account.has_max_mb_retainer %}mb-max{% endif %}">🪧 <span class="acc-mb">{{ account.total_mb_items }}</span>/<span class="acc-max-mb">{{ "{:,}".format(account.max_mb_items) }}</span> MB{% if account.has_max_mb_retainer %} (<span class="acc-max-mb-count">{{ account.max_mb_retainer_count }}</span>){% endif %}</span>
+                    {% if show_msq_progression %}<span>📜 <span class="acc-msq-100">{{ account.msq_100_count }}</span>/<span class="acc-msq-tracked">{{ account.characters_with_msq }}</span> MSQ</span>{% endif %}
                 </div>
             </div>
             
@@ -3750,21 +3967,12 @@ HTML_TEMPLATE = '''
                 <button class="sort-btn" data-sort="kits" data-order="desc" onclick="sortCharacters(this)" title="Repair Kits">🔧 ▼</button>
                 <button class="sort-btn" data-sort="restock" data-order="asc" onclick="sortCharacters(this)" title="Restock Days">♻️ ▲</button>
                 <button class="sort-btn" data-sort="inventory" data-order="desc" onclick="sortCharacters(this)" title="Inventory">🎒 ▼</button>
+                <button class="sort-btn" data-sort="mb" data-order="desc" onclick="sortCharacters(this)" title="MB Items">🪧 ▼</button>
                 <button class="sort-btn" data-sort="retainers" data-order="desc" onclick="sortCharacters(this)" title="Retainers">👤 ▼</button>
                 <button class="sort-btn" data-sort="retainer_level" data-order="desc" onclick="sortCharacters(this)" title="Retainer Level">👤 Lv ▼</button>
                 <button class="sort-btn" data-sort="subs" data-order="desc" onclick="sortCharacters(this)" title="Submarines">🚢 ▼</button>
                 <button class="sort-btn" data-sort="sub_level" data-order="desc" onclick="sortCharacters(this)" title="Submarine Level">🚢 Lv ▼</button>
-                <button class="sort-btn" data-sort="msq_percent" data-order="asc" onclick="sortCharacters(this)" title="MSQ Progress (least to most)">📜 ▲</button>
-                <span style="flex-grow: 1;"></span>
-                <button class="filter-btn money-btn" onclick="toggleHideMoney(this)" title="Hide Money Stats">💰</button>
-                <button class="filter-btn anon-btn" onclick="toggleAnonymize(this)" title="Anonymize">🔒</button>
-                <button class="filter-btn" data-filter="personal-house" onclick="toggleFilter(this)" title="Show only characters with Personal House">🏠</button>
-                <button class="filter-btn" data-filter="fc-house" onclick="toggleFilter(this)" title="Show only characters with FC House">🏨</button>
-                <button class="filter-btn" data-filter="retainers" onclick="toggleFilter(this)" title="Show only characters with Retainers">👤</button>
-                <button class="filter-btn" data-filter="subs" onclick="toggleFilter(this)" title="Show only characters with Submarines">🚢</button>
-                <button class="filter-btn" data-filter="msq" onclick="toggleFilter(this)" title="Hide characters with 0% MSQ">📜</button>
-                <button class="filter-btn" onclick="expandAllChars(this)" title="Expand All">▼</button>
-                <button class="filter-btn" onclick="collapseAllChars(this)" title="Collapse All">▲</button>
+                {% if show_msq_progression %}<button class="sort-btn" data-sort="msq_percent" data-order="asc" onclick="sortCharacters(this)" title="MSQ Progress (least to most)">📜 ▲</button>{% endif %}
             </div>
             {% endif %}
             
@@ -3774,10 +3982,10 @@ HTML_TEMPLATE = '''
             {% else %}
             <div class="character-grid">
                 {% for char in account.characters %}
-                <div class="character-card" data-char="{{ char.cid }}" data-level="{{ char.current_level }}" data-lowest-level="{{ char.lowest_level }}" data-highest-level="{{ char.highest_level }}" data-gil="{{ char.total_gil }}" data-treasure="{{ char.treasure_value }}" data-fc-points="{{ char.fc_points }}" data-venture-coins="{{ char.venture_coins }}" data-coffers="{{ char.coffer_count }}" data-dyes="{{ char.dye_count }}" data-tanks="{{ char.ceruleum }}" data-kits="{{ char.repair_kits }}" data-restock="{{ char.days_until_restock if char.days_until_restock is not none else 9999 }}" data-retainers="{{ char.ready_retainers }}" data-total-retainers="{{ char.total_retainers }}" data-subs="{{ char.ready_subs }}" data-total-subs="{{ char.total_subs }}" data-inventory="{{ 140 - char.inventory_space }}" data-has-personal-house="{{ 'true' if char.private_house else 'false' }}" data-has-fc-house="{{ 'true' if char.fc_house else 'false' }}" data-retainer-level="{{ char.max_retainer_level }}" data-sub-level="{{ char.max_sub_level }}" data-msq-percent="{{ char.msq_percent }}">
+                <div class="character-card{% if char.has_max_mb_retainer %} has-max-mb{% endif %}{% if char.has_idle_retainer %} has-idle-retainer{% endif %}{% if char.has_idle_sub %} has-idle-sub{% endif %}" data-char="{{ char.cid }}" data-level="{{ char.current_level }}" data-lowest-level="{{ char.lowest_level }}" data-highest-level="{{ char.highest_level }}" data-gil="{{ char.total_gil }}" data-treasure="{{ char.treasure_value }}" data-fc-points="{{ char.fc_points }}" data-venture-coins="{{ char.venture_coins }}" data-coffers="{{ char.coffer_count }}" data-dyes="{{ char.dye_count }}" data-tanks="{{ char.ceruleum }}" data-kits="{{ char.repair_kits }}" data-restock="{{ char.days_until_restock if char.days_until_restock is not none else 9999 }}" data-retainers="{{ char.ready_retainers }}" data-total-retainers="{{ char.total_retainers }}" data-subs="{{ char.ready_subs }}" data-total-subs="{{ char.total_subs }}" data-inventory="{{ 140 - char.inventory_space }}" data-has-personal-house="{{ 'true' if char.private_house else 'false' }}" data-has-fc-house="{{ 'true' if char.fc_house else 'false' }}" data-retainer-level="{{ char.max_retainer_level }}" data-sub-level="{{ char.max_sub_level }}" data-msq-percent="{{ char.msq_percent }}" data-has-max-mb="{{ 'true' if char.has_max_mb_retainer else 'false' }}" data-mb="{{ char.mb_items }}" data-has-mb="{{ 'true' if char.mb_items > 0 else 'false' }}" data-has-coffers="{{ 'true' if char.coffer_count > 0 else 'false' }}" data-has-dyes="{{ 'true' if char.dye_count > 0 else 'false' }}" data-has-treasure="{{ 'true' if char.treasure_value > 0 else 'false' }}" data-region="{{ char.region }}">
                     <div class="character-header collapsed {% if char.ready_retainers > 0 or char.ready_subs > 0 %}has-available{% endif %}" onclick="toggleCharacter(this)">
                         <div class="char-header-row name-row">
-                            <span class="character-name">{{ char.name }}{% if char.current_level > 0 %} <span style="font-size: 0.8em; color: var(--text-secondary);">(Lv {{ char.current_level }}, {{ char.current_job }})</span>{% endif %}{% if char.msq_completed >= min_msq_quests %} <span style="font-size: 0.8em; {% if char.msq_percent >= 90 %}color: #4ade80;{% elif char.msq_percent >= 50 %}color: #fbbf24;{% else %}color: #94a3b8;{% endif %}" title="MSQ Progress: {{ char.msq_completed }}/{{ char.msq_total }}{% if char.msq_quest_name %} - {{ char.msq_quest_name }}{% endif %}">MSQ: {{ char.msq_percent }}%</span>{% endif %}{% if char.private_house %} <span style="font-size: 0.8em;" title="Personal House: {{ char.private_house }}">🏠</span>{% endif %}{% if char.fc_house %} <span style="font-size: 0.8em;" title="FC House: {{ char.fc_house }}">🏨</span>{% endif %}</span>
+                            <span class="character-name">{{ char.name }}{% if char.current_level > 0 %} <span style="font-size: 0.8em; color: var(--text-secondary);">(Lv {{ char.current_level }}, {{ char.current_job }})</span>{% endif %}{% if show_msq_progression and char.msq_completed >= min_msq_quests %} <span style="font-size: 0.8em; {% if char.msq_percent >= 90 %}color: #4ade80;{% elif char.msq_percent >= 50 %}color: #fbbf24;{% else %}color: #94a3b8;{% endif %}" title="MSQ Progress: {{ char.msq_completed }}/{{ char.msq_total }}{% if char.msq_quest_name %} - {{ char.msq_quest_name }}{% endif %}">MSQ: {{ char.msq_percent }}%</span>{% endif %}{% if char.private_house %} <span style="font-size: 0.8em;" title="Personal House: {{ char.private_house }}">🏠</span>{% endif %}{% if char.fc_house %} <span style="font-size: 0.8em;" title="FC House: {{ char.fc_house }}">🏨</span>{% endif %}</span>
                             <span class="char-status {% if char.ready_retainers > 0 %}available{% else %}all-sent{% endif %}">👤 {{ char.ready_retainers }}/{{ char.total_retainers }}</span>
                         </div>
                         <div class="char-header-row">
@@ -3785,15 +3993,17 @@ HTML_TEMPLATE = '''
                             <span class="char-status {% if char.ready_subs > 0 %}available{% else %}all-sent{% endif %}">🚢 {{ char.ready_subs }}/{{ char.total_subs }}</span>
                         </div>
                         <div class="char-header-row">
-                            <span style="font-size: 0.8em; color: var(--text-secondary);">🪙 {{ "{:,}".format(char.fc_points) }} | 🛒 {{ char.venture_coins }} | 📦 {{ char.coffer_count }} | 🎨 {{ char.dye_count }}{% if char.dye_count > 0 %} 🤍{{ char.dye_pure_white }} 🖤{{ char.dye_jet_black }} 🩷{{ char.dye_pastel_pink }}{% endif %}</span>
+                            <span style="font-size: 0.8em; color: var(--text-secondary);">🪧 {{ char.mb_items }} | 📦 {{ char.coffer_count }} | 🎨 {{ char.dye_count }}{% if char.dye_count > 0 %} 🤍{{ char.dye_pure_white }} 🖤{{ char.dye_jet_black }} 🩷{{ char.dye_pastel_pink }}{% endif %}</span>
                             <span class="character-gil">{{ "{:,}".format(char.total_gil) }} gil</span>
                         </div>
                         <div class="char-header-row">
-                            <span style="font-size: 0.8em; color: var(--text-secondary);">⛽ {{ "{:,}".format(char.ceruleum) }} | 🔧 {{ "{:,}".format(char.repair_kits) }}{% if char.total_subs > 0 %} | <span style="{% if char.days_until_restock is not none and char.days_until_restock < 7 %}color: var(--danger);{% elif char.days_until_restock is not none and char.days_until_restock < 14 %}color: var(--warning);{% endif %}">🔄 {% if char.days_until_restock is not none %}{{ char.days_until_restock }}d{% else %}N/A{% endif %}</span>{% endif %}</span>
+                            <span style="font-size: 0.8em; color: var(--text-secondary);">🪙 {{ "{:,}".format(char.fc_points) }} | 🛒 {{ "{:,}".format(char.venture_coins) }} | ⛽ {{ "{:,}".format(char.ceruleum) }} | 🔧 {{ "{:,}".format(char.repair_kits) }}{% if char.total_subs > 0 %} | <span style="{% if char.days_until_restock is not none and char.days_until_restock < 7 %}color: var(--danger);{% elif char.days_until_restock is not none and char.days_until_restock < 14 %}color: var(--warning);{% endif %}">♻️ {% if char.days_until_restock is not none %}{{ char.days_until_restock }}d{% else %}N/A{% endif %}</span>{% endif %}</span>
                             {% if char.total_subs > 0 %}<span style="font-size: 0.8em; color: var(--gold);">💎 {{ "{:,}".format(char.treasure_value) }}</span>{% endif %}
                         </div>
                     </div>
                     <div class="character-body collapsed">
+                        <div class="section-title collapsible player-stats-header" onclick="toggleCollapse(this)">📊 Player Stats</div>
+                        <div class="collapse-content player-stats-content">
                         <div class="info-row">
                             <span class="info-label">Player</span>
                             <span class="info-value player-name-world">{{ char.name }}@{{ char.world }}</span>
@@ -3852,7 +4062,7 @@ HTML_TEMPLATE = '''
                             <span class="info-label">Inventory 🎒</span>
                             <span class="info-value" style="{% if (140 - char.inventory_space) >= 130 %}color: var(--accent);{% elif (140 - char.inventory_space) >= 100 %}color: var(--warning);{% endif %}">{{ 140 - char.inventory_space }}/140</span>
                         </div>
-                        {% if char.msq_completed >= min_msq_quests %}
+                        {% if show_msq_progression and char.msq_completed >= min_msq_quests %}
                         <div class="info-row">
                             <span class="info-label">MSQ Progress 📜</span>
                             <span class="info-value" style="{% if char.msq_percent >= 90 %}color: #4ade80;{% elif char.msq_percent >= 50 %}color: #fbbf24;{% else %}color: #94a3b8;{% endif %}">{{ char.msq_percent }}% ({{ char.msq_completed }}/{{ char.msq_total }}){% if char.msq_quest_name %} - {{ char.msq_quest_name }}{% endif %}</span>
@@ -3880,7 +4090,7 @@ HTML_TEMPLATE = '''
                         </div>
                         {% if char.total_subs > 0 %}
                         <div class="info-row">
-                            <span class="info-label">Days Until Restock 🔄</span>
+                            <span class="info-label">Days Until Restock ♻️</span>
                             <span class="info-value" style="{% if char.days_until_restock is not none and char.days_until_restock < 7 %}color: var(--danger);{% elif char.days_until_restock is not none and char.days_until_restock < 14 %}color: var(--warning);{% else %}color: var(--success);{% endif %}">{% if char.days_until_restock is not none %}{{ char.days_until_restock }} days{% else %}N/A{% endif %}</span>
                         </div>
                         {% endif %}
@@ -3891,6 +4101,7 @@ HTML_TEMPLATE = '''
                         <div class="info-row">
                             <span class="info-label">Daily Cost</span>
                             <span class="info-value warning">-{{ "{:,}".format(char.daily_cost|int) }}</span>
+                        </div>
                         </div>
                         
                         {% if char.submarines %}
@@ -3909,8 +4120,8 @@ HTML_TEMPLATE = '''
                                     <td>{{ sub.name }}</td>
                                     <td>{{ sub.level }}</td>
                                     <td>{{ sub.build }}</td>
-                                    <td style="{% if sub.is_farming %}color: var(--success);{% else %}color: var(--warning);{% endif %}">
-                                        {% if sub.plan_name %}{{ sub.plan_name }}{% elif sub.is_farming %}Farm{% else %}Lvl{% endif %}
+                                    <td class="{% if not sub.plan_name and not sub.is_farming and not sub.is_leveling %}status-none{% endif %}" style="{% if sub.plan_name or sub.is_farming %}color: var(--success);{% elif sub.is_leveling %}color: var(--warning);{% endif %}">
+                                        {% if sub.plan_name %}{{ sub.plan_name }}{% elif sub.is_farming %}Farm{% elif sub.is_leveling %}Lvl{% else %}None{% endif %}
                                     </td>
                                     <td class="{% if sub.return_formatted == 'Ready!' %}status-ready{% else %}status-voyaging{% endif %}">
                                         {{ sub.return_formatted }}
@@ -3938,7 +4149,7 @@ HTML_TEMPLATE = '''
                                     <td>{{ ret.level }}</td>
                                     <td>{{ "{:,}".format(ret.gil) }}</td>
                                     <td>{{ ret.mb_items }}</td>
-                                    <td class="{% if ret.venture_formatted == 'Ready!' %}status-ready{% else %}status-voyaging{% endif %}">
+                                    <td class="{% if ret.venture_formatted == 'Ready!' %}status-ready{% elif not ret.has_venture %}status-none{% else %}status-voyaging{% endif %}">
                                         {{ ret.venture_formatted if ret.has_venture else "None" }}
                                     </td>
                                 </tr>
@@ -4140,8 +4351,8 @@ HTML_TEMPLATE = '''
         
         <div class="footer">
             Please wait for page to load, may take longer if importing hundreds of characters, disable classes and/or currencies to generate faster.<br>
-            FFXIV AutoRetainer Dashboard v1.15 | Data sourced from AutoRetainer, Lifestream, & Altoholic<br>
-            <a href="https://github.com/xa-io/ffxiv-tools/tree/main/FFXIV-AutoRetainer-Dashboard" target="_blank" style="color: var(--accent); text-decoration: none;">github.com/xa-io/ffxiv-tools</a>
+            AutoRetainer Dashboard v1.20 | Data sourced from AutoRetainer, Lifestream, & Altoholic<br>
+            <a href="https://github.com/xa-io/ffxiv-tools/tree/main/AutoRetainer-Dashboard" target="_blank" style="color: var(--accent); text-decoration: none;">github.com/xa-io/ffxiv-tools</a>
         </div>
     </div>
     
@@ -4283,6 +4494,44 @@ HTML_TEMPLATE = '''
             // Save state to localStorage
             const collapsedAccounts = JSON.parse(localStorage.getItem('collapsedAccounts') || '{}');
             collapsedAccounts[accountName] = isCollapsed;
+            localStorage.setItem('collapsedAccounts', JSON.stringify(collapsedAccounts));
+        }
+        
+        // Track global accounts expand/collapse state
+        let allAccountsExpanded = false;
+        
+        function toggleAllAccounts() {
+            const btn = document.getElementById('global-accounts-btn');
+            const accountSections = document.querySelectorAll('.account-section');
+            const collapsedAccounts = JSON.parse(localStorage.getItem('collapsedAccounts') || '{}');
+            
+            allAccountsExpanded = !allAccountsExpanded;
+            
+            accountSections.forEach(section => {
+                const accountName = section.dataset.account;
+                const header = section.querySelector('.account-header');
+                const sortBar = section.querySelector('.sort-bar');
+                const content = section.querySelector('.account-content');
+                
+                if (allAccountsExpanded) {
+                    // Expand all
+                    header.classList.remove('collapsed');
+                    if (sortBar) sortBar.classList.remove('collapsed');
+                    if (content) content.classList.remove('collapsed');
+                    collapsedAccounts[accountName] = false;
+                } else {
+                    // Collapse all
+                    header.classList.add('collapsed');
+                    if (sortBar) sortBar.classList.add('collapsed');
+                    if (content) content.classList.add('collapsed');
+                    collapsedAccounts[accountName] = true;
+                }
+            });
+            
+            // Update button arrow
+            btn.textContent = allAccountsExpanded ? '▼' : '▶';
+            btn.title = allAccountsExpanded ? 'Collapse All Accounts' : 'Expand All Accounts';
+            
             localStorage.setItem('collapsedAccounts', JSON.stringify(collapsedAccounts));
         }
         
@@ -4430,31 +4679,38 @@ HTML_TEMPLATE = '''
         const originalMoneyData = new Map();
         
         function toggleAnonymize(btn) {
-            isAnonymized = !isAnonymized;
-            btn.classList.toggle('active', isAnonymized);
-            btn.textContent = isAnonymized ? '🔓' : '🔒';
-            
-            // Toggle all anonymize buttons across all accounts
-            document.querySelectorAll('.anon-btn').forEach(b => {
-                b.classList.toggle('active', isAnonymized);
-                b.textContent = isAnonymized ? '🔓' : '🔒';
-            });
-            
-            if (isAnonymized) {
-                anonymizeAll();
-            } else {
-                restoreAll();
+            try {
+                isAnonymized = !isAnonymized;
+                btn.classList.toggle('active', isAnonymized);
+                btn.textContent = isAnonymized ? '🔓' : '🔒';
+                
+                // Toggle all anonymize buttons across all accounts
+                document.querySelectorAll('.anon-btn').forEach(b => {
+                    b.classList.toggle('active', isAnonymized);
+                    b.textContent = isAnonymized ? '🔓' : '🔒';
+                });
+                
+                if (isAnonymized) {
+                    anonymizeAll();
+                } else {
+                    restoreAll();
+                }
+            } catch (e) {
+                console.error('Error in toggleAnonymize:', e);
             }
         }
         
         function anonymizeAll() {
+            try {
             // Anonymize account headers
             document.querySelectorAll('.account-section').forEach((section, accIndex) => {
                 const header = section.querySelector('.account-header h2');
-                if (header && !originalData.has(header)) {
-                    originalData.set(header, header.textContent);
+                if (header) {
+                    if (!originalData.has(header)) {
+                        originalData.set(header, header.textContent);
+                    }
+                    header.textContent = 'Account ' + (accIndex + 1);
                 }
-                header.textContent = 'Account ' + (accIndex + 1);
             });
             
             // Anonymize character data
@@ -4549,25 +4805,35 @@ HTML_TEMPLATE = '''
                     playerNameWorld.textContent = 'Toon ' + (cardIndex + 1) + '@Eorzea';
                 }
             });
+            } catch (e) {
+                console.error('Error in anonymizeAll:', e);
+            }
         }
         
         function restoreAll() {
             originalData.forEach((value, element) => {
-                if (element.classList && element.classList.contains('character-name')) {
-                    element.innerHTML = value;
-                } else if (typeof value === 'object' && value.html !== undefined) {
-                    // Restore plan cells with original HTML and style
-                    element.innerHTML = value.html;
-                    if (value.style) {
-                        element.setAttribute('style', value.style);
+                try {
+                    // Skip if element no longer exists in DOM
+                    if (!element || !document.body.contains(element)) return;
+                    
+                    if (element.classList && element.classList.contains('character-name')) {
+                        element.innerHTML = value;
+                    } else if (typeof value === 'object' && value.html !== undefined) {
+                        // Restore plan cells with original HTML and style
+                        element.innerHTML = value.html;
+                        if (value.style) {
+                            element.setAttribute('style', value.style);
+                        } else {
+                            element.removeAttribute('style');
+                        }
+                    } else if (typeof value === 'object' && value.text !== undefined) {
+                        // Restore player name with original text
+                        element.textContent = value.text;
                     } else {
-                        element.removeAttribute('style');
+                        element.textContent = value;
                     }
-                } else if (typeof value === 'object' && value.text !== undefined) {
-                    // Restore player name with original text
-                    element.textContent = value.text;
-                } else {
-                    element.textContent = value;
+                } catch (e) {
+                    console.warn('Error restoring element:', e);
                 }
             });
             originalData.clear();
@@ -4594,12 +4860,29 @@ HTML_TEMPLATE = '''
         function hideMoneyAll(forceRefresh = false) {
             const HIDDEN = '*****';
             
+            // Hide Characters summary card (preserve labels, hide numbers only)
+            const charTotal = document.querySelector('#sum-total-chars');
+            if (charTotal && (forceRefresh || !originalMoneyData.has(charTotal))) {
+                if (!forceRefresh) originalMoneyData.set(charTotal, charTotal.textContent);
+                charTotal.textContent = '👥 ***';
+            }
+            const charLevels = document.querySelector('#sum-char-levels');
+            if (charLevels && (forceRefresh || !originalMoneyData.has(charLevels))) {
+                if (!forceRefresh) originalMoneyData.set(charLevels, charLevels.textContent);
+                charLevels.textContent = '*** Lv 25+ | *** Lv 100';
+            }
+            const charPlots = document.querySelector('#sum-plots');
+            if (charPlots && (forceRefresh || !originalMoneyData.has(charPlots))) {
+                if (!forceRefresh) originalMoneyData.set(charPlots, charPlots.textContent);
+                charPlots.textContent = '🏠 *** | 🏨 ***';
+            }
+            
             // Hide summary cards (top section)
             const summarySelectors = [
                 '#sum-total-gil', '#sum-treasure', '#sum-with-treasure', '#sum-coffer-dye',
                 '#sum-ready-subs', '#sum-total-subs', '#sum-ready-retainers', '#sum-total-retainers',
                 '#sum-total-mb', '#sum-max-mb', '#sum-monthly-income', '#sum-monthly-cost',
-                '#sum-monthly-profit', '#sum-annual-income'
+                '#sum-monthly-profit', '#sum-annual-income', '#sum-annual-profit'
             ];
             summarySelectors.forEach(sel => {
                 const el = document.querySelector(sel);
@@ -4609,25 +4892,42 @@ HTML_TEMPLATE = '''
                 }
             });
             
-            // Hide FC Points sublabel and restock days sublabel in summary cards
-            document.querySelectorAll('.summary-card .sublabel').forEach(el => {
-                if (el.textContent.includes('FC') || el.textContent.includes('📦') || el.textContent.includes('🎨') || el.textContent.includes('lowest')) {
-                    if (forceRefresh || !originalMoneyData.has(el)) {
-                        if (!forceRefresh) originalMoneyData.set(el, { html: el.innerHTML });
-                        el.innerHTML = HIDDEN;
-                    }
-                }
-            });
-            
-            // Hide leveling/farming stats in summary cards
-            document.querySelectorAll('.summary-card .value div').forEach(el => {
-                if (el.textContent.includes('Lvl:') || el.textContent.includes('Farm:')) {
-                    if (forceRefresh || !originalMoneyData.has(el)) {
-                        if (!forceRefresh) originalMoneyData.set(el, { html: el.innerHTML });
-                        el.innerHTML = HIDDEN;
-                    }
-                }
-            });
+            // Hide summary card sublabels (preserve labels, hide numbers only)
+            const fcPoints = document.querySelector('#sum-fc-points');
+            if (fcPoints && (forceRefresh || !originalMoneyData.has(fcPoints))) {
+                if (!forceRefresh) originalMoneyData.set(fcPoints, fcPoints.textContent);
+                fcPoints.textContent = '🪙 *** FC';
+            }
+            const cofferDyeCounts = document.querySelector('#sum-coffer-dye-counts');
+            if (cofferDyeCounts && (forceRefresh || !originalMoneyData.has(cofferDyeCounts))) {
+                if (!forceRefresh) originalMoneyData.set(cofferDyeCounts, cofferDyeCounts.textContent);
+                cofferDyeCounts.textContent = '📦 *** | 🎨 ***';
+            }
+            const subsStats = document.querySelector('#sum-subs-stats');
+            if (subsStats && (forceRefresh || !originalMoneyData.has(subsStats))) {
+                if (!forceRefresh) originalMoneyData.set(subsStats, { html: subsStats.innerHTML });
+                subsStats.innerHTML = '<span style="color: var(--warning);">Lvl: ***</span> | <span style="color: var(--success);">Farm: ***</span> | <span style="color: #FFB6C1;">Idle: ***</span>';
+            }
+            const retainersStats = document.querySelector('#sum-retainers-stats');
+            if (retainersStats && (forceRefresh || !originalMoneyData.has(retainersStats))) {
+                if (!forceRefresh) originalMoneyData.set(retainersStats, { html: retainersStats.innerHTML });
+                retainersStats.innerHTML = '<span style="color: var(--warning);">Lvl: ***</span> | <span style="color: var(--success);">Farm: ***</span> | <span style="color: cyan;">Idle: ***</span>';
+            }
+            const mbMax = document.querySelector('#sum-mb-max');
+            if (mbMax && (forceRefresh || !originalMoneyData.has(mbMax))) {
+                if (!forceRefresh) originalMoneyData.set(mbMax, mbMax.textContent);
+                mbMax.textContent = '*** Max';
+            }
+            const dailyIncome = document.querySelector('#sum-daily-income');
+            if (dailyIncome && (forceRefresh || !originalMoneyData.has(dailyIncome))) {
+                if (!forceRefresh) originalMoneyData.set(dailyIncome, dailyIncome.textContent);
+                dailyIncome.textContent = '📅 *****/day';
+            }
+            const restock = document.querySelector('#sum-restock');
+            if (restock && (forceRefresh || !originalMoneyData.has(restock))) {
+                if (!forceRefresh) originalMoneyData.set(restock, restock.textContent);
+                restock.textContent = '♻️ ***d lowest';
+            }
             
             // Hide account tab stats
             document.querySelectorAll('.account-stats span').forEach(el => {
@@ -4641,44 +4941,61 @@ HTML_TEMPLATE = '''
                         el.innerHTML = emoji + ' ' + HIDDEN;
                     }
                 }
+                // Hide MB items (🪧) for privacy
+                if (text.includes('🪧') && text.includes('MB')) {
+                    if (forceRefresh || !originalMoneyData.has(el)) {
+                        if (!forceRefresh) originalMoneyData.set(el, { html: el.innerHTML });
+                        el.innerHTML = '🪧 ' + HIDDEN + ' MB';
+                    }
+                }
+                // Hide MSQ progress (📜) for privacy
+                if (text.includes('📜') && text.includes('MSQ')) {
+                    if (forceRefresh || !originalMoneyData.has(el)) {
+                        if (!forceRefresh) originalMoneyData.set(el, { html: el.innerHTML });
+                        el.innerHTML = '📜 ' + HIDDEN + ' MSQ';
+                    }
+                }
             });
             
             // Hide character card header stats
             document.querySelectorAll('.character-card').forEach(card => {
-                // Character gil (in header)
+                // Character gil (in header) - use shorter ** for compact display
                 const gilEl = card.querySelector('.character-gil');
                 if (gilEl && (forceRefresh || !originalMoneyData.has(gilEl))) {
                     if (!forceRefresh) originalMoneyData.set(gilEl, gilEl.textContent);
-                    gilEl.textContent = HIDDEN + ' gil';
+                    gilEl.textContent = '** gil';
                 }
                 
-                // Treasure value in header
+                // Treasure value in header - use shorter ** for compact display
                 card.querySelectorAll('.char-header-row span').forEach(span => {
                     const text = span.textContent;
                     if (span.style.color && span.style.color.includes('gold') && text.includes('💎')) {
                         if (forceRefresh || !originalMoneyData.has(span)) {
                             if (!forceRefresh) originalMoneyData.set(span, { html: span.innerHTML });
-                            span.innerHTML = '💎 ' + HIDDEN;
+                            span.innerHTML = '💎 **';
                         }
                     }
-                    // FC points, venture coins, coffers, dyes row (including individual dye counts)
-                    if (text.includes('🪙') && text.includes('🛒') && text.includes('📦') && text.includes('🎨')) {
+                    // MB items, coffers, dyes row (including individual dye counts)
+                    if (text.includes('🪧') && text.includes('📦') && text.includes('🎨') && !text.includes('🪙')) {
                         if (forceRefresh || !originalMoneyData.has(span)) {
                             if (!forceRefresh) originalMoneyData.set(span, { html: span.innerHTML });
+                            // Use shorter ** for compact display in character cards
+                            const SHORT = '**';
                             // Check if individual dyes are shown (🤍🖤🩷)
                             const hasIndividualDyes = text.includes('🤍') || text.includes('🖤') || text.includes('🩷');
                             if (hasIndividualDyes) {
-                                span.innerHTML = '🪙 ' + HIDDEN + ' | 🛒 ' + HIDDEN + ' | 📦 ' + HIDDEN + ' | 🎨 ' + HIDDEN + ' 🤍' + HIDDEN + ' 🖤' + HIDDEN + ' 🩷' + HIDDEN;
+                                span.innerHTML = '🪧 ' + SHORT + ' | 📦 ' + SHORT + ' | 🎨 ' + SHORT + ' 🤍' + SHORT + ' 🖤' + SHORT + ' 🩷' + SHORT;
                             } else {
-                                span.innerHTML = '🪙 ' + HIDDEN + ' | 🛒 ' + HIDDEN + ' | 📦 ' + HIDDEN + ' | 🎨 ' + HIDDEN;
+                                span.innerHTML = '🪧 ' + SHORT + ' | 📦 ' + SHORT + ' | 🎨 ' + SHORT;
                             }
                         }
                     }
-                    // Tanks, kits, restock row
-                    if (text.includes('⛽') && text.includes('🔧')) {
+                    // FC points, venture coins, tanks, kits, restock row - use shorter ** for compact display
+                    if (text.includes('🪙') && text.includes('🛒') && text.includes('⛽') && text.includes('🔧')) {
                         if (forceRefresh || !originalMoneyData.has(span)) {
                             if (!forceRefresh) originalMoneyData.set(span, { html: span.innerHTML });
-                            span.innerHTML = '⛽ ' + HIDDEN + ' | 🔧 ' + HIDDEN + (text.includes('🔄') ? ' | 🔄 ' + HIDDEN : '');
+                            const SHORT = '**';
+                            span.innerHTML = '🪙 ' + SHORT + ' | 🛒 ' + SHORT + ' | ⛽ ' + SHORT + ' | 🔧 ' + SHORT + (text.includes('♻️') ? ' | ♻️ ' + SHORT : '');
                         }
                     }
                 });
@@ -4815,6 +5132,316 @@ HTML_TEMPLATE = '''
             localStorage.setItem('collapsedChars', JSON.stringify(collapsedChars));
         }
         
+        // Global filter functions for header buttons
+        function toggleHideMoneyGlobal() {
+            isMoneyHidden = !isMoneyHidden;
+            // Update all money buttons including global
+            document.querySelectorAll('.money-btn').forEach(b => {
+                b.classList.toggle('active', isMoneyHidden);
+                b.textContent = isMoneyHidden ? '💸' : '💰';
+            });
+            if (isMoneyHidden) {
+                hideMoneyAll();
+            } else {
+                restoreMoneyAll();
+            }
+        }
+        
+        function toggleAnonymizeGlobal() {
+            try {
+                isAnonymized = !isAnonymized;
+                // Update all anon buttons including global
+                document.querySelectorAll('.anon-btn').forEach(b => {
+                    b.classList.toggle('active', isAnonymized);
+                    b.textContent = isAnonymized ? '🔓' : '🔒';
+                });
+                if (isAnonymized) {
+                    anonymizeAll();
+                } else {
+                    restoreAll();
+                }
+            } catch (e) {
+                console.error('Error in toggleAnonymizeGlobal:', e);
+            }
+        }
+        
+        // Global hide player stats
+        let isPlayerStatsHidden = false;
+        
+        function toggleHidePlayerStatsGlobal() {
+            isPlayerStatsHidden = !isPlayerStatsHidden;
+            const btn = document.getElementById('global-hide-stats-btn');
+            if (btn) {
+                btn.classList.toggle('active', isPlayerStatsHidden);
+            }
+            
+            // Toggle all player stats sections
+            document.querySelectorAll('.player-stats-header').forEach(header => {
+                if (isPlayerStatsHidden) {
+                    // Collapse player stats
+                    if (!header.classList.contains('collapsed')) {
+                        header.classList.add('collapsed');
+                    }
+                    const content = header.nextElementSibling;
+                    if (content && !content.classList.contains('collapsed')) {
+                        content.classList.add('collapsed');
+                    }
+                } else {
+                    // Expand player stats
+                    header.classList.remove('collapsed');
+                    const content = header.nextElementSibling;
+                    if (content) {
+                        content.classList.remove('collapsed');
+                    }
+                }
+            });
+        }
+        
+        // Global hide submarines
+        let isSubsHidden = false;
+        
+        function toggleHideSubsGlobal() {
+            isSubsHidden = !isSubsHidden;
+            const btn = document.getElementById('global-hide-subs-btn');
+            if (btn) {
+                btn.classList.toggle('active', isSubsHidden);
+            }
+            
+            // Toggle all submarine sections (find by content starting with 🚢)
+            document.querySelectorAll('.section-title.collapsible').forEach(header => {
+                if (header.textContent.includes('🚢 Submarines')) {
+                    if (isSubsHidden) {
+                        if (!header.classList.contains('collapsed')) {
+                            header.classList.add('collapsed');
+                        }
+                        const content = header.nextElementSibling;
+                        if (content && !content.classList.contains('collapsed')) {
+                            content.classList.add('collapsed');
+                        }
+                    } else {
+                        header.classList.remove('collapsed');
+                        const content = header.nextElementSibling;
+                        if (content) {
+                            content.classList.remove('collapsed');
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Global hide retainers
+        let isRetainersHidden = false;
+        
+        function toggleHideRetainersGlobal() {
+            isRetainersHidden = !isRetainersHidden;
+            const btn = document.getElementById('global-hide-retainers-btn');
+            if (btn) {
+                btn.classList.toggle('active', isRetainersHidden);
+            }
+            
+            // Toggle all retainer sections (find by content starting with 👤)
+            document.querySelectorAll('.section-title.collapsible').forEach(header => {
+                if (header.textContent.includes('👤 Retainers')) {
+                    if (isRetainersHidden) {
+                        if (!header.classList.contains('collapsed')) {
+                            header.classList.add('collapsed');
+                        }
+                        const content = header.nextElementSibling;
+                        if (content && !content.classList.contains('collapsed')) {
+                            content.classList.add('collapsed');
+                        }
+                    } else {
+                        header.classList.remove('collapsed');
+                        const content = header.nextElementSibling;
+                        if (content) {
+                            content.classList.remove('collapsed');
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Global show classes (DoW/DoM and DoH/DoL) - INVERTED: active = show, inactive = hide (default collapsed)
+        let isClassesShown = false;
+        
+        function toggleHideClassesGlobal() {
+            isClassesShown = !isClassesShown;
+            const btn = document.getElementById('global-hide-classes-btn');
+            if (btn) {
+                btn.classList.toggle('active', isClassesShown);
+            }
+            
+            // Toggle all DoW/DoM and DoH/DoL sections
+            document.querySelectorAll('.section-title.collapsible').forEach(header => {
+                if (header.textContent.includes('⚔️ DoW/DoM') || header.textContent.includes('🔨 DoH/DoL')) {
+                    if (isClassesShown) {
+                        // Active = show (expand)
+                        header.classList.remove('collapsed');
+                        const content = header.nextElementSibling;
+                        if (content) {
+                            content.classList.remove('collapsed');
+                        }
+                    } else {
+                        // Inactive = hide (collapse)
+                        if (!header.classList.contains('collapsed')) {
+                            header.classList.add('collapsed');
+                        }
+                        const content = header.nextElementSibling;
+                        if (content && !content.classList.contains('collapsed')) {
+                            content.classList.add('collapsed');
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Global show currencies - INVERTED: active = show, inactive = hide (default collapsed)
+        let isCurrenciesShown = false;
+        
+        function toggleHideCurrenciesGlobal() {
+            isCurrenciesShown = !isCurrenciesShown;
+            const btn = document.getElementById('global-hide-currencies-btn');
+            if (btn) {
+                btn.classList.toggle('active', isCurrenciesShown);
+            }
+            
+            // Toggle all currencies sections
+            document.querySelectorAll('.section-title.collapsible').forEach(header => {
+                if (header.textContent.includes('💰 Currencies')) {
+                    if (isCurrenciesShown) {
+                        // Active = show (expand)
+                        header.classList.remove('collapsed');
+                        const content = header.nextElementSibling;
+                        if (content) {
+                            content.classList.remove('collapsed');
+                        }
+                    } else {
+                        // Inactive = hide (collapse)
+                        if (!header.classList.contains('collapsed')) {
+                            header.classList.add('collapsed');
+                        }
+                        const content = header.nextElementSibling;
+                        if (content && !content.classList.contains('collapsed')) {
+                            content.classList.add('collapsed');
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Track global filter states
+        let globalFilters = {
+            'personal-house': false,
+            'fc-house': false,
+            'coffers': false,
+            'dyes': false,
+            'mb': false,
+            'retainers': false,
+            'treasure': false,
+            'subs': false,
+            'msq': false
+        };
+        
+        // Track region filter (only one can be active at a time, or none)
+        let activeRegion = null;
+        
+        function toggleRegionFilter(region) {
+            // If clicking the same region, toggle it off
+            if (activeRegion === region) {
+                activeRegion = null;
+            } else {
+                activeRegion = region;
+            }
+            
+            // Update button states (only one active at a time)
+            ['NA', 'EU', 'JP', 'OCE'].forEach(r => {
+                const btn = document.getElementById('region-' + r.toLowerCase() + '-btn');
+                if (btn) btn.classList.toggle('active', activeRegion === r);
+            });
+            
+            // Apply region filter to all accounts
+            applyAllFilters();
+        }
+        
+        function applyAllFilters() {
+            document.querySelectorAll('.account-section').forEach(section => {
+                const grid = section.querySelector('.character-grid');
+                if (!grid) return;
+                const cards = grid.querySelectorAll('.character-card');
+                
+                cards.forEach(card => {
+                    let shouldShow = true;
+                    
+                    // Check region filter first
+                    if (activeRegion && card.dataset.region !== activeRegion) shouldShow = false;
+                    
+                    // Check all active global filters
+                    if (globalFilters['personal-house'] && card.dataset.hasPersonalHouse !== 'true') shouldShow = false;
+                    if (globalFilters['fc-house'] && card.dataset.hasFcHouse !== 'true') shouldShow = false;
+                    if (globalFilters['coffers'] && card.dataset.hasCoffers !== 'true') shouldShow = false;
+                    if (globalFilters['dyes'] && card.dataset.hasDyes !== 'true') shouldShow = false;
+                    if (globalFilters['mb'] && card.dataset.hasMb !== 'true') shouldShow = false;
+                    if (globalFilters['retainers'] && parseInt(card.dataset.totalRetainers || 0) === 0) shouldShow = false;
+                    if (globalFilters['treasure'] && card.dataset.hasTreasure !== 'true') shouldShow = false;
+                    if (globalFilters['subs'] && parseInt(card.dataset.totalSubs || 0) === 0) shouldShow = false;
+                    if (globalFilters['msq'] && parseInt(card.dataset.msqPercent || 0) === 0) shouldShow = false;
+                    
+                    card.style.display = shouldShow ? '' : 'none';
+                });
+            });
+        }
+        
+        function toggleFilterGlobal(filterType) {
+            globalFilters[filterType] = !globalFilters[filterType];
+            const isActive = globalFilters[filterType];
+            
+            // Update global button state
+            const btnId = {
+                'personal-house': 'global-house-btn',
+                'fc-house': 'global-fc-btn',
+                'coffers': 'global-coffers-btn',
+                'dyes': 'global-dyes-btn',
+                'mb': 'global-mb-btn',
+                'retainers': 'global-retainers-btn',
+                'treasure': 'global-treasure-btn',
+                'subs': 'global-subs-btn',
+                'msq': 'global-msq-btn'
+            }[filterType];
+            const globalBtn = document.getElementById(btnId);
+            if (globalBtn) globalBtn.classList.toggle('active', isActive);
+            
+            // Apply all filters (including region filter)
+            applyAllFilters();
+        }
+        
+        function expandAllCharsGlobal() {
+            const collapsedChars = JSON.parse(localStorage.getItem('collapsedChars') || '{}');
+            document.querySelectorAll('.character-card').forEach(card => {
+                const charId = card.dataset.char;
+                const header = card.querySelector('.character-header');
+                const body = header.nextElementSibling;
+                header.classList.remove('collapsed');
+                body.classList.remove('collapsed');
+                card.classList.add('expanded');
+                collapsedChars[charId] = false;
+            });
+            localStorage.setItem('collapsedChars', JSON.stringify(collapsedChars));
+        }
+        
+        function collapseAllCharsGlobal() {
+            const collapsedChars = JSON.parse(localStorage.getItem('collapsedChars') || '{}');
+            document.querySelectorAll('.character-card').forEach(card => {
+                const charId = card.dataset.char;
+                const header = card.querySelector('.character-header');
+                const body = header.nextElementSibling;
+                header.classList.add('collapsed');
+                body.classList.add('collapsed');
+                card.classList.remove('expanded');
+                collapsedChars[charId] = true;
+            });
+            localStorage.setItem('collapsedChars', JSON.stringify(collapsedChars));
+        }
+        
         function restoreCollapsedState() {
             const collapsedAccounts = JSON.parse(localStorage.getItem('collapsedAccounts') || '{}');
             document.querySelectorAll('.account-section').forEach(section => {
@@ -4836,6 +5463,20 @@ HTML_TEMPLATE = '''
                     content.classList.remove('collapsed');
                 }
             });
+            
+            // Sync global accounts button state
+            const accountSections = document.querySelectorAll('.account-section');
+            let expandedCount = 0;
+            accountSections.forEach(section => {
+                const header = section.querySelector('.account-header');
+                if (!header.classList.contains('collapsed')) expandedCount++;
+            });
+            allAccountsExpanded = expandedCount === accountSections.length;
+            const accountsBtn = document.getElementById('global-accounts-btn');
+            if (accountsBtn) {
+                accountsBtn.textContent = allAccountsExpanded ? '▼' : '▶';
+                accountsBtn.title = allAccountsExpanded ? 'Collapse All Accounts' : 'Expand All Accounts';
+            }
             
             // Restore character card collapsed states (default to collapsed)
             const collapsedChars = JSON.parse(localStorage.getItem('collapsedChars') || '{}');
@@ -4878,10 +5519,13 @@ HTML_TEMPLATE = '''
                     document.getElementById('sum-total-retainers').textContent = data.summary.total_retainers;
                     document.getElementById('sum-total-mb').textContent = data.summary.total_mb_items;
                     document.getElementById('sum-max-mb').textContent = formatNumber(data.summary.max_mb_items);
+                    // Update max MB count if element exists
+                    const maxMbCountEl = document.getElementById('sum-max-mb-count');
+                    if (maxMbCountEl) maxMbCountEl.textContent = data.summary.max_mb_retainer_count;
                     document.getElementById('sum-monthly-income').textContent = formatNumber(Math.floor(data.summary.monthly_income));
                     document.getElementById('sum-monthly-cost').textContent = formatNumber(Math.floor(data.summary.monthly_cost));
-                    document.getElementById('sum-monthly-profit').textContent = formatNumber(Math.floor(data.summary.monthly_profit));
                     document.getElementById('sum-annual-income').textContent = formatNumber(Math.floor(data.summary.annual_income));
+                    document.getElementById('sum-annual-profit').textContent = formatNumber(Math.floor(data.summary.annual_profit));
                     
                     // Update account stats
                     data.accounts.forEach(account => {
@@ -4895,7 +5539,33 @@ HTML_TEMPLATE = '''
                             section.querySelector('.acc-retainers').textContent = account.total_retainers;
                             section.querySelector('.acc-mb').textContent = account.total_mb_items;
                             section.querySelector('.acc-max-mb').textContent = formatNumber(account.max_mb_items);
+                            // Update max MB count if element exists
+                            const accMaxMbCount = section.querySelector('.acc-max-mb-count');
+                            if (accMaxMbCount) accMaxMbCount.textContent = account.max_mb_retainer_count;
+                            // Update mb-max class on account stats span
+                            const mbSpan = section.querySelector('.acc-mb').closest('span');
+                            if (mbSpan) {
+                                if (account.has_max_mb_retainer) {
+                                    mbSpan.classList.add('mb-max');
+                                } else {
+                                    mbSpan.classList.remove('mb-max');
+                                }
+                            }
                         }
+                    });
+                    
+                    // Update character card has-max-mb class
+                    data.accounts.forEach(account => {
+                        account.characters.forEach(char => {
+                            const card = document.querySelector(`[data-char="${char.cid}"]`);
+                            if (card) {
+                                if (char.has_max_mb_retainer) {
+                                    card.classList.add('has-max-mb');
+                                } else {
+                                    card.classList.remove('has-max-mb');
+                                }
+                            }
+                        });
                     });
                 }
                 
@@ -4911,9 +5581,27 @@ HTML_TEMPLATE = '''
             }
         }
         
+        // Set dynamic sticky positions based on sticky-top-section height
+        function updateStickyPositions() {
+            const stickyTop = document.querySelector('.sticky-top-section');
+            const firstAccountHeader = document.querySelector('.account-header');
+            if (stickyTop) {
+                const stickyHeight = stickyTop.offsetHeight;
+                const accountHeaderHeight = firstAccountHeader ? firstAccountHeader.offsetHeight : 45;
+                document.querySelectorAll('.account-header').forEach(el => {
+                    el.style.top = stickyHeight + 'px';
+                });
+                document.querySelectorAll('.sort-bar').forEach(el => {
+                    el.style.top = (stickyHeight + accountHeaderHeight) + 'px';
+                });
+            }
+        }
+        
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             restoreCollapsedState();
+            updateStickyPositions();
+            window.addEventListener('resize', updateStickyPositions);
             
             // Start auto-refresh if enabled
             if (REFRESH_INTERVAL > 0) {
@@ -4937,7 +5625,7 @@ def index():
                                   job_categories=JOB_CATEGORIES, job_display_names=JOB_DISPLAY_NAMES,
                                   job_base_class=JOB_BASE_CLASS, min_msq_quests=MINIMUM_MSQ_QUESTS,
                                   show_classes=SHOW_CLASSES, show_currencies=SHOW_CURRENCIES,
-                                  default_theme=DEFAULT_THEME)
+                                  show_msq_progression=SHOW_MSQ_PROGRESSION, default_theme=DEFAULT_THEME)
 
 
 @app.route('/api/data')
@@ -4961,7 +5649,7 @@ if __name__ == "__main__":
     load_external_config()
     
     print("=" * 60)
-    print("  FFXIV AutoRetainer Dashboard v1.15")
+    print("  AutoRetainer Dashboard v1.20")
     print("=" * 60)
     print(f"  Server: http://{HOST}:{PORT}")
     print(f"  Accounts: {len(account_locations)}")
