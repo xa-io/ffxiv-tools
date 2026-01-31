@@ -374,7 +374,7 @@ Created by: https://github.com/xa-io
 
 **UI Improvements:**
 - Collapsible Player Stats section (📊)
-- "None" in Venture/Plan columns shows red and bold
+- "None" in Venture/Plan columns shows in bold
 - Fixed rounded corners on account tabs
 - Hide Money mode preserves labels with asterisks
 
@@ -469,7 +469,7 @@ Created by: https://github.com/xa-io
 - **Housing Filter Buttons**: Added Personal House and FC House filter buttons to show only characters with houses
 - **Level Sort Buttons**: Added Retainer Lv and Submarine Lv sort buttons for sorting by max retainer/submarine level
 - **Compact Sort Buttons**: Renamed sort buttons to emojis for more compact display
-- **Anonymization Improvements**: Housing addresses now show "TOP SECRET" in red when anonymized, housing icons preserved in character header
+- **Anonymization Improvements**: Housing addresses now show "TOP SECRET" when anonymized, housing icons preserved in character header
 
 ### v1.07 (2026-01-26)
 
