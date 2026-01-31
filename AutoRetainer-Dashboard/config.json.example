@@ -6,6 +6,7 @@
     "MINIMUM_MSQ_QUESTS": 5,
     "SHOW_CLASSES": true,
     "SHOW_CURRENCIES": true,
+    "SHOW_MSQ_PROGRESSION": false,
     "DEFAULT_THEME": "default",
     "account_locations": [
         {
@@ -27,8 +28,8 @@
 
     "submarine_plans": {
         "leveling": [
-            "Level Up Default",
-            "Unlock All Sectors",
+            "OJ Unlocker",
+            "Overseer OJ Unlocker",
             "XP Grind"
         ],
         "farming": {
@@ -46,5 +47,18 @@
         "pure_white_dye": 450000,
         "jet_black_dye": 600000,
         "pastel_pink_dye": 40000
-    }
+    },
+
+    "build_gil_rates": {
+        "ABCD++": 100000,
+        "EFGH": 150000
+    },
+
+    "build_consumption_rates": {
+        "ABCD++": {"tanks_per_day": 10.0, "kits_per_day": 2.0},
+        "EFGH": {"tanks_per_day": 12.0, "kits_per_day": 3.5}
+    },
+
+    "ceruleum_tank_cost": 350,
+    "repair_kit_cost": 2000
 }
