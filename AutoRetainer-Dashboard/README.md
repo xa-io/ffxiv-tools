@@ -1,14 +1,14 @@
-# AutoRetainer Dashboard v1.15
+# AutoRetainer Dashboard v1.20
 
-A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression, job levels, currencies, income/cost calculations, and comprehensive supply tracking.
+A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels, currencies, income/cost calculations, and comprehensive supply tracking.
 
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/cacd796e-2a01-45ab-938b-06ba9621446c" alt="3MnKqYLQaN">
+  <img src="https://github.com/user-attachments/assets/8f876572-2517-408f-b092-14ae0c9f9004" alt="Loading Page">
 </p>
 
 <p align="center">
-  <img width="1481" height="2238" alt="image" src="https://github.com/user-attachments/assets/4b4efbbd-99c6-4a06-ad08-fe1ee5c6235a" />
+  <img width="1462" height="1353" alt="AutoRetainer Dashboard" src="https://github.com/user-attachments/assets/1210377c-ef2b-4ed1-85d2-78645e23a7af" />
 </p>
 
 
@@ -144,6 +144,7 @@ account_locations = [
     "MINIMUM_MSQ_QUESTS": 5,
     "SHOW_CLASSES": true,
     "SHOW_CURRENCIES": true,
+    "SHOW_MSQ_PROGRESSION": false,
     "DEFAULT_THEME": "default",
     "account_locations": [
         {
@@ -160,8 +161,8 @@ account_locations = [
 
     "submarine_plans": {
         "leveling": [
-            "Level Up Default",
-            "Unlock All Sectors",
+            "OJ Unlocker",
+            "Overseer OJ Unlocker",
             "XP Grind"
         ],
         "farming": {
@@ -179,7 +180,20 @@ account_locations = [
         "pure_white_dye": 450000,
         "jet_black_dye": 600000,
         "pastel_pink_dye": 40000
-    }
+    },
+
+    "build_gil_rates": {
+        "ABCD++": 100000,
+        "EFGH": 150000
+    },
+
+    "build_consumption_rates": {
+        "ABCD++": {"tanks_per_day": 10.0, "kits_per_day": 2.0},
+        "EFGH": {"tanks_per_day": 12.0, "kits_per_day": 3.5}
+    },
+
+    "ceruleum_tank_cost": 350,
+    "repair_kit_cost": 2000
 }
 ```
 
@@ -204,6 +218,46 @@ The `item_values` section lets you override default market values for estimation
 | `pure_white_dye` | 450,000 | Pure White Dye market value |
 | `jet_black_dye` | 600,000 | Jet Black Dye market value |
 | `pastel_pink_dye` | 40,000 | Pastel Pink Dye market value |
+
+### Custom Build Rates Configuration (Optional)
+
+If you're using submarine builds not included in the script's defaults, you can add custom rates in the config.json:
+
+**build_gil_rates**: Add custom builds with their daily gil earnings
+```json
+"build_gil_rates": {
+    "CUSTOM": 100000,
+    "MY+BUILD": 150000
+}
+```
+
+**build_consumption_rates**: Add consumption rates for custom builds
+```json
+"build_consumption_rates": {
+    "CUSTOM": {"tanks_per_day": 10.0, "kits_per_day": 2.0},
+    "MY+BUILD": {"tanks_per_day": 12.0, "kits_per_day": 3.5}
+}
+```
+
+**Notes:**
+- Build abbreviation must match exactly as shown in the dashboard (e.g., "SSUC", "W+S+U+C+")
+- Custom rates merge with built-in rates (won't overwrite existing unless same key)
+- Both sections are optional - leave empty `{}` if not needed
+- For consumption rates, both `tanks_per_day` and `kits_per_day` are required
+
+### Supply Cost Configuration (Optional)
+
+Override the default supply costs used for monthly cost calculations:
+
+```json
+"ceruleum_tank_cost": 350,
+"repair_kit_cost": 2000
+```
+
+| Parameter | Default | Description |
+| --------- | ------- | ----------- |
+| `ceruleum_tank_cost` | 350 | Gil cost per Ceruleum Tank |
+| `repair_kit_cost` | 2000 | Gil cost per Repair Kit |
 
 ## Usage
 
@@ -238,6 +292,7 @@ http://127.0.0.1:1234
 | `MINIMUM_MSQ_QUESTS` | `5` | Min MSQ quests completed to show MSQ progress (0 = always show) |
 | `SHOW_CLASSES` | `true` | Show DoW/DoM and DoH/DoL job sections |
 | `SHOW_CURRENCIES` | `true` | Show Currencies section |
+| `SHOW_MSQ_PROGRESSION` | `false` | Show MSQ progression display (disabled until Altoholic fix) |
 | `DEFAULT_THEME` | `default` | Color theme (see Available Themes below) |
 
 ## Income/Cost Calculations
@@ -286,7 +341,7 @@ To access the dashboard from other devices on your network:
 ## File Structure
 
 ```
-FFXIV - Landing Page/
+AutoRetainer-Dashboard/
 ├── Landing Page.py         # Main application
 ├── config.json.example     # Configuration template
 └── README.md               # This file
@@ -297,6 +352,39 @@ FFXIV - Landing Page/
 Created by: https://github.com/xa-io
 
 ## Version History
+
+### v1.20 (2026-01-31) - Major UI/UX Enhancement Release
+
+**Sticky Header & Global Controls:**
+- Sticky header with summary cards fixed at top when scrolling
+- Global filter buttons: hide money, anonymize, houses, retainers, subs, MSQ
+- Expand/collapse all accounts button (▶/▼)
+- Mass hide buttons: ✏️ Player Stats, 🐋 Submarines, 🛎️ Retainers, 📖 Classes, 🪶 Currencies
+
+**New Summary Cards & Tracking:**
+- Characters summary card (total chars, Lv 25+, Lv 100, personal/FC plots)
+- Consolidated summary cards with combined totals as sublabels
+- Max MB listings indicator with gold outline (20 items = max)
+- Idle retainer tracking (cyan highlight), idle submarine tracking (pink highlight)
+
+**Enhanced Filtering:**
+- Region filter buttons (NA, EU, JP, OCE)
+- New filters: 📦 Coffers, 🎨 Dyes, 💎 Treasure, 🪧 MB items
+- Changed MB icon from 📦 to 🪧 (placard)
+
+**UI Improvements:**
+- Collapsible Player Stats section (📊)
+- "None" in Venture/Plan columns shows red and bold
+- Fixed rounded corners on account tabs
+- Hide Money mode preserves labels with asterisks
+
+**Config Enhancements:**
+- Custom build gil rates and consumption rates via config.json
+- Supply cost overrides (ceruleum_tank_cost, repair_kit_cost)
+- SHOW_MSQ_PROGRESSION toggle
+
+**Bug Fixes:**
+- Fixed plot counting duplicates, dye/coffer MarketInventory scanning, anonymize toggle errors
 
 ### v1.15 (2026-01-27)
 
