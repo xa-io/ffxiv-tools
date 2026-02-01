@@ -31,13 +31,14 @@
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.20
+# Landing Page v1.21
 # AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-31 09:00:00
+# Last Updated: 2026-01-31 21:00:00
 #
 # ## Release Notes ##
 #
+# v1.21 - Fixed javascript regex syntax issue
 # v1.20 - Major UI/UX enhancement release
 #         STICKY HEADER & GLOBAL CONTROLS:
 #         • Sticky header with summary cards fixed at top when scrolling
@@ -4351,7 +4352,7 @@ HTML_TEMPLATE = '''
         
         <div class="footer">
             Please wait for page to load, may take longer if importing hundreds of characters, disable classes and/or currencies to generate faster.<br>
-            AutoRetainer Dashboard v1.20 | Data sourced from AutoRetainer, Lifestream, & Altoholic<br>
+            AutoRetainer Dashboard v1.21 | Data sourced from AutoRetainer, Lifestream, & Altoholic<br>
             <a href="https://github.com/xa-io/ffxiv-tools/tree/main/AutoRetainer-Dashboard" target="_blank" style="color: var(--accent); text-decoration: none;">github.com/xa-io/ffxiv-tools</a>
         </div>
     </div>
@@ -4736,7 +4737,7 @@ HTML_TEMPLATE = '''
                     const bulletCount = (worldFC.textContent.match(/•/g) || []).length;
                     const hasFC = bulletCount >= 2;
                     // Extract actual inventory value to preserve it
-                    const inventoryMatch = worldFC.textContent.match(/🎒 (\d+\/\d+)/);
+                    const inventoryMatch = worldFC.textContent.match(/🎒 (\\d+\\/\\d+)/);
                     const inventoryText = inventoryMatch ? ' • 🎒 ' + inventoryMatch[1] : '';
                     worldFC.textContent = 'Eorzea' + (hasFC ? ' • FC Name' : '') + inventoryText;
                 }
@@ -4937,7 +4938,7 @@ HTML_TEMPLATE = '''
                     if (forceRefresh || !originalMoneyData.has(el)) {
                         if (!forceRefresh) originalMoneyData.set(el, { html: el.innerHTML });
                         // Keep emoji, hide values
-                        const emoji = text.match(/^[^\d]*/)[0].trim();
+                        const emoji = text.match(/^[^\\d]*/)[0].trim();
                         el.innerHTML = emoji + ' ' + HIDDEN;
                     }
                 }
@@ -5649,7 +5650,7 @@ if __name__ == "__main__":
     load_external_config()
     
     print("=" * 60)
-    print("  AutoRetainer Dashboard v1.20")
+    print("  AutoRetainer Dashboard v1.21")
     print("=" * 60)
     print(f"  Server: http://{HOST}:{PORT}")
     print(f"  Accounts: {len(account_locations)}")
