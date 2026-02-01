@@ -1,4 +1,4 @@
-# AutoRetainer Dashboard v1.20
+# AutoRetainer Dashboard v1.21
 
 A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels, currencies, income/cost calculations, and comprehensive supply tracking.
 
