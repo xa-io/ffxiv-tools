@@ -31,13 +31,19 @@
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.21
+# Landing Page v1.22
 # AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-31 21:00:00
+# Last Updated: 2026-02-01 10:00:00
 #
 # ## Release Notes ##
 #
+# v1.22 - Added highlight toggle configuration options:
+#         HIGHLIGHT_IDLE_RETAINERS: Toggle cyan outline for idle retainers (default: true)
+#         HIGHLIGHT_IDLE_SUBS: Toggle pink outline for idle submarines (default: true)
+#         HIGHLIGHT_READY_ITEMS: Toggle red background for ready items (default: true)
+#         HIGHLIGHT_MAX_MB: Toggle gold outline for max MB listings (default: true)
+#         When all false, character boxes display in theme color with no highlighting
 # v1.21 - Fixed javascript regex syntax issue
 # v1.20 - Major UI/UX enhancement release
 #         STICKY HEADER & GLOBAL CONTROLS:
@@ -118,6 +124,10 @@ SHOW_CLASSES = True     # Show DoW/DoM and DoH/DoL job sections, disable to spee
 SHOW_CURRENCIES = True  # Show currencies section, disable to speed up page load
 SHOW_MSQ_PROGRESSION = False  # Show MSQ progression (disabled until Altoholic tracking works)
 DEFAULT_THEME = "default"  # Theme preset for dashboard
+HIGHLIGHT_IDLE_RETAINERS = True  # Cyan outline on character cards with idle retainers
+HIGHLIGHT_IDLE_SUBS = True       # Pink outline on character cards with idle submarines
+HIGHLIGHT_READY_ITEMS = True     # Red background on character cards with ready retainers/subs
+HIGHLIGHT_MAX_MB = True          # Gold outline on character cards with max (20) MB listings
 # Available themes:
 #   default      - Blue accent (original)
 #   ultra-dark   - Near-black with subtle gray
@@ -717,6 +727,7 @@ def load_external_config():
     global HOST, PORT, DEBUG, AUTO_REFRESH, account_locations
     global submarine_plans, retainer_plans, item_values
     global MINIMUM_MSQ_QUESTS, SHOW_CLASSES, SHOW_CURRENCIES, SHOW_MSQ_PROGRESSION, DEFAULT_THEME
+    global HIGHLIGHT_IDLE_RETAINERS, HIGHLIGHT_IDLE_SUBS, HIGHLIGHT_READY_ITEMS, HIGHLIGHT_MAX_MB
     global BUILD_GIL_RATES, BUILD_CONSUMPTION_RATES
     global CERULEUM_TANK_COST, REPAIR_KIT_COST
     
@@ -737,6 +748,10 @@ def load_external_config():
         SHOW_CURRENCIES = config.get("SHOW_CURRENCIES", SHOW_CURRENCIES)
         SHOW_MSQ_PROGRESSION = config.get("SHOW_MSQ_PROGRESSION", SHOW_MSQ_PROGRESSION)
         DEFAULT_THEME = config.get("DEFAULT_THEME", DEFAULT_THEME)
+        HIGHLIGHT_IDLE_RETAINERS = config.get("HIGHLIGHT_IDLE_RETAINERS", HIGHLIGHT_IDLE_RETAINERS)
+        HIGHLIGHT_IDLE_SUBS = config.get("HIGHLIGHT_IDLE_SUBS", HIGHLIGHT_IDLE_SUBS)
+        HIGHLIGHT_READY_ITEMS = config.get("HIGHLIGHT_READY_ITEMS", HIGHLIGHT_READY_ITEMS)
+        HIGHLIGHT_MAX_MB = config.get("HIGHLIGHT_MAX_MB", HIGHLIGHT_MAX_MB)
         
         if "account_locations" in config:
             new_locations = []
@@ -3416,6 +3431,7 @@ HTML_TEMPLATE = '''
             background: #2a3a4a;
         }
         
+        {% if highlight_ready_items %}
         .character-header.has-available {
             background: rgba(233, 69, 96, 0.25);
         }
@@ -3423,6 +3439,7 @@ HTML_TEMPLATE = '''
         .character-header.has-available:hover {
             background: rgba(233, 69, 96, 0.35);
         }
+        {% endif %}
         
         .account-stats .stat-ready {
             color: #000000 !important;
@@ -3435,23 +3452,29 @@ HTML_TEMPLATE = '''
             font-weight: 600;
         }
         
+        {% if highlight_max_mb %}
         .character-card.has-max-mb {
             outline: 4px solid #FFD700;
             outline-offset: -4px;
             box-shadow: 0 0 20px rgba(255, 215, 0, 0.7), inset 0 0 10px rgba(255, 215, 0, 0.2);
         }
+        {% endif %}
         
+        {% if highlight_idle_retainers %}
         .character-card.has-idle-retainer {
             outline: 4px solid cyan;
             outline-offset: -4px;
             box-shadow: 0 0 20px rgba(0, 255, 255, 0.7), inset 0 0 10px rgba(0, 255, 255, 0.2);
         }
+        {% endif %}
         
+        {% if highlight_idle_subs %}
         .character-card.has-idle-sub {
             outline: 4px solid #FFB6C1;
             outline-offset: -4px;
             box-shadow: 0 0 20px rgba(255, 182, 193, 0.7), inset 0 0 10px rgba(255, 182, 193, 0.2);
         }
+        {% endif %}
         
         .char-header-row {
             display: flex;
@@ -4352,7 +4375,7 @@ HTML_TEMPLATE = '''
         
         <div class="footer">
             Please wait for page to load, may take longer if importing hundreds of characters, disable classes and/or currencies to generate faster.<br>
-            AutoRetainer Dashboard v1.21 | Data sourced from AutoRetainer, Lifestream, & Altoholic<br>
+            AutoRetainer Dashboard v1.22 | Data sourced from AutoRetainer, Lifestream, & Altoholic<br>
             <a href="https://github.com/xa-io/ffxiv-tools/tree/main/AutoRetainer-Dashboard" target="_blank" style="color: var(--accent); text-decoration: none;">github.com/xa-io/ffxiv-tools</a>
         </div>
     </div>
@@ -5626,7 +5649,11 @@ def index():
                                   job_categories=JOB_CATEGORIES, job_display_names=JOB_DISPLAY_NAMES,
                                   job_base_class=JOB_BASE_CLASS, min_msq_quests=MINIMUM_MSQ_QUESTS,
                                   show_classes=SHOW_CLASSES, show_currencies=SHOW_CURRENCIES,
-                                  show_msq_progression=SHOW_MSQ_PROGRESSION, default_theme=DEFAULT_THEME)
+                                  show_msq_progression=SHOW_MSQ_PROGRESSION, default_theme=DEFAULT_THEME,
+                                  highlight_idle_retainers=HIGHLIGHT_IDLE_RETAINERS,
+                                  highlight_idle_subs=HIGHLIGHT_IDLE_SUBS,
+                                  highlight_ready_items=HIGHLIGHT_READY_ITEMS,
+                                  highlight_max_mb=HIGHLIGHT_MAX_MB)
 
 
 @app.route('/api/data')
@@ -5650,7 +5677,7 @@ if __name__ == "__main__":
     load_external_config()
     
     print("=" * 60)
-    print("  AutoRetainer Dashboard v1.21")
+    print("  AutoRetainer Dashboard v1.22")
     print("=" * 60)
     print(f"  Server: http://{HOST}:{PORT}")
     print(f"  Accounts: {len(account_locations)}")
