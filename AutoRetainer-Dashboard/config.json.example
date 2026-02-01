@@ -8,6 +8,10 @@
     "SHOW_CURRENCIES": true,
     "SHOW_MSQ_PROGRESSION": false,
     "DEFAULT_THEME": "default",
+    "HIGHLIGHT_IDLE_RETAINERS": true,
+    "HIGHLIGHT_IDLE_SUBS": true,
+    "HIGHLIGHT_READY_ITEMS": true,
+    "HIGHLIGHT_MAX_MB": true,
     "account_locations": [
         {
             "nickname": "Main",
