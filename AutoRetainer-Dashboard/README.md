@@ -1,4 +1,4 @@
-# AutoRetainer Dashboard v1.21
+# AutoRetainer Dashboard v1.22
 
 A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels, currencies, income/cost calculations, and comprehensive supply tracking.
 
@@ -69,7 +69,7 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 - Ceruleum tanks and Repair kits inventory (for characters with submarines)
 - Days until restocking needed (color-coded: red <7 days, yellow <14 days)
 - Daily income and cost estimates
-- Ready status highlighting (red background when items ready)
+- Ready status highlighting (red background when retainers/subs are ready)
 
 #### Submarine Details
 
@@ -146,6 +146,10 @@ account_locations = [
     "SHOW_CURRENCIES": true,
     "SHOW_MSQ_PROGRESSION": false,
     "DEFAULT_THEME": "default",
+    "HIGHLIGHT_IDLE_RETAINERS": true,
+    "HIGHLIGHT_IDLE_SUBS": true,
+    "HIGHLIGHT_READY_ITEMS": true,
+    "HIGHLIGHT_MAX_MB": true,
     "account_locations": [
         {
             "enabled": true,
@@ -294,6 +298,10 @@ http://127.0.0.1:1234
 | `SHOW_CURRENCIES` | `true` | Show Currencies section |
 | `SHOW_MSQ_PROGRESSION` | `false` | Show MSQ progression display (disabled until Altoholic fix) |
 | `DEFAULT_THEME` | `default` | Color theme (see Available Themes below) |
+| `HIGHLIGHT_IDLE_RETAINERS` | `true` | Cyan outline on character cards with idle retainers |
+| `HIGHLIGHT_IDLE_SUBS` | `true` | Pink outline on character cards with idle submarines |
+| `HIGHLIGHT_READY_ITEMS` | `true` | Red background on character cards with ready retainers/subs |
+| `HIGHLIGHT_MAX_MB` | `true` | Gold outline on character cards with max (20) MB listings |
 
 ## Income/Cost Calculations
 
@@ -352,6 +360,21 @@ AutoRetainer-Dashboard/
 Created by: https://github.com/xa-io
 
 ## Version History
+
+### v1.22 (2026-02-01) - Highlight Toggle Configuration
+
+**New Configuration Options:**
+
+- `HIGHLIGHT_IDLE_RETAINERS`: Toggle cyan outline on character cards with idle retainers (default: true)
+- `HIGHLIGHT_IDLE_SUBS`: Toggle pink outline on character cards with idle submarines (default: true)
+- `HIGHLIGHT_READY_ITEMS`: Toggle red background on character cards with ready retainers/subs (default: true)
+- `HIGHLIGHT_MAX_MB`: Toggle gold outline on character cards with max (20) MB listings (default: true)
+
+**Behavior:**
+
+- When all four options are set to false, all character boxes display in the theme color with no highlighting
+- Allows users to customize the visual appearance based on preference
+- Settings can be changed in config.json or the script configuration section
 
 ### v1.20 (2026-01-31) - Major UI/UX Enhancement Release
 
