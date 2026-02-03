@@ -32,13 +32,45 @@
 # labeled with "ProcessID - nickname" format, autologin enabled, and AutoRetainer multi-mode auto-enabled
 # for full automation. 2FA is supported via keyring integration. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.27
+# Auto-AutoRetainer v1.31
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-25 09:00:00
+# Last Updated: 2026-01-31 10:30:00
 #
 # ## Release Notes ##
 #
+# v1.31 - Added config.json support for custom submarine plans, build rates, and supply costs
+#         NEW CONFIG OPTIONS:
+#         - submarine_plans: Configure leveling plan names and farming plans with daily earnings
+#         - build_gil_rates: Add custom submarine builds not in the default list with gil/day
+#         - build_consumption_rates: Add custom builds with tanks_per_day and kits_per_day
+#         - ceruleum_tank_cost: Override default Ceruleum Tank cost (default: 350 gil)
+#         - repair_kit_cost: Override default Repair Kit cost (default: 2000 gil)
+# v1.30 - Added force-crash timer display in status output (X:xx format after UPTIME)
+#         Shows minutes remaining before force-crash will trigger for each running client
+#         Timer adapts to retainer mode (20min) or submarine mode (10min) threshold
+#         Added script-crash reporting, can be used to report any script issues back to me.
+#         Added notifications to be sent if the script crashes, and stop functioning.
+# v1.29 - Fixed premature force-crash timer switch from retainer (20min) to submarine (10min) mode
+#         When subs become ready while retainer processing is active, timer now stays at 20min
+#         Timer only switches to 10min after actual submarine processing is detected
+#         Added retainer_mode_active tracking dictionary to preserve timer mode during transitions
+#         Prevents false force-crashes when GC turn-ins take longer than 10 minutes after subs become ready
+#         Enhanced debug logging shows when timer mode is preserved during sub-ready transitions
+# v1.28 - Added "Lowest Inventory Space (Sub-Only Farmers)" display line in terminal output
+#         Added "Lowest Inventory Space (Retainer Farmers)" display line for characters with retainers
+#         Added retainer readiness tracking and display for force247uptime accounts:
+#         - When force247uptime=True and no subs ready but retainers ready, shows "(xx Ret.)" instead of "(WAITING)"
+#         - When all retainers on ventures, shows return timer in minutes (e.g., "+17min" or "xx Ret.")
+#         - Counts ready retainers (completed ventures) and total retainers on ventures
+#         Added smart retainer processing detection similar to submarine tracking:
+#         - Resets force-crash inactivity timer when retainers are processed
+#         - Keeps monitoring active when force247uptime accounts have ready retainers
+#         - Monitoring activates immediately when retainers are ready (no threshold delay)
+#         Added FORCE_CRASH_RETAINER_MINUTES = 20 (separate from 10-min submarine timer)
+#         - Longer timeout for retainer processing due to GC turn-ins after retainer ventures
+#         Added force-crash notifications via Pushover/Discord when client is crashed
+#         Added detect_retainer_processing() function with timer change detection
 # v1.27 - Fixed batch file launcher leaving cmd.exe processes running after game launch
 #         Added cleanup_batch_launcher_processes() to terminate lingering cmd.exe processes
 #         Changed batch file launch from 'start /B' to direct cmd.exe /c execution
@@ -262,7 +294,7 @@ except ImportError:
 # ===============================================
 # Configuration Parameters
 # ===============================================
-VERSION = "v1.27"       # Current script version
+VERSION = "v1.31"     # Current script version
 VERSION_SUFFIX = ""     # Custom text appended to version display (set via config.json, e.g., " - Main")
 
 # Display settings
@@ -281,6 +313,7 @@ ENABLE_AUTO_CLOSE = True            # Enable automatic closing of game clients w
 AUTO_CLOSE_THRESHOLD = 0.5          # Close game if soonest submarine return time exceeds this many hours (0.5h = 30 minutes)
 MAX_RUNTIME = 71                    # Force close any game client that has been running for this many hours (prevents indefinite uptime)
 FORCE_CRASH_INACTIVITY_MINUTES = 10 # Force crash client if no submarine processing detected for this many minutes (after monitoring activates)
+FORCE_CRASH_RETAINER_MINUTES = 20   # Force crash client if no retainer processing detected for this many minutes (longer due to GC turn-ins)
 # Note: Monitoring activates AUTO_LAUNCH_THRESHOLD hours after game launches (not when subs become ready)
 # This ensures crash detection works even if game boots stuck without processing any submarines
 
@@ -334,6 +367,109 @@ USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = True    # If True: uses default "FINAL FAN
 CONFIG_FILE = "config.json"
 
 # ===============================================
+# Supply Costs (configurable via config.json)
+# ===============================================
+CERULEUM_TANK_COST = 350   # Gil cost per Ceruleum Tank
+REPAIR_KIT_COST = 2000     # Gil cost per Repair Kit
+
+# ===============================================
+# Submarine Plan Configuration (configurable via config.json)
+# Leveling plans = no income counted, Farming plans = daily gil earnings
+# ===============================================
+submarine_plans = {
+    "leveling": [
+        "OJ Unlocker",
+        "Overseer OJ Unlocker", 
+        "XP Grind",
+        "Level Up Default",
+        "Unlock All Sectors"
+    ],
+    "farming": {
+        "OJ": 118661,
+        "Yummy OJ": 118661,
+        "Overseer OJ": 118661,
+        "JORZ": 140404,
+        "MROJZ": 116206
+    }
+}
+
+# ===============================================
+# Submarine Build Gil Rates (from AR Parser)
+# Gil/Sub/Day rates for each route
+# ===============================================
+build_gil_rates = {
+    "WSUC": 118661, "SSUC": 118661, "W+S+U+C+": 118661, "S+S+S+C+": 118661,
+    "YUUW": 93165, "Y+U+U+W+": 93165,
+    "WCSU": 106191, "WUSS": 106191, "W+U+S+S+": 106191,
+    "YSYC": 113321, "Y+S+Y+C+": 113321,
+    "S+S+U+C": 140404, "S+S+U+C+": 140404,
+    "WCYC": 105303, "WUWC": 105303, "W+U+W+C+": 105303,
+    "YSCU": 116206, "SCUS": 116206, "S+C+U+S+": 116206,
+}
+
+# ===============================================
+# Submarine Build Consumption Rates (from Routes.xlsx)
+# ===============================================
+build_consumption_rates = {
+    "WSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
+    "SSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
+    "W+S+U+C+": {"tanks_per_day": 9.0, "kits_per_day": 3.43},
+    "S+S+S+C+": {"tanks_per_day": 9.0, "kits_per_day": 3.43},
+    "YUUW": {"tanks_per_day": 7.5, "kits_per_day": 1.40},
+    "Y+U+U+W+": {"tanks_per_day": 10.0, "kits_per_day": 3.07},
+    "WCSU": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
+    "WUSS": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
+    "W+U+S+S+": {"tanks_per_day": 10.0, "kits_per_day": 3.20},
+    "YSYC": {"tanks_per_day": 10.0, "kits_per_day": 2.50},
+    "Y+S+Y+C+": {"tanks_per_day": 10.0, "kits_per_day": 3.20},
+    "S+S+U+C": {"tanks_per_day": 14.0, "kits_per_day": 3.67},
+    "WCYC": {"tanks_per_day": 10.5, "kits_per_day": 2.00},
+    "WUWC": {"tanks_per_day": 10.5, "kits_per_day": 2.00},
+    "W+U+W+C+": {"tanks_per_day": 10.5, "kits_per_day": 3.00},
+    "S+S+U+C+": {"tanks_per_day": 14.0, "kits_per_day": 4.0},
+    "YSCU": {"tanks_per_day": 9.0, "kits_per_day": 1.67},
+    "SCUS": {"tanks_per_day": 9.0, "kits_per_day": 1.67},
+    "S+C+U+S+": {"tanks_per_day": 13.5, "kits_per_day": 4.0},
+}
+
+# Global plan name cache (GUID -> plan name)
+submarine_plan_names = {}
+
+def build_plan_name_cache(data):
+    """Build a cache of plan GUIDs to plan names from AutoRetainer config."""
+    global submarine_plan_names
+    submarine_plan_names = {}
+    
+    # SubmarinePointPlans (farming routes)
+    for plan in data.get("SubmarinePointPlans", []):
+        guid = plan.get("GUID", "")
+        name = plan.get("Name", "")
+        if guid and name:
+            submarine_plan_names[guid] = name
+    
+    # SubmarineUnlockPlans (leveling/unlock routes)
+    for plan in data.get("SubmarineUnlockPlans", []):
+        guid = plan.get("GUID", "")
+        name = plan.get("Name", "")
+        if guid and name:
+            submarine_plan_names[guid] = name
+
+def get_submarine_plan_name(sub_data):
+    """Get the plan name for a submarine based on its selected plan GUID."""
+    selected_point_plan = sub_data.get("SelectedPointPlan", "")
+    selected_unlock_plan = sub_data.get("SelectedUnlockPlan", "")
+    vessel_behavior = sub_data.get("VesselBehavior", 0)
+    
+    # VesselBehavior 4 = Use Point Plan, 3 = Unlock Sectors
+    plan_guid = ""
+    if vessel_behavior == 4:
+        plan_guid = selected_point_plan
+    elif vessel_behavior == 3:
+        plan_guid = selected_unlock_plan
+    
+    return submarine_plan_names.get(plan_guid, "")
+
+# ===============================================
 # Account locations
 # ===============================================
 user = getpass.getuser()
@@ -374,7 +510,7 @@ def load_external_config():
     """Load external config file if it exists and override settings."""
     global VERSION_SUFFIX, NICKNAME_WIDTH, SUBS_COUNT_WIDTH, HOURS_WIDTH, STATUS_WIDTH, PID_WIDTH
     global TIMER_REFRESH_INTERVAL, WINDOW_REFRESH_INTERVAL
-    global ENABLE_AUTO_CLOSE, AUTO_CLOSE_THRESHOLD, MAX_RUNTIME, FORCE_CRASH_INACTIVITY_MINUTES
+    global ENABLE_AUTO_CLOSE, AUTO_CLOSE_THRESHOLD, MAX_RUNTIME, FORCE_CRASH_INACTIVITY_MINUTES, FORCE_CRASH_RETAINER_MINUTES
     global ENABLE_AUTO_LAUNCH, OTP_LAUNCH_DELAY, AUTO_LAUNCH_THRESHOLD, OPEN_DELAY_THRESHOLD
     global WINDOW_TITLE_RESCAN, MAX_WINDOW_TITLE_RESCAN, FORCE_LAUNCHER_RETRY, ENABLE_AUTOLOGIN_UPDATER, MAX_CLIENTS
     global ENABLE_WINDOW_LAYOUT, WINDOW_LAYOUT, WINDOW_MOVER_DIR, MAX_WINDOW_MOVE_ATTEMPTS
@@ -383,6 +519,8 @@ def load_external_config():
     global ENABLE_PUSHOVER, PUSHOVER_USER_KEY, PUSHOVER_API_TOKEN
     global ENABLE_DISCORD_WEBHOOK, DISCORD_WEBHOOK_URL
     global account_locations, GAME_LAUNCHERS
+    global build_gil_rates, build_consumption_rates, submarine_plans
+    global CERULEUM_TANK_COST, REPAIR_KIT_COST
 
     config_path = Path(__file__).parent / CONFIG_FILE
     if not config_path.exists():
@@ -418,6 +556,7 @@ def load_external_config():
     AUTO_CLOSE_THRESHOLD = cfg("AUTO_CLOSE_THRESHOLD", AUTO_CLOSE_THRESHOLD)
     MAX_RUNTIME = cfg("MAX_RUNTIME", MAX_RUNTIME)
     FORCE_CRASH_INACTIVITY_MINUTES = cfg("FORCE_CRASH_INACTIVITY_MINUTES", FORCE_CRASH_INACTIVITY_MINUTES)
+    FORCE_CRASH_RETAINER_MINUTES = cfg("FORCE_CRASH_RETAINER_MINUTES", FORCE_CRASH_RETAINER_MINUTES)
     ENABLE_AUTO_LAUNCH = cfg("ENABLE_AUTO_LAUNCH", ENABLE_AUTO_LAUNCH)
     OTP_LAUNCH_DELAY = cfg("OTP_LAUNCH_DELAY", OTP_LAUNCH_DELAY)
     AUTO_LAUNCH_THRESHOLD = cfg("AUTO_LAUNCH_THRESHOLD", AUTO_LAUNCH_THRESHOLD)
@@ -442,6 +581,33 @@ def load_external_config():
     DISCORD_WEBHOOK_URL = cfg("DISCORD_WEBHOOK_URL", DISCORD_WEBHOOK_URL)
     SYSTEM_BOOTUP_DELAY = cfg("SYSTEM_BOOTUP_DELAY", SYSTEM_BOOTUP_DELAY)
     USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = cfg("USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME", USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME)
+    
+    # Override supply costs if present
+    CERULEUM_TANK_COST = cfg("ceruleum_tank_cost", CERULEUM_TANK_COST)
+    REPAIR_KIT_COST = cfg("repair_kit_cost", REPAIR_KIT_COST)
+    
+    # Override submarine_plans if present (merge with defaults)
+    if "submarine_plans" in config:
+        config_plans = config["submarine_plans"]
+        # Merge leveling plans (add to existing list, avoid duplicates)
+        if "leveling" in config_plans:
+            for plan in config_plans["leveling"]:
+                if plan not in submarine_plans["leveling"]:
+                    submarine_plans["leveling"].append(plan)
+        # Merge farming plans (add new, override existing with same name)
+        if "farming" in config_plans:
+            submarine_plans["farming"].update(config_plans["farming"])
+        print(f"[CONFIG] Loaded custom submarine plans")
+    
+    # Override build_gil_rates if present (merge with defaults)
+    if "build_gil_rates" in config:
+        build_gil_rates.update(config["build_gil_rates"])
+        print(f"[CONFIG] Loaded {len(config['build_gil_rates'])} custom build gil rates")
+    
+    # Override build_consumption_rates if present (merge with defaults)
+    if "build_consumption_rates" in config:
+        build_consumption_rates.update(config["build_consumption_rates"])
+        print(f"[CONFIG] Loaded {len(config['build_consumption_rates'])} custom build consumption rates")
 
     # Override account_locations if present
     if "account_locations" in config:
@@ -803,97 +969,6 @@ def validate_launcher_config_before_launch(nickname):
         print(f"[CONFIG-CHECK] Error checking launcher config for {nickname}: {e}")
         log_error(f"CONFIG_CHECK_ERROR: {nickname} - {e}")
         return False
-
-# ===============================================
-# Submarine Build Gil Rates (from AR Parser)
-# Gil/Sub/Day rates for each route
-# ===============================================
-build_gil_rates = {
-    # OJ Route (24h) - 118,661 gil/day
-    "WSUC": 118661,
-    "SSUC": 118661,
-    "W+S+U+C+": 118661,  # WSUC++ (modified)
-    "S+S+S+C+": 118661,  # SSSC++ (modified for OJ route)
-    
-    # MOJ Route (36h) - 93,165 gil/day
-    "YUUW": 93165,
-    "Y+U+U+W+": 93165,  # YU+U+W+ (modified)
-    
-    # ROJ Route (36h) - 106,191 gil/day
-    "WCSU": 106191,
-    "WUSS": 106191,
-    "W+U+S+S+": 106191,  # WUSS++ (modified)
-    
-    # JOZ Route (36h) - 113,321 gil/day
-    "YSYC": 113321,
-    "Y+S+Y+C+": 113321,  # YS+YC+ (modified)
-    
-    # MROJ Route (36h) - 120,728 gil/day
-    "S+S+S+C+": 120728,  # SSSC++ (modified)
-    "S+S+U+C+": 120728,  # SSUC++ (modified)
-    
-    # JORZ Route (36h) - 140,404 gil/day (highest gil/day)
-    "S+S+U+C": 140404,
-    "S+S+U+C+": 140404,  # SSUC++ variant for JORZ
-    
-    # JORZ 48h Route - 105,303 gil/day
-    "WCYC": 105303,
-    "WUWC": 105303,
-    "W+U+W+C+": 105303,  # WUWC++ (modified)
-    
-    # MOJZ Route (36h) - 127,857 gil/day
-    # MOJZ uses SSUC++ at rank 110
-    
-    # MROJZ Route (48h) - 116,206 gil/day
-    "YSCU": 116206,
-    "SCUS": 116206,
-    "S+C+U+S+": 116206,  # SCUS++ (modified)
-}
-
-# ===============================================
-# Submarine Build Consumption Rates (from Routes.xlsx)
-# Tanks (Ceruleum) and Repair Kits per day for each build
-# ===============================================
-build_consumption_rates = {
-    # OJ Route (24h) - Unmod: 9/1.33, Mod: 9/3.43
-    "WSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
-    "SSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
-    "W+S+U+C+": {"tanks_per_day": 9.0, "kits_per_day": 3.43},  # WSUC++ (modified)
-    "S+S+S+C+": {"tanks_per_day": 9.0, "kits_per_day": 3.43},  # SSSC++ (modified for OJ route)
-    
-    # MOJ Route (36h) - Unmod: 7.5/1.40, Mod: 10/3.07
-    "YUUW": {"tanks_per_day": 7.5, "kits_per_day": 1.40},
-    "Y+U+U+W+": {"tanks_per_day": 10.0, "kits_per_day": 3.07},  # YU+U+W+ (modified)
-    
-    # ROJ Route (36h) - Unmod: 10/1.67, Mod: 10/3.20
-    "WCSU": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
-    "WUSS": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
-    "W+U+S+S+": {"tanks_per_day": 10.0, "kits_per_day": 3.20},  # WUSS++ (modified)
-    
-    # JOZ Route (36h) - Unmod: 10/2.50, Mod: 10/3.20
-    "YSYC": {"tanks_per_day": 10.0, "kits_per_day": 2.50},
-    "Y+S+Y+C+": {"tanks_per_day": 10.0, "kits_per_day": 3.20},  # YS+YC+ (modified)
-    
-    # MROJ Route (36h) - Unmod: 14/1.78, Mod: 14/4.00
-    # SSUC appears on MROJ at rank 99 (unmodified)
-    # SSSC++/SSUC++ are modified builds for MROJ
-    
-    # JORZ Route (36h) - Unmod: 14/1.78, Mod: 14/3.67
-    "S+S+U+C": {"tanks_per_day": 14.0, "kits_per_day": 3.67},  # SSUC modified for JORZ
-    
-    # JORZ 48h Route - Unmod: 10.5/2.00, Mod: 10.5/3.00
-    "WCYC": {"tanks_per_day": 10.5, "kits_per_day": 2.00},
-    "WUWC": {"tanks_per_day": 10.5, "kits_per_day": 2.00},
-    "W+U+W+C+": {"tanks_per_day": 10.5, "kits_per_day": 3.00},  # WUWC++ (modified)
-    
-    # MOJZ Route (36h) - Unmod: 14/1.78, Mod: 14/4.00
-    "S+S+U+C+": {"tanks_per_day": 14.0, "kits_per_day": 4.0},  # SSUC++ (modified for MOJZ/MROJ)
-    
-    # MROJZ Route (48h) - Unmod: 9/1.67, Mod: 13.5/4.00
-    "YSCU": {"tanks_per_day": 9.0, "kits_per_day": 1.67},
-    "SCUS": {"tanks_per_day": 9.0, "kits_per_day": 1.67},
-    "S+C+U+S+": {"tanks_per_day": 13.5, "kits_per_day": 4.0},  # SCUS++ (modified)
-}
 
 # Submarine Part Constants for build detection
 SUB_PARTS_LOOKUP = {
@@ -1442,7 +1517,8 @@ def kill_ffxiv_process():
 def kill_game_client_and_cleanup(nickname, process_id, success_msg, fail_msg,
                                   closed_pids, game_status_dict, client_start_times,
                                   last_launch_time=None, set_launch_time=None,
-                                  game_launch_timestamp=None, last_sub_processed=None):
+                                  game_launch_timestamp=None, last_sub_processed=None,
+                                  retainer_mode_active=None):
     """
     Kill a game client and perform cleanup of tracking dictionaries.
     Consolidates repeated kill/cleanup logic throughout main loop.
@@ -1459,6 +1535,7 @@ def kill_game_client_and_cleanup(nickname, process_id, success_msg, fail_msg,
         set_launch_time: Tuple of (dict, value) to set last_launch_time[nickname] = value
         game_launch_timestamp: Dict to delete nickname from (if provided)
         last_sub_processed: Dict to delete nickname from (if provided)
+        retainer_mode_active: Dict to delete nickname from (if provided)
     
     Returns:
         True if kill succeeded, False otherwise
@@ -1489,6 +1566,8 @@ def kill_game_client_and_cleanup(nickname, process_id, success_msg, fail_msg,
             del game_launch_timestamp[nickname]
         if last_sub_processed is not None and nickname in last_sub_processed:
             del last_sub_processed[nickname]
+        if retainer_mode_active is not None and nickname in retainer_mode_active:
+            del retainer_mode_active[nickname]
         
         # Clean up start time tracking
         if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
@@ -1925,9 +2004,15 @@ def get_submarine_timers_for_account(account_entry):
         "soonest_hours": None,
         "characters": [],
         "sub_builds": [],  # Track submarine builds for gil calculation
+        "sub_plans": [],   # Track submarine plan names for plan-based gil calculation
         "total_ceruleum": 0,  # Total tanks across all characters
         "total_repair_kits": 0,  # Total repair kits across all characters
-        "days_until_restocking": None  # Minimum days until restocking needed
+        "days_until_restocking": None,  # Minimum days until restocking needed
+        "lowest_inventory_space": None,  # Lowest inventory space among sub-only farmer characters
+        "lowest_retainer_inventory_space": None,  # Lowest inventory space among retainer farmer characters
+        "ready_retainers": 0,  # Count of retainers with completed ventures
+        "total_retainers": 0,  # Total retainers on ventures
+        "soonest_retainer_hours": None  # Soonest retainer venture completion time
     }
     
     if not include_subs:
@@ -1940,6 +2025,9 @@ def get_submarine_timers_for_account(account_entry):
         with open(auto_path, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
         
+        # Build plan name cache from this config
+        build_plan_name_cache(data)
+        
         chars = collect_characters(data, account_nickname=nickname)
         current_time = datetime.datetime.now().timestamp()
         
@@ -1947,6 +2035,9 @@ def get_submarine_timers_for_account(account_entry):
         
         # Collect inventory data for restocking calculation
         character_days_remaining = []
+        farmer_inventory_spaces = []  # Track inventory spaces for characters with submarines (no retainers)
+        retainer_farmer_inventory_spaces = []  # Track inventory spaces for characters with retainers
+        all_retainer_times = []  # Track retainer venture completion times
         
         for char in chars:
             # Collect inventory from character
@@ -1963,7 +2054,7 @@ def get_submarine_timers_for_account(account_entry):
             # Collect builds for this character
             char_builds = []
             
-            # First pass: Collect submarine builds from all submarines
+            # First pass: Collect submarine builds and plan names from all submarines
             for offline_sub in offline_sub_data:
                 sub_name = offline_sub.get("Name", "")
                 # Look up build data using the submarine's actual name
@@ -1972,6 +2063,9 @@ def get_submarine_timers_for_account(account_entry):
                     if parts_str:
                         result["sub_builds"].append(parts_str)
                         char_builds.append(parts_str)
+                        # Get plan name for this submarine (only when build is found)
+                        plan_name = get_submarine_plan_name(sub_info[sub_name])
+                        result["sub_plans"].append(plan_name)
             
             # Calculate consumption rates for this character's submarines
             if char_builds:
@@ -1993,6 +2087,33 @@ def get_submarine_timers_for_account(account_entry):
                     days_from_kits = repair_kits / total_kits_per_day if repair_kits > 0 else 0
                     days_for_char = int(min(days_from_tanks, days_from_kits))  # Round down to lowest solid number
                     character_days_remaining.append(days_for_char)
+                
+                # Track inventory space for submarine-only farmers (excludes characters with retainers)
+                # Characters with retainers have fluctuating inventory due to retainer item collection
+                # InventorySpace is total 140, value shows remaining available slots
+                retainer_data = char.get("RetainerData", [])
+                inventory_space = char.get("InventorySpace", 0)
+                if not retainer_data:  # Track sub-only farmers (no retainers)
+                    farmer_inventory_spaces.append(inventory_space)
+                else:  # Track retainer farmers
+                    retainer_farmer_inventory_spaces.append(inventory_space)
+            
+            # Collect retainer venture data (retainer_data already fetched above if char_builds exists)
+            if not char_builds:
+                retainer_data = char.get("RetainerData", [])
+            for ret in retainer_data:
+                has_venture = ret.get("HasVenture", False)
+                venture_ends_at = ret.get("VentureEndsAt", 0)
+                
+                if has_venture and venture_ends_at > 0:
+                    result["total_retainers"] += 1
+                    # Convert to hours remaining (can be negative if already returned)
+                    hours_remaining = (venture_ends_at - current_time) / 3600
+                    all_retainer_times.append(hours_remaining)
+                    
+                    # Count ready retainers (negative hours means venture completed)
+                    if hours_remaining < 0:
+                        result["ready_retainers"] += 1
             
             # Second pass: Get submarine return times
             for sub_dict in offline_sub_data:
@@ -2016,11 +2137,131 @@ def get_submarine_timers_for_account(account_entry):
         # Calculate minimum days until restocking across all characters
         if character_days_remaining:
             result["days_until_restocking"] = min(character_days_remaining)
+        
+        # Calculate lowest inventory space among farmer characters
+        if farmer_inventory_spaces:
+            result["lowest_inventory_space"] = min(farmer_inventory_spaces)
+        
+        # Calculate lowest inventory space among retainer farmer characters
+        if retainer_farmer_inventory_spaces:
+            result["lowest_retainer_inventory_space"] = min(retainer_farmer_inventory_spaces)
+        
+        # Find the soonest retainer venture completion
+        if all_retainer_times:
+            result["soonest_retainer_hours"] = min(all_retainer_times)
     
     except Exception as e:
         print(f"[ERROR] Failed to process {nickname}: {e}")
     
     return result
+
+def detect_retainer_processing(account_entry, retainer_state_cache, current_time):
+    """
+    Detect retainer processing by comparing cached retainer venture times to current times.
+    Similar to submarine processing detection - tracks changes in ready count and nearest timer.
+    
+    Args:
+        account_entry: Dictionary with account information including auto_path
+        retainer_state_cache: Dictionary caching previous retainer state by nickname
+        current_time: Current timestamp for calculating venture times
+    
+    Returns:
+        int: Number of retainers processed (detected by ready count decrease or timer change)
+    """
+    nickname = account_entry["nickname"]
+    auto_path = account_entry["auto_path"]
+    
+    if not os.path.isfile(auto_path):
+        return 0
+    
+    try:
+        with open(auto_path, "r", encoding="utf-8-sig") as f:
+            data = json.load(f)
+        
+        chars = collect_characters(data, account_nickname=nickname)
+        current_retainer_times = []  # List of (retainer_name, hours_remaining) tuples
+        
+        for char in chars:
+            retainer_data = char.get("RetainerData", [])
+            
+            for ret in retainer_data:
+                ret_name = ret.get("Name", "")
+                has_venture = ret.get("HasVenture", False)
+                venture_ends_at = ret.get("VentureEndsAt", 0)
+                
+                if has_venture and venture_ends_at > 0:
+                    # Convert to hours remaining (can be negative if already returned)
+                    hours_remaining = (venture_ends_at - current_time) / 3600
+                    current_retainer_times.append((ret_name, hours_remaining))
+        
+        # Count current retainer states
+        ready_retainers = sum(1 for _, hours in current_retainer_times if hours < 0)
+        on_venture_retainers = sum(1 for _, hours in current_retainer_times if hours > 0)
+        
+        # Find the nearest timer (soonest retainer)
+        nearest_timer = min([hours for _, hours in current_retainer_times], default=None)
+        
+        # Get cached state for this account
+        cached_state = retainer_state_cache.get(nickname, {})
+        
+        # If cache is empty, initialize it but don't count anything as processed
+        if not cached_state:
+            retainer_state_cache[nickname] = {
+                'ready_count': ready_retainers,
+                'on_venture_count': on_venture_retainers,
+                'nearest_timer': nearest_timer
+            }
+            if DEBUG:
+                print(f"[DEBUG] {nickname}: Initializing retainer cache - {ready_retainers} ready, {on_venture_retainers} on venture")
+            return 0
+        
+        # Calculate processed count using multiple metrics:
+        # 1. Decrease in ready retainers (retainers sent without new returns)
+        # 2. Increase in on-venture retainers (retainers sent even if others returned)
+        # 3. Change in nearest timer to a different character (indicates processing even if counts same)
+        previous_ready = cached_state.get('ready_count', ready_retainers)
+        previous_on_venture = cached_state.get('on_venture_count', on_venture_retainers)
+        previous_nearest = cached_state.get('nearest_timer', nearest_timer)
+        
+        ready_decreased = max(0, previous_ready - ready_retainers)
+        on_venture_increased = max(0, on_venture_retainers - previous_on_venture)
+        
+        # Detect timer change: if the nearest timer changed significantly (more than expected from time passing)
+        # This catches cases where 20 retainers are processed and 20 come in (count stays same but timer changes)
+        timer_change_detected = 0
+        if previous_nearest is not None and nearest_timer is not None:
+            # Expected change is just time passing (should be negative as time progresses)
+            time_elapsed_hours = (current_time - cached_state.get('last_check_time', current_time)) / 3600
+            expected_nearest = previous_nearest - time_elapsed_hours
+            
+            # If the nearest timer is significantly higher than expected, retainers were processed
+            # (new retainer became the nearest, meaning previous nearest was sent out)
+            if nearest_timer > expected_nearest + 0.1:  # 0.1 hour tolerance (6 min)
+                timer_change_detected = 1
+                if DEBUG:
+                    print(f"[DEBUG] {nickname}: Retainer timer change detected - expected {expected_nearest:.2f}h, got {nearest_timer:.2f}h")
+        
+        # Use the LARGER of the metrics to detect activity
+        processed_count = max(ready_decreased, on_venture_increased, timer_change_detected)
+        
+        # Update cache with current state
+        retainer_state_cache[nickname] = {
+            'ready_count': ready_retainers,
+            'on_venture_count': on_venture_retainers,
+            'nearest_timer': nearest_timer,
+            'last_check_time': current_time
+        }
+        
+        # Enhanced debug output
+        if DEBUG and processed_count > 0:
+            print(f"[DEBUG] {nickname}: {ready_retainers} ret. ready, {on_venture_retainers} on venture, {processed_count} processed this scan")
+        
+        return processed_count
+    
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Error detecting retainer processing for {nickname}: {e}")
+        return 0
 
 def detect_submarine_processing(account_entry, submarine_state_cache, current_time):
     """
@@ -2110,12 +2351,27 @@ def detect_submarine_processing(account_entry, submarine_state_cache, current_ti
             print(f"[DEBUG] Error detecting submarine processing for {nickname}: {e}")
         return 0
 
-def format_hours(hours, ready_count=0, is_running=False):
-    """Format hours with + prefix for positive values and ready count"""
+def format_hours(hours, ready_count=0, is_running=False, force247uptime=False, ready_retainers=0, soonest_retainer_hours=None):
+    """Format hours with + prefix for positive values and ready count.
+    When force247uptime=True and no subs ready but retainers ready, show (xx Ret.) instead.
+    When force247uptime=True and no retainers ready but retainers on ventures, show retainer timer.
+    """
     if hours is None:
         return "N/A"
     if hours >= 0:
-        # Show (WAITING) when game is running with 0 ready subs and positive hours
+        # For force247uptime accounts with ready retainers but no ready subs, show retainer count
+        # This shows (xx Ret.) regardless of hours threshold since retainers need processing
+        if is_running and ready_count == 0 and force247uptime and ready_retainers > 0:
+            return f"+{hours:.1f} hours ({ready_retainers} Ret.)"
+        # For force247uptime accounts with no ready retainers but retainers on ventures, show retainer timer
+        if is_running and ready_count == 0 and force247uptime and ready_retainers == 0 and soonest_retainer_hours is not None:
+            # Convert hours to minutes for retainer timer display
+            retainer_minutes = soonest_retainer_hours * 60
+            if retainer_minutes < 0:
+                return f"+{hours:.1f} hours ({int(retainer_minutes)}min)"
+            else:
+                return f"+{hours:.1f} hours (+{int(retainer_minutes)}min)"
+        # Show (WAITING) when game is running with 0 ready subs and within threshold
         if is_running and ready_count == 0 and hours <= AUTO_CLOSE_THRESHOLD:
             return f"+{hours:.1f} hours (WAITING)"
         return f"+{hours:.1f} hours"
@@ -2123,7 +2379,7 @@ def format_hours(hours, ready_count=0, is_running=False):
         # Negative means already returned
         return f"{hours:.1f} hours ({ready_count} READY)"
 
-def display_submarine_timers(game_status_dict=None, client_start_times=None, launcher_failed_accounts=None):
+def display_submarine_timers(game_status_dict=None, client_start_times=None, launcher_failed_accounts=None, last_sub_processed=None, retainer_mode_active=None):
     """Display submarine timers for all accounts"""
     # Clear screen
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -2135,6 +2391,10 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
         client_start_times = {}
     if launcher_failed_accounts is None:
         launcher_failed_accounts = set()
+    if last_sub_processed is None:
+        last_sub_processed = {}
+    if retainer_mode_active is None:
+        retainer_mode_active = {}
     
     print("=" * 85)
     print(f"Auto-Autoretainer {VERSION}{VERSION_SUFFIX}\nFFXIV Game Instance Manager")
@@ -2147,7 +2407,10 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
     total_ready_subs = 0
     total_all_subs = 0
     all_builds = []
+    all_plans = []  # Track plan names for plan-based gil calculation
     all_days_remaining = []
+    all_inventory_spaces = []  # Track inventory spaces for sub-only farmer characters
+    all_retainer_inventory_spaces = []  # Track inventory spaces for retainer farmer characters
     
     for account_entry in account_locations:
         timer_data = get_submarine_timers_for_account(account_entry)
@@ -2155,8 +2418,13 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
         total_ready_subs += timer_data["ready_subs"]
         total_all_subs += timer_data["total_subs"]
         all_builds.extend(timer_data["sub_builds"])
+        all_plans.extend(timer_data.get("sub_plans", []))
         if timer_data.get("days_until_restocking") is not None:
             all_days_remaining.append(timer_data["days_until_restocking"])
+        if timer_data.get("lowest_inventory_space") is not None:
+            all_inventory_spaces.append(timer_data["lowest_inventory_space"])
+        if timer_data.get("lowest_retainer_inventory_space") is not None:
+            all_retainer_inventory_spaces.append(timer_data["lowest_retainer_inventory_space"])
     
     # Display results
     for data in account_data:
@@ -2164,6 +2432,8 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
         total_subs = data["total_subs"]
         ready_subs = data["ready_subs"]
         soonest_hours = data["soonest_hours"]
+        ready_retainers = data.get("ready_retainers", 0)
+        soonest_retainer_hours = data.get("soonest_retainer_hours")
         
         if not data["include_submarines"]:
             # Show game status even with submarines disabled (for force247uptime monitoring)
@@ -2207,7 +2477,7 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
                                         start_time = client_start_times.get('ffxiv_single')
                                         if start_time is not None:
                                             uptime_hours = (current_time - start_time) / 3600.0
-                                            uptime_part = f"UPTIME: {uptime_hours:.1f} hours"
+                                            uptime_part = f"UPTIME: {uptime_hours:.1f} hrs"
                                             pid_uptime_str = f"{pid_formatted}{uptime_part}"
                                         else:
                                             pid_uptime_str = pid_formatted
@@ -2225,7 +2495,7 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
                             start_time = client_start_times.get(process_id)
                             if start_time is not None:
                                 uptime_hours = (current_time - start_time) / 3600.0
-                                uptime_part = f"UPTIME: {uptime_hours:.1f} hours"
+                                uptime_part = f"UPTIME: {uptime_hours:.1f} hrs"
                                 pid_uptime_str = f"{pid_formatted}{uptime_part}"
                             else:
                                 pid_uptime_str = pid_formatted
@@ -2244,7 +2514,9 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
         else:
             # Check if account has launcher failures
             if nickname in launcher_failed_accounts:
-                hours_str = format_hours(soonest_hours, ready_subs, is_running=False)
+                # Get force247uptime flag for retainer display
+                force247 = account_locations[[i for i, acc in enumerate(account_locations) if acc["nickname"] == nickname][0]].get("force247uptime", False)
+                hours_str = format_hours(soonest_hours, ready_subs, is_running=False, force247uptime=force247, ready_retainers=ready_retainers, soonest_retainer_hours=soonest_retainer_hours)
                 subs_str = f"({total_subs} subs)"
                 status_str = f"{'[LAUNCHER]':{STATUS_WIDTH}s}"
                 print(f"{nickname:{NICKNAME_WIDTH}s} {subs_str:{SUBS_COUNT_WIDTH}s}: {hours_str:{HOURS_WIDTH}s}{status_str}")
@@ -2283,10 +2555,19 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
                                         start_time = client_start_times.get('ffxiv_single')
                                         if start_time is not None:
                                             uptime_hours = (current_time - start_time) / 3600.0
-                                            uptime_part = f"UPTIME: {uptime_hours:.1f} hours"
+                                            uptime_part = f"UPTIME: {uptime_hours:.1f} hrs"
                                             pid_uptime_str = f"{pid_formatted}{uptime_part}"
                                         else:
                                             pid_uptime_str = pid_formatted
+                                        
+                                        # Add force-crash timer display (X:xx minutes remaining)
+                                        if nickname in last_sub_processed:
+                                            minutes_since = (current_time - last_sub_processed[nickname]) / 60
+                                            currently_retainer = (ready_subs == 0 and force247 and ready_retainers > 0)
+                                            in_retainer_mode = currently_retainer or (retainer_mode_active.get(nickname, False) and ready_subs > 0)
+                                            threshold = FORCE_CRASH_RETAINER_MINUTES if in_retainer_mode else FORCE_CRASH_INACTIVITY_MINUTES
+                                            remaining = threshold - minutes_since
+                                            pid_uptime_str += f" X:{remaining:.0f}"
                                         break
                             except Exception:
                                 pass
@@ -2300,10 +2581,20 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
                         start_time = client_start_times.get(process_id)
                         if start_time is not None:
                             uptime_hours = (current_time - start_time) / 3600.0
-                            uptime_part = f"UPTIME: {uptime_hours:.1f} hours"
+                            uptime_part = f"UPTIME: {uptime_hours:.1f} hrs"
                             pid_uptime_str = f"{pid_formatted}{uptime_part}"
                         else:
                             pid_uptime_str = pid_formatted
+                        
+                        # Add force-crash timer display (X:xx minutes remaining)
+                        if nickname in last_sub_processed:
+                            minutes_since = (current_time - last_sub_processed[nickname]) / 60
+                            # Determine threshold: retainer mode (20min) or submarine mode (10min)
+                            currently_retainer = (ready_subs == 0 and force247 and ready_retainers > 0)
+                            in_retainer_mode = currently_retainer or (retainer_mode_active.get(nickname, False) and ready_subs > 0)
+                            threshold = FORCE_CRASH_RETAINER_MINUTES if in_retainer_mode else FORCE_CRASH_INACTIVITY_MINUTES
+                            remaining = threshold - minutes_since
+                            pid_uptime_str += f" X:{remaining:.0f}"
                 else:
                     # Show [Up 24/7] if force247uptime is True, otherwise [Closed]
                     if force247:
@@ -2311,7 +2602,7 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
                     else:
                         status_str = f"{'[Closed]':{STATUS_WIDTH}s}"
             
-            hours_str = format_hours(soonest_hours, ready_subs, is_running=(is_running if is_running is not None else False))
+            hours_str = format_hours(soonest_hours, ready_subs, is_running=(is_running if is_running is not None else False), force247uptime=force247, ready_retainers=ready_retainers, soonest_retainer_hours=soonest_retainer_hours)
             subs_str = f"({total_subs} subs)"
             print(f"{nickname:{NICKNAME_WIDTH}s} {subs_str:{SUBS_COUNT_WIDTH}s}: {hours_str:{HOURS_WIDTH}s}{status_str}{pid_uptime_str}")
     
@@ -2319,9 +2610,28 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
     print("=" * 85)
     
     # Calculate total daily gil earnings and submarine counts
+    # Priority: 1) Plan-based rates from submarine_plans["farming"]
+    #           2) Build-based rates from build_gil_rates
+    #           3) Count as leveling (0 gil)
     total_daily_gil = 0
     farming_subs_count = 0
-    for build in all_builds:
+    leveling_plans = submarine_plans.get("leveling", [])
+    farming_plans = submarine_plans.get("farming", {})
+    
+    for i, build in enumerate(all_builds):
+        plan_name = all_plans[i] if i < len(all_plans) else ""
+        
+        # Check if plan is a leveling plan (skip, no income)
+        if plan_name and plan_name in leveling_plans:
+            continue
+        
+        # Check if plan has a farming rate defined
+        if plan_name and plan_name in farming_plans:
+            total_daily_gil += farming_plans[plan_name]
+            farming_subs_count += 1
+            continue
+        
+        # Fall back to build-based rate
         if build in build_gil_rates:
             total_daily_gil += build_gil_rates[build]
             farming_subs_count += 1
@@ -2340,10 +2650,8 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
             total_tanks_per_day += 9.0
             total_kits_per_day += 1.33
     
-    # Calculate costs (Ceruleum Tank = 350 gil, Repair Kit = 2000 gil)
-    tank_cost = 350
-    kit_cost = 2000
-    total_supply_cost_per_day = int((total_tanks_per_day * tank_cost) + (total_kits_per_day * kit_cost))
+    # Calculate costs using configurable supply costs
+    total_supply_cost_per_day = int((total_tanks_per_day * CERULEUM_TANK_COST) + (total_kits_per_day * REPAIR_KIT_COST))
     
     # Calculate minimum days until restocking
     min_days_until_restocking = min(all_days_remaining) if all_days_remaining else None
@@ -2356,6 +2664,14 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
     print(f"Total Supply Cost Per Day: {total_supply_cost_per_day:,}")
     if min_days_until_restocking is not None:
         print(f"Total Days Until Restocking Required: {min_days_until_restocking}")
+    # Display lowest inventory space among submarine-only farmers (excludes characters with retainers)
+    min_inventory_space = min(all_inventory_spaces) if all_inventory_spaces else None
+    if min_inventory_space is not None:
+        print(f"Lowest Inventory Space (Sub-Only Farmers): {min_inventory_space}")
+    # Display lowest inventory space among retainer farmers (characters with retainers)
+    min_retainer_inventory_space = min(all_retainer_inventory_spaces) if all_retainer_inventory_spaces else None
+    if min_retainer_inventory_space is not None:
+        print(f"Lowest Inventory Space (Retainer Farmers): {min_retainer_inventory_space}")
     if MAX_CLIENTS > 0:
         print(f"Max Clients: {MAX_CLIENTS}")
     
@@ -2405,6 +2721,8 @@ def main():
         game_launch_timestamp = {}  # Track when game was launched for each account (for force crash monitoring)
         last_sub_processed = {}  # Track last time submarine was processed for each account (for force crash monitoring) (negative → positive transitions)
         submarine_state_cache = {}  # Cache submarine return times by nickname to detect processing (negative → positive transitions)
+        retainer_state_cache = {}  # Cache retainer venture times by nickname to detect processing (for force247uptime accounts)
+        retainer_mode_active = {}  # Track when retainer timer mode was active per account (prevents premature timer switch when subs become ready)
         launcher_retry_count = {}  # Track launcher retry attempts per account
         launcher_failed_accounts = set()  # Track accounts that have exceeded launcher retry limit
         
@@ -2492,7 +2810,7 @@ def main():
                 last_window_check = current_time
             
             # Display submarine timers with current game status FIRST
-            display_submarine_timers(game_status_dict, client_start_times, launcher_failed_accounts)
+            display_submarine_timers(game_status_dict, client_start_times, launcher_failed_accounts, last_sub_processed, retainer_mode_active)
             
             # Initial window arrangement check (only on first run)
             if not initial_arrangement_done and ENABLE_WINDOW_LAYOUT:
@@ -2567,8 +2885,20 @@ def main():
                                         # Monitoring is active - show inactivity timer
                                         if nickname in last_sub_processed:
                                             minutes_since_processing = (current_time - last_sub_processed[nickname]) / 60
-                                            minutes_until_crash = FORCE_CRASH_INACTIVITY_MINUTES - minutes_since_processing
-                                            debug_msg += f" [Force-Close] Last sub processed {minutes_since_processing:.1f} minutes ago. Force close in {minutes_until_crash:.1f} minutes."
+                                            # Determine if monitoring retainers or submarines
+                                            timer_data = get_submarine_timers_for_account(account_entry)
+                                            ready_subs = timer_data.get("ready_subs", 0)
+                                            ready_rets = timer_data.get("ready_retainers", 0)
+                                            # For force247 accounts with no subs ready, we're monitoring retainers
+                                            # Use rotating_retainers flag (not current ready_rets) since ready_rets may be 0 after processing
+                                            is_retainer_monitoring_account = (ready_subs == 0 and rotating_retainers)
+                                            # Use appropriate threshold for retainers vs submarines
+                                            inactivity_threshold = FORCE_CRASH_RETAINER_MINUTES if is_retainer_monitoring_account else FORCE_CRASH_INACTIVITY_MINUTES
+                                            minutes_until_crash = max(0, inactivity_threshold - minutes_since_processing)
+                                            if is_retainer_monitoring_account:
+                                                debug_msg += f" [Force-Close] Last retainer processed {minutes_since_processing:.1f} minutes ago. Force close in {minutes_until_crash:.1f} minutes."
+                                            else:
+                                                debug_msg += f" [Force-Close] Last sub processed {minutes_since_processing:.1f} minutes ago. Force close in {minutes_until_crash:.1f} minutes."
                                         else:
                                             # No processing detected yet
                                             debug_msg += f" [Force-Close] Monitoring active, no submarine processing detected yet."
@@ -2731,7 +3061,7 @@ def main():
                             
                             # Redisplay submarine timers to show newly opened client status
                             print("")  # Empty line for spacing
-                            display_submarine_timers(game_status_dict, client_start_times, launcher_failed_accounts)
+                            display_submarine_timers(game_status_dict, client_start_times, launcher_failed_accounts, last_sub_processed, retainer_mode_active)
                             print("")  # Empty line for spacing
             
             # Auto-close games if enabled and conditions are met
@@ -2847,6 +3177,8 @@ def main():
                             del game_launch_timestamp[nickname]
                         if nickname in last_sub_processed:
                             del last_sub_processed[nickname]
+                        if nickname in retainer_mode_active:
+                            del retainer_mode_active[nickname]
                         continue
                     
                     # Check if we have a game launch timestamp for this account
@@ -2860,12 +3192,26 @@ def main():
                         elif process_id and process_id in client_start_times:
                             actual_uptime_hours = (current_time - client_start_times[process_id]) / 3600
                         
-                        # If uptime exceeds AUTO_LAUNCH_THRESHOLD, activate monitoring immediately
-                        if actual_uptime_hours >= AUTO_LAUNCH_THRESHOLD:
+                        # Check if subs or retainers are ready - if so, activate monitoring immediately
+                        timer_data = get_submarine_timers_for_account(account_entry)
+                        ready_subs = timer_data.get("ready_subs", 0)
+                        ready_retainers = timer_data.get("ready_retainers", 0)
+                        subs_or_retainers_ready = ready_subs > 0 or (force247 and ready_retainers > 0)
+                        
+                        # Activate monitoring immediately if:
+                        # 1. Uptime exceeds AUTO_LAUNCH_THRESHOLD, OR
+                        # 2. Submarines are ready (need processing), OR
+                        # 3. force247uptime and retainers are ready (need processing)
+                        if actual_uptime_hours >= AUTO_LAUNCH_THRESHOLD or subs_or_retainers_ready:
                             # Set launch timestamp in the past so monitoring activates now
                             game_launch_timestamp[nickname] = current_time - (AUTO_LAUNCH_THRESHOLD * 3600)
                             if DEBUG:
-                                print(f"[FORCE-CRASH] {nickname}: Game running {actual_uptime_hours:.2f}h (>{AUTO_LAUNCH_THRESHOLD * 60:.0f}min threshold), activating monitoring immediately")
+                                if subs_or_retainers_ready:
+                                    ready_type = "subs" if ready_subs > 0 else "retainers"
+                                    ready_count = ready_subs if ready_subs > 0 else ready_retainers
+                                    print(f"[FORCE-CRASH] {nickname}: {ready_count} {ready_type} ready, activating monitoring immediately")
+                                else:
+                                    print(f"[FORCE-CRASH] {nickname}: Game running {actual_uptime_hours:.2f}h (>{AUTO_LAUNCH_THRESHOLD * 60:.0f}min threshold), activating monitoring immediately")
                         else:
                             # Set launch timestamp to current time, monitoring will activate after AUTO_LAUNCH_THRESHOLD
                             game_launch_timestamp[nickname] = current_time
@@ -2889,48 +3235,103 @@ def main():
                     processed_count = detect_submarine_processing(account_entry, submarine_state_cache, datetime.datetime.now().timestamp())
                     
                     if processed_count > 0:
-                        # Submarine processing detected - reset inactivity timer
+                        # Submarine processing detected - reset inactivity timer and clear retainer mode
                         last_sub_processed[nickname] = current_time
+                        # Clear retainer mode flag since subs are now being processed
+                        if nickname in retainer_mode_active:
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: Subs now being processed, switching from retainer timer to submarine timer")
+                            del retainer_mode_active[nickname]
                         if DEBUG:
                             print(f"[FORCE-CRASH] {nickname}: {processed_count} sub(s) processed, resetting inactivity timer")
+                    
+                    # For force247uptime accounts, also check retainer processing
+                    if force247:
+                        retainer_processed_count = detect_retainer_processing(account_entry, retainer_state_cache, datetime.datetime.now().timestamp())
+                        
+                        if retainer_processed_count > 0:
+                            # Retainer processing detected - reset inactivity timer
+                            last_sub_processed[nickname] = current_time
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: {retainer_processed_count} retainer(s) processed, resetting inactivity timer")
                     
                     # Get submarine status to determine monitoring applicability
                     timer_data = get_submarine_timers_for_account(account_entry)
                     ready_subs = timer_data.get("ready_subs", 0)
+                    ready_retainers = timer_data.get("ready_retainers", 0)
                     soonest_hours = timer_data.get("soonest_hours")
                     is_waiting = (ready_subs == 0 and soonest_hours is not None and 0 < soonest_hours <= AUTO_CLOSE_THRESHOLD)
                     
                     # Skip monitoring if all subs are voyaging (0 ready, not in WAITING)
-                    # This is an idle state - no subs to process, just waiting for returns
+                    # UNLESS force247uptime=True and retainers are ready (continue monitoring for retainer processing)
                     if ready_subs == 0 and not is_waiting:
-                        # All submarines voyaging, no ready subs - disable monitoring for idle state
-                        if nickname in last_sub_processed:
-                            del last_sub_processed[nickname]  # Clear timer when entering idle
-                        if DEBUG:
-                            print(f"[FORCE-CRASH] {nickname}: All subs voyaging (0 ready), monitoring disabled")
-                        continue
+                        # Check if force247uptime with ready retainers - keep monitoring active
+                        if force247 and ready_retainers > 0:
+                            # Retainers ready for processing - keep monitoring active
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: All subs voyaging but {ready_retainers} retainer(s) ready, monitoring active")
+                        else:
+                            # All submarines voyaging, no ready subs, no retainers - disable monitoring for idle state
+                            if nickname in last_sub_processed:
+                                del last_sub_processed[nickname]  # Clear timer when entering idle
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: All subs voyaging (0 ready), monitoring disabled")
+                            continue
                     
                     # Check if account is in (WAITING) state - extend timer to prevent force-close during legitimate waiting
+                    # UNLESS force247uptime=True and retainers are ready (should be processing retainers)
+                    # For force247 accounts, also reset timer when no retainers are ready (waiting for retainers to return)
                     if is_waiting:
-                        # Account is in (WAITING) state - reset inactivity timer to prevent force-close
+                        if force247 and ready_retainers > 0:
+                            # Retainers are ready - don't reset timer, expect retainer processing
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: Waiting for subs but {ready_retainers} retainer(s) ready, expecting retainer processing")
+                        else:
+                            # Account is in (WAITING) state - reset inactivity timer to prevent force-close
+                            last_sub_processed[nickname] = current_time
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: Sub is still waiting. Force close timer reset to {FORCE_CRASH_INACTIVITY_MINUTES} minutes")
+                    elif force247 and ready_retainers == 0:
+                        # force247 account with no retainers ready - also considered WAITING for retainers to return
                         last_sub_processed[nickname] = current_time
                         if DEBUG:
-                            print(f"[FORCE-CRASH] {nickname}: Sub is still waiting. Force close timer reset to {FORCE_CRASH_INACTIVITY_MINUTES} minutes")
+                            print(f"[FORCE-CRASH] {nickname}: Waiting for retainers to return. Force close timer reset to {FORCE_CRASH_RETAINER_MINUTES} minutes")
                     
                     # Initialize last_sub_processed if not set (first check after monitoring activates)
                     if nickname not in last_sub_processed:
-                        # No processing detected yet, use monitoring start time as baseline
-                        last_sub_processed[nickname] = monitoring_start_time
+                        # No processing detected yet, start fresh timer from current time
+                        last_sub_processed[nickname] = current_time
                         if DEBUG:
                             print(f"[FORCE-CRASH] {nickname}: Monitoring activated, starting inactivity timer")
                     
                     # Check inactivity timer
                     minutes_since_processing = (current_time - last_sub_processed[nickname]) / 60
                     
-                    # Force crash if no processing detected for FORCE_CRASH_INACTIVITY_MINUTES
-                    if minutes_since_processing > FORCE_CRASH_INACTIVITY_MINUTES:
+                    # Determine if monitoring retainers (longer timeout) or submarines
+                    # Use retainer timer when: (1) only retainers ready, OR (2) we were in retainer mode and subs became ready but haven't been processed yet
+                    currently_retainer_mode = (ready_subs == 0 and force247 and ready_retainers > 0)
+                    
+                    # Track retainer mode state - set flag when in retainer mode
+                    if currently_retainer_mode:
+                        retainer_mode_active[nickname] = True
+                    
+                    # Use retainer timer if: currently in retainer mode OR was in retainer mode when subs became ready (not yet processed)
+                    # The retainer_mode_active flag is only cleared when actual submarine processing is detected (above)
+                    monitoring_retainers = currently_retainer_mode or (retainer_mode_active.get(nickname, False) and ready_subs > 0)
+                    inactivity_threshold = FORCE_CRASH_RETAINER_MINUTES if monitoring_retainers else FORCE_CRASH_INACTIVITY_MINUTES
+                    
+                    if DEBUG and monitoring_retainers and ready_subs > 0:
+                        print(f"[FORCE-CRASH] {nickname}: Subs ready but retainer mode still active (waiting for sub processing), using {FORCE_CRASH_RETAINER_MINUTES}m timer")
+                    
+                    # Force crash if no processing detected for the appropriate threshold
+                    if minutes_since_processing > inactivity_threshold:
                         time_since_launch = (current_time - launch_time) / 3600
-                        print(f"\n[FORCE-CRASH] Crashing {nickname} (PID: {process_id}) - No submarine processing for {minutes_since_processing:.1f}m (game running for {time_since_launch:.1f}h)")
+                        processing_type = "retainer" if monitoring_retainers else "submarine"
+                        crash_message = f"[FORCE-CRASH] Crashing {nickname} (PID: {process_id}) - No {processing_type} processing for {minutes_since_processing:.1f}m (game running for {time_since_launch:.1f}h)"
+                        print(f"\n{crash_message}")
+                        
+                        # Send notification about force-crash
+                        log_error(crash_message)
                         
                         kill_game_client_and_cleanup(
                             nickname, process_id,
@@ -2939,7 +3340,8 @@ def main():
                             closed_pids, game_status_dict, client_start_times,
                             last_launch_time=last_launch_time,
                             game_launch_timestamp=game_launch_timestamp,
-                            last_sub_processed=last_sub_processed
+                            last_sub_processed=last_sub_processed,
+                            retainer_mode_active=retainer_mode_active
                         )
             
             # Wait for TIMER_REFRESH_INTERVAL seconds before next timer update
@@ -2949,4 +3351,25 @@ def main():
         sys.exit(0)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        error_msg = f"\n{'='*80}\n[CRITICAL ERROR] Script crashed with unhandled exception:\n{'='*80}\n"
+        error_msg += f"Exception Type: {type(e).__name__}\n"
+        error_msg += f"Exception Message: {e}\n"
+        error_msg += f"\nFull Traceback:\n{traceback.format_exc()}"
+        error_msg += f"{'='*80}\n"
+        print(error_msg)
+        
+        # Try to log and send notification about the crash
+        try:
+            log_error(f"CRITICAL_CRASH: {type(e).__name__}: {e} - An unexpected crash occurred, please check the script and report any issues.")
+        except:
+            pass
+        
+        # Keep window open for debugging if DEBUG is enabled
+        if DEBUG:
+            print("\n[CRASH] Script has stopped. Window will remain open for debugging.")
+            print("Press Enter to close this window...")
+            input()
