@@ -1,4 +1,4 @@
-# AutoRetainer Dashboard v1.22
+# AutoRetainer Dashboard v1.25
 
 A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels, currencies, income/cost calculations, and comprehensive supply tracking.
 
@@ -8,7 +8,7 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 </p>
 
 <p align="center">
-  <img width="1462" height="1353" alt="AutoRetainer Dashboard" src="https://github.com/user-attachments/assets/1210377c-ef2b-4ed1-85d2-78645e23a7af" />
+  <img width="1164" height="816" alt="image" src="https://github.com/user-attachments/assets/a1001bd7-56dc-4188-ab03-f3c511a4c274" />
 </p>
 
 
@@ -141,15 +141,22 @@ account_locations = [
     "PORT": 1234,
     "DEBUG": false,
     "AUTO_REFRESH": 60,
-    "MINIMUM_MSQ_QUESTS": 5,
     "SHOW_CLASSES": true,
     "SHOW_CURRENCIES": true,
-    "SHOW_MSQ_PROGRESSION": false,
+    "SHOW_MSQ_PROGRESSION": true,
     "DEFAULT_THEME": "default",
     "HIGHLIGHT_IDLE_RETAINERS": true,
     "HIGHLIGHT_IDLE_SUBS": true,
     "HIGHLIGHT_READY_ITEMS": true,
     "HIGHLIGHT_MAX_MB": true,
+    "HIGHLIGHT_POTENTIAL_RETAINER": true,
+    "HIGHLIGHT_POTENTIAL_SUBS": true,
+    "HONOR_AR_EXCLUSIONS": true,
+    "HIGHLIGHT_COLOR_IDLE_RETAINERS": "cyan",
+    "HIGHLIGHT_COLOR_IDLE_SUBS": "#FFB6C1",
+    "HIGHLIGHT_COLOR_MAX_MB": "#FFD700",
+    "HIGHLIGHT_COLOR_POTENTIAL_RETAINER": "#8B4513",
+    "HIGHLIGHT_COLOR_POTENTIAL_SUBS": "#1a1a1a",
     "account_locations": [
         {
             "enabled": true,
@@ -187,12 +194,12 @@ account_locations = [
     },
 
     "build_gil_rates": {
-        "ABCD++": 100000,
+        "A+B+C+D+": 100000,
         "EFGH": 150000
     },
 
     "build_consumption_rates": {
-        "ABCD++": {"tanks_per_day": 10.0, "kits_per_day": 2.0},
+        "A+B+C+D+": {"tanks_per_day": 10.0, "kits_per_day": 2.0},
         "EFGH": {"tanks_per_day": 12.0, "kits_per_day": 3.5}
     },
 
@@ -293,7 +300,6 @@ http://127.0.0.1:1234
 | `PORT` | `1234` | Server port number |
 | `DEBUG` | `false` | Flask debug mode |
 | `AUTO_REFRESH` | `60` | Auto-refresh interval in seconds (0 to disable) |
-| `MINIMUM_MSQ_QUESTS` | `5` | Min MSQ quests completed to show MSQ progress (0 = always show) |
 | `SHOW_CLASSES` | `true` | Show DoW/DoM and DoH/DoL job sections |
 | `SHOW_CURRENCIES` | `true` | Show Currencies section |
 | `SHOW_MSQ_PROGRESSION` | `false` | Show MSQ progression display (disabled until Altoholic fix) |
@@ -302,6 +308,9 @@ http://127.0.0.1:1234
 | `HIGHLIGHT_IDLE_SUBS` | `true` | Pink outline on character cards with idle submarines |
 | `HIGHLIGHT_READY_ITEMS` | `true` | Red background on character cards with ready retainers/subs |
 | `HIGHLIGHT_MAX_MB` | `true` | Gold outline on character cards with max (20) MB listings |
+| `HIGHLIGHT_POTENTIAL_RETAINER` | `true` | Brown outline on characters with MSQ 66060 done but 0 retainers |
+| `HIGHLIGHT_POTENTIAL_SUBS` | `true` | Black outline on characters Lv 25+ not in FC (potential sub farmers) |
+| `HONOR_AR_EXCLUSIONS` | `false` | Honor AutoRetainer's ExcludeRetainer/ExcludeWorkshop settings per character |
 
 ## Income/Cost Calculations
 
@@ -361,6 +370,50 @@ Created by: https://github.com/xa-io
 
 ## Version History
 
+### v1.25 (2026-02-03) - Bug Fixes and Filter Improvements
+
+**New Features:**
+
+- **✅ Processing Filter**: New filter button to show only characters that are actively processing
+  - Shows characters with `Enabled=true` OR `WorkshopEnabled=true` in AutoRetainer
+  - Regardless of ExcludeRetainer/ExcludeWorkshop settings
+  - This means it will show any character with either subs or retainers processing
+  - Located to the left of the ❌ Excluded filter button
+
+**Fixes:**
+
+- **Brown MSQ Highlight**: Only shows when `SHOW_MSQ_PROGRESSION` is enabled
+  - Previously showed brown outline for potential retainers even when MSQ tracking was disabled
+- **❓ Filter Enhancement**: Now includes characters with MSQ progression alerts when `SHOW_MSQ_PROGRESSION` is true
+  - Also includes showing Lv 25+ characters without FC
+- **🏁 Ready Filter Fix**: Shows all ready characters, excludes disabled/sleeping retainers and submarines
+- **😴 Sleep Explanation**: Added explanation in expanded dropdown for sleeping retainers/subs
+  - Shows "Your retainers/submarines are not enabled in AutoRetainer" message and other highlighted statuses
+- **Refresh Bug Fix**: Fixed 60-second refresh showing all retainers instead of enabled count
+  - Refresh now uses `enabled_retainers`/`enabled_subs` instead of total counts
+
+### v1.24 (2026-02-02) - AutoRetainer Exclusion Settings Support
+
+**New Configuration Option:**
+
+- `HONOR_AR_EXCLUSIONS`: When enabled, respects AutoRetainer's per-character exclusion settings:
+  - `ExcludeRetainer`: If true in AR config, hides retainer data for that character
+  - `ExcludeWorkshop`: If true in AR config, hides submarine data for that character
+
+**Behavior When Exclusions Are Active:**
+
+- Character card summary shows `👤 null` or `🚢 null` instead of counts
+- Retainer/submarine dropdown sections are hidden in expanded character view
+- Highlighting is suppressed (no cyan idle retainer, pink idle sub, gold max MB, or brown potential retainer outlines)
+- Excluded items are not counted in account/summary totals
+- Character remains visible - only the excluded data type is hidden
+
+**Use Case:**
+
+- Ensures dashboard accurately reflects which characters have retainer/submarine automation disabled in AutoRetainer
+- Useful when certain characters have specific triggers blocked and you want the landing page to show accurate data
+- Default: `false` (shows all retainers and submarines regardless of AR exclusion settings)
+
 ### v1.22 (2026-02-01) - Highlight Toggle Configuration
 
 **New Configuration Options:**
@@ -369,10 +422,11 @@ Created by: https://github.com/xa-io
 - `HIGHLIGHT_IDLE_SUBS`: Toggle pink outline on character cards with idle submarines (default: true)
 - `HIGHLIGHT_READY_ITEMS`: Toggle red background on character cards with ready retainers/subs (default: true)
 - `HIGHLIGHT_MAX_MB`: Toggle gold outline on character cards with max (20) MB listings (default: true)
+- `HIGHLIGHT_POTENTIAL_RETAINER`: Toggle brown outline on characters with MSQ 66060 done but 0 retainers (default: true)
 
 **Behavior:**
 
-- When all four options are set to false, all character boxes display in the theme color with no highlighting
+- When all five options are set to false, all character boxes display in the theme color with no highlighting
 - Allows users to customize the visual appearance based on preference
 - Settings can be changed in config.json or the script configuration section
 
@@ -466,7 +520,6 @@ Created by: https://github.com/xa-io
 - **Shortened Currency Names**: Verbose names shortened for readability (e.g., "Allagan_Tomestone_Of_Poetics" → "Poetics")
 - **Compact Flexbox Layout**: Currency display prevents overflow and saves space
 - **Configurable Display Options**: New config parameters for controlling UI sections:
-  - `MINIMUM_MSQ_QUESTS`: Control threshold for showing MSQ progress (default: 5)
   - `SHOW_CLASSES`: Toggle DoW/DoM and DoH/DoL sections (default: true)
   - `SHOW_CURRENCIES`: Toggle Currencies section (default: true)
 
