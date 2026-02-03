@@ -11,6 +11,7 @@
     "AUTO_CLOSE_THRESHOLD": 0.5,
     "MAX_RUNTIME": 71,
     "FORCE_CRASH_INACTIVITY_MINUTES": 10,
+    "FORCE_CRASH_RETAINER_MINUTES": 20,
     "ENABLE_AUTO_LAUNCH": true,
     "OTP_LAUNCH_DELAY": 10,
     "AUTO_LAUNCH_THRESHOLD": 0.15,
@@ -68,5 +69,34 @@
         "Main": "C:\\Users\\{user}\\AppData\\Local\\XIVLauncher\\XIVLauncher.exe",
         "Acc1": "C:\\Users\\{user}\\AltData\\Acc1.bat",
         "Acc2": "C:\\Users\\{user}\\AltData\\Acc2.bat"
-    }
+    },
+
+    "submarine_plans": {
+        "leveling": [
+            "OJ Unlocker",
+            "Overseer OJ Unlocker",
+            "XP Grind"
+        ],
+        "farming": {
+            "OJ": 118661,
+            "Yummy OJ": 118661,
+            "Overseer OJ": 118661,
+            "JORZ": 140404,
+            "MROJZ": 116206,
+            "Custom Route 1": 80000
+        }
+    },
+
+    "build_gil_rates": {
+        "A+B+C+D+": 100000,
+        "EFGH": 150000
+    },
+
+    "build_consumption_rates": {
+        "A+B+C+D+": {"tanks_per_day": 10.0, "kits_per_day": 2.0},
+        "EFGH": {"tanks_per_day": 12.0, "kits_per_day": 3.5}
+    },
+
+    "ceruleum_tank_cost": 350,
+    "repair_kit_cost": 2000
 }
