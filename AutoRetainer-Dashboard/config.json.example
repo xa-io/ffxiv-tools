@@ -3,30 +3,37 @@
     "PORT": 1234,
     "DEBUG": false,
     "AUTO_REFRESH": 60,
-    "MINIMUM_MSQ_QUESTS": 5,
     "SHOW_CLASSES": true,
     "SHOW_CURRENCIES": true,
-    "SHOW_MSQ_PROGRESSION": false,
+    "SHOW_MSQ_PROGRESSION": true,
     "DEFAULT_THEME": "default",
     "HIGHLIGHT_IDLE_RETAINERS": true,
     "HIGHLIGHT_IDLE_SUBS": true,
     "HIGHLIGHT_READY_ITEMS": true,
     "HIGHLIGHT_MAX_MB": true,
+    "HIGHLIGHT_POTENTIAL_RETAINER": true,
+    "HIGHLIGHT_POTENTIAL_SUBS": true,
+    "HONOR_AR_EXCLUSIONS": true,
+    "HIGHLIGHT_COLOR_IDLE_RETAINERS": "cyan",
+    "HIGHLIGHT_COLOR_IDLE_SUBS": "#FFB6C1",
+    "HIGHLIGHT_COLOR_MAX_MB": "#FFD700",
+    "HIGHLIGHT_COLOR_POTENTIAL_RETAINER": "#8B4513",
+    "HIGHLIGHT_COLOR_POTENTIAL_SUBS": "#1a1a1a",
     "account_locations": [
         {
+            "enabled": true,
             "nickname": "Main",
-            "pluginconfigs_path": "C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs",
-            "enabled": true
+            "pluginconfigs_path": "C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs"
         },
         {
+            "enabled": false,
             "nickname": "Acc1",
-            "pluginconfigs_path": "C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs",
-            "enabled": false
+            "pluginconfigs_path": "C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs"
         },
         {
+            "enabled": false,
             "nickname": "Acc2",
-            "pluginconfigs_path": "C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs",
-            "enabled": false
+            "pluginconfigs_path": "C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs"
         }
     ],
 
@@ -46,21 +53,21 @@
         }
     },
 
+    "build_gil_rates": {
+        "A+B+C+D+": 100000,
+        "EFGH": 150000
+    },
+
+    "build_consumption_rates": {
+        "A+B+C+D+": {"tanks_per_day": 10.0, "kits_per_day": 2.0},
+        "EFGH": {"tanks_per_day": 12.0, "kits_per_day": 3.5}
+    },
+
     "item_values": {
         "venture_coffer": 18000,
         "pure_white_dye": 450000,
         "jet_black_dye": 600000,
         "pastel_pink_dye": 40000
-    },
-
-    "build_gil_rates": {
-        "ABCD++": 100000,
-        "EFGH": 150000
-    },
-
-    "build_consumption_rates": {
-        "ABCD++": {"tanks_per_day": 10.0, "kits_per_day": 2.0},
-        "EFGH": {"tanks_per_day": 12.0, "kits_per_day": 3.5}
     },
 
     "ceruleum_tank_cost": 350,
