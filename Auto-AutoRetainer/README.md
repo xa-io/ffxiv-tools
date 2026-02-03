@@ -1,8 +1,14 @@
-# Auto-AutoRetainer v1.27 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.31 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
 A comprehensive automation script that monitors submarine return times across multiple FFXIV accounts and intelligently manages game instances for hands-off submarine and retainer farming. Automatically launches games when submarines are ready, handles 2FA login, recovers from crashes and frozen clients, enforces stability restarts, tracks daily gil earnings and supply levels, and closes games when idle, all without manual intervention.
+
+This readme is extensive, but don't be intimidated. Getting this up and running is actually quite straightforward and only requires a handful of steps. I've included thorough documentation so you can understand what everything does if you're curious, but the actual setup takes less than 5 minutes. Install python and the requirements, then in game install Splatoon, add the custom window renaming script from this readme, configure 2FA if your accounts use it, add any alt accounts to your config file, and you're good to go.
+
+<p align="center">
+  <img width="707" height="491" alt="image" src="https://github.com/user-attachments/assets/5d0ab532-1ff5-4490-8d05-7da085df0c55" />
+</p>
 
 ## How It Works
 
@@ -48,10 +54,12 @@ A comprehensive automation script that monitors submarine return times across mu
 - **Live Submarine Timers**: Displays soonest submarine return time for each account
 - **Dual Refresh Rates**: 30-second timer updates, 60-second window status checks
 - **Ready Status Detection**: Shows when submarines are already returned and ready
+- **Retainer Venture Tracking**: For force247uptime accounts, tracks ready retainers and shows "(xx Ret.)" when retainers are ready but subs are voyaging
 - **Gil Earnings Tracking**: Calculates total daily gil from all submarine builds
 - **Supply Cost Tracking**: Displays "Total Supply Cost Per Day" based on submarine consumption rates (Ceruleum Tank = 350 gil, Repair Kit = 2,000 gil)
 - **Process ID Tracking**: Monitors running game instances for each account (multi-client mode only)
 - **Restocking Alerts**: Displays "Total Days Until Restocking Required" showing the lowest value across all characters
+- **Inventory Space Monitoring**: Displays "Lowest Inventory Space (Sub-Only Farmers)" showing the minimum remaining inventory slots across submarine-only farmers (excludes characters with retainers)
 - **Build-Based Consumption**: Tracks Ceruleum tanks and Repair Kit usage per submarine build (9-14 tanks/day, 1.33-4 kits/day depending on route)
 - **Default Consumption Rates**: Unlisted builds (leveling submarines like SSUS, SSSS) automatically use 9 tanks/day and 1.33 kits/day
 
@@ -61,7 +69,7 @@ A comprehensive automation script that monitors submarine return times across mu
 - **Launcher Detection & Retry**: Detects when XIVLauncher gets stuck at login screen and automatically retries up to 3 times
 - **Config Auto-Fix**: Validates and repairs launcher settings (AutologinEnabled, OtpServerEnabled) before launch attempts
 - **Crash Handler Detection**: Automatically detects and closes DalamudCrashHandler.exe windows when game crashes occur (checks every 60 seconds)
-- **Frozen Client Force-Crash**: Monitors submarine processing and force-crashes clients with no activity for configurable minutes
+- **Frozen Client Force-Crash**: Monitors submarine and retainer processing and force-crashes clients with no activity for configurable minutes
 - **72-Hour Stability Restart**: Automatically restarts clients approaching 72 hours uptime (MAX_RUNTIME default: 71 hours)
 - **Auto-Close Games**: Closes idle games when submarines won't be ready soon (30 minutes by default)
 - **Smart Rate Limiting**: Prevents rapid game launches with configurable delays
@@ -635,6 +643,73 @@ Use `{user}` in paths to automatically substitute the current Windows username:
 - The script prints `[CONFIG] Loaded configuration from ...` when using an external config
 - See `config.json.example` for all available settings
 
+### Submarine Plans Configuration
+
+The `submarine_plans` section allows you to configure which AutoRetainer plan names indicate leveling vs farming:
+
+```json
+"submarine_plans": {
+    "leveling": [
+        "OJ Unlocker",
+        "Overseer OJ Unlocker",
+        "XP Grind"
+    ],
+    "farming": {
+        "OJ": 118661,
+        "Yummy OJ": 118661,
+        "Overseer OJ": 118661,
+        "JORZ": 140404,
+        "MROJZ": 116206,
+        "Custom Route 1": 80000
+    }
+}
+```
+
+- **leveling**: Array of plan names that indicate submarines are leveling (no income counted)
+- **farming**: Object mapping plan names to their average daily gil earnings
+
+Plan names must match exactly as they appear in AutoRetainer's SubmarinePointPlans or SubmarineUnlockPlans.
+
+### Custom Build Rates Configuration (Optional)
+
+If you're using submarine builds not included in the script's defaults, you can add custom rates:
+
+**build_gil_rates**: Add custom builds with their daily gil earnings
+```json
+"build_gil_rates": {
+    "A+B+C+D+": 100000,
+    "EFGH": 150000
+}
+```
+
+**build_consumption_rates**: Add consumption rates for custom builds
+```json
+"build_consumption_rates": {
+    "A+B+C+D+": {"tanks_per_day": 10.0, "kits_per_day": 2.0},
+    "EFGH": {"tanks_per_day": 12.0, "kits_per_day": 3.5}
+}
+```
+
+**Notes:**
+- Build abbreviation must match exactly as shown in the previous outputs (e.g., "SSUC", "W+S+U+C+")
+- Custom rates merge with built-in rates (won't overwrite existing unless same key)
+- Both sections are optional - leave empty `{}` if not needed
+- For consumption rates, both `tanks_per_day` and `kits_per_day` are required
+
+### Supply Cost Configuration (Optional)
+
+Override the default supply costs used for daily cost calculations:
+
+```json
+"ceruleum_tank_cost": 350,
+"repair_kit_cost": 2000
+```
+
+| Parameter | Default | Description |
+| --------- | ------- | ----------- |
+| `ceruleum_tank_cost` | 350 | Gil cost per Ceruleum Tank |
+| `repair_kit_cost` | 2000 | Gil cost per Repair Kit |
+
 ---
 
 ## Notification Settings (Optional)
@@ -707,10 +782,22 @@ For automatic window arrangement, create layout JSON files:
 
 ## Configuration Parameters
 
+### Display Settings
+
+```python
+VERSION_SUFFIX = ""            # Custom text appended to version display (e.g., " - Main")
+NICKNAME_WIDTH = 5             # Column width for account nickname
+SUBS_COUNT_WIDTH = 11          # Column width for submarine count display
+HOURS_WIDTH = 24               # Column width for hours/timer display
+STATUS_WIDTH = 10              # Column width for status indicator
+PID_WIDTH = 11                 # Column width for PID display
+```
+
 ### Timing Settings
 ```python
 TIMER_REFRESH_INTERVAL = 30    # Update submarine timers every 30 seconds
 WINDOW_REFRESH_INTERVAL = 60   # Check game window status every 60 seconds
+OTP_LAUNCH_DELAY = 10          # Seconds to wait after launching before sending OTP (2FA accounts only)
 ```
 
 ### Auto-Close Settings
@@ -719,7 +806,9 @@ ENABLE_AUTO_CLOSE = True        # Enable automatic game closing and crash monito
 AUTO_CLOSE_THRESHOLD = 0.5      # Close game if next sub > 0.5 hours (30 minutes)
 MAX_RUNTIME = 71                # Maximum allowed client uptime in hours before a forced restart
 FORCE_CRASH_INACTIVITY_MINUTES = 10  # Force crash client if no submarine processing detected for this many minutes (after monitoring activates)
+FORCE_CRASH_RETAINER_MINUTES = 15    # Force crash client if no retainer processing detected for this many minutes (longer due to GC turn-ins)
 # Note: Monitoring activates AUTO_LAUNCH_THRESHOLD hours after game launches (not when subs become ready)
+# Note: Retainer monitoring uses 15-minute timer to account for Grand Company turn-ins after processing retainers
 ```
 
 **FORCE_CRASH_INACTIVITY_MINUTES Behavior:**
@@ -730,10 +819,20 @@ FORCE_CRASH_INACTIVITY_MINUTES = 10  # Force crash client if no submarine proces
 - **Detection Method**: Tracks submarine processing by counting decrease in ready submarines per scan (ready-count-based detection)
 - **Processing Count**: `processed = (previous ready count - current ready count)` - accurately reflects actual subs sent per scan
 - **Inactivity Check**: After monitoring activates, crashes client if no submarine processing detected for FORCE_CRASH_INACTIVITY_MINUTES
-- **Timer Reset**: Resets inactivity timer to 0 in two scenarios:
+- **Timer Reset**: Resets inactivity timer to 0 in multiple scenarios:
   1. When submarine processing detected (ready count decreases)
-  2. When account is in (WAITING) state - resets every scan to prevent force-close during legitimate wait periods
+  2. When retainer processing detected for force247uptime accounts (ready count decreases or nearest timer changes)
+  3. When account is in (WAITING) state without ready retainers - resets every scan to prevent force-close during legitimate wait periods
 - **(WAITING) State Protection**: When game is running with 0 ready subs and soonest return time ≤ AUTO_CLOSE_THRESHOLD (30 min), timer continuously resets each scan, ensuring force-crash never triggers during the wait period
+- **Retainer Processing Detection**: For force247uptime accounts, also monitors retainer venture completion and processing:
+  - Detects retainer processing by monitoring ready count decreases
+  - Detects processing via nearest timer changes (handles 20 in/20 out scenarios where counts stay same but timers shift)
+  - Keeps monitoring active when force247uptime accounts have ready retainers but no ready subs
+  - Shows "(xx Ret.)" status instead of "(WAITING)" when retainers are ready for processing
+  - Shows retainer return timer in minutes (e.g., "+17min" or "-5min") when all retainers are on ventures
+  - Uses FORCE_CRASH_RETAINER_MINUTES (15 min) instead of FORCE_CRASH_INACTIVITY_MINUTES (10 min) for retainer monitoring
+  - Monitoring activates immediately when retainers are ready (no threshold delay)
+- **Force-Crash Notifications**: Sends Pushover/Discord notifications when a client is force-crashed (if notifications enabled)
 - **Grace Period**: AUTO_LAUNCH_THRESHOLD delay ensures game has time to fully load before monitoring begins
 - **Enhanced Debug Output**: Shows ready subs, voyaging subs, and newly sent subs per scan when DEBUG=True
 - **Handles Multiple Scenarios**:
@@ -886,21 +985,25 @@ python Auto-AutoRetainer.py
 
 ```
 =====================================================================================
-Auto-Autoretainer v1.27
+Auto-Autoretainer v1.31
 FFXIV Game Instance Manager
 =====================================================================================
-Updated: 2025-12-11 09:00:00
+Updated: 2026-02-03 09:00:00
 =====================================================================================
 
-Main  (36 subs)  : -0.0 hours (7 READY)    [Running] PID: 11376 UPTIME: 1.6 hours
+Main  (16 subs)  : +12.3 hours              [Closed]
+Alt1  (16 subs)  : -1.2 hours (8 READY)     [Running] PID: 12345 UPTIME: 1.5 hrs X:8
+Alt2  (16 subs)  : +6.8 hours               [Closed]
 
 =====================================================================================
-Total Subs: 0 / 36
-Total Gil Per Day: 4,193,236
-Total Subs Leveling: 0
-Total Subs Farming: 36
-Total Supply Cost Per Day: 12,345
-Total Days Until Restocking Required: 11
+Total Subs: 8 / 48
+Total Gil Per Day: 5,250,000
+Total Subs Leveling: 2
+Total Subs Farming: 46
+Total Supply Cost Per Day: 28,500
+Total Days Until Restocking Required: 45
+Lowest Inventory Space (Sub-Only Farmers): 85
+Lowest Inventory Space (Retainer Farmers): 62
 =====================================================================================
 Press Ctrl+C to exit
 =====================================================================================
@@ -1177,8 +1280,43 @@ This script is provided as-is for personal use. Use at your own risk. The author
 
 **Important:** Using automation tools may violate the FFXIV Terms of Service. Use responsibly and understand the risks.
 
+## Example Terminal Output
+
+```
+=====================================================================================
+Auto-Autoretainer v1.31
+FFXIV Game Instance Manager
+=====================================================================================
+Updated: 2026-01-31 10:32:22
+=====================================================================================
+
+Main  (4 subs)   : +8.4 hours                 [Closed]
+Acc1  (16 subs)  : -0.6 hours (12 READY)      [Up 24/7]  PID: 46612  UPTIME: 2.3 hrs  X:8
+Acc2  (16 subs)  : -1.2 hours (14 READY)      [Running]  PID: 57700  UPTIME: 2.9 hrs  X:9
+
+=====================================================================================
+Total Subs: 26 / 36
+Total Gil Per Day: 4,250,000
+Total Subs Leveling: 2
+Total Subs Farming: 34
+Total Supply Cost Per Day: 425,000
+Total Days Until Restocking Required: 45
+Lowest Inventory Space (Sub-Only Farmers): 75
+Lowest Inventory Space (Retainer Farmers): 46
+Max Clients: 3
+=====================================================================================
+Press Ctrl+C to exit
+=====================================================================================
+```
+
+---
+
 ## Version History
 
+**v1.31** (2026-01-31) - Added config.json support for custom submarine plans, build rates, and supply costs. NEW CONFIG OPTIONS: submarine_plans (configure leveling plan names and farming plans with daily earnings), build_gil_rates (add custom submarine builds not in the default list with gil/day), build_consumption_rates (add custom builds with tanks_per_day and kits_per_day), ceruleum_tank_cost (override default 350 gil), repair_kit_cost (override default 2000 gil). Custom rates merge with built-in rates. Useful for users with custom submarine builds/routes not in the default script list.  
+**v1.30** (2026-01-31) - Added force-crash timer display in status output (X:xx format after UPTIME). Shows minutes remaining before force-crash will trigger for each running client. Timer adapts to retainer mode (20min) or submarine mode (10min) threshold. Added script-crash reporting and notifications.  
+**v1.29** (2026-01-30) - Fixed premature force-crash timer switch from retainer (20min) to submarine (10min) mode. Timer now stays at 20min when subs become ready while retainer processing is active. Added retainer_mode_active tracking dictionary.  
+**v1.28** (2026-01-27) - Added "Lowest Inventory Space (Sub-Only Farmers)" display line in terminal output. Tracks remaining inventory slots for submarine-only farmers, excluding characters with retainers (retainer rotation causes inventory fluctuation). Displays the minimum inventory space available among submarine-only farmer characters. Total inventory capacity is 140 slots, so a value of 67 means 73 slots are in use.
 **v1.27** (2026-01-25) - Fixed batch file launcher leaving cmd.exe processes running after game launch. Changed batch file launch from `start /B` with shell=True to direct `cmd.exe /c` execution with DETACHED_PROCESS flag. Added cleanup_batch_launcher_processes() function that runs 30 seconds after launch in a daemon thread to terminate any lingering cmd.exe processes matching the batch file path. Prevents accumulation of idle "Windows Command Processor" processes in Task Manager.  
 **v1.26** (2026-01-19) - Added initial startup launcher check to close any stuck XIVLauncher on bootup. Code consolidation: Created generic helper functions (kill_process_by_image_name, is_process_running_with_visible_windows, kill_game_client_and_cleanup, get_process_start_time_by_name) to reduce redundant code. Refactored 11 process functions to use generic helpers for consistency.  
 **v1.25** (2026-01-19) - Added pre-launch config validation for AutologinEnabled and OtpServerEnabled. Checks launcherConfigV3.json BEFORE launching game (not just after failures). Automatically fixes AutologinEnabled to "true" if not set correctly. Automatically fixes OtpServerEnabled to "true" when account has enable_2fa=True. Prevents launcher from opening with login prompt instead of auto-logging in. Added validate_launcher_config_before_launch() function for pre-launch checks.  
