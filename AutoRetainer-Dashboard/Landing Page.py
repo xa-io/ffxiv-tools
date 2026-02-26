@@ -31,89 +31,30 @@
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.25
+# Landing Page v1.28
 # AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-02-03 09:54:00
+# Last Updated: 2026-02-26 13:00:00
 #
-# ## Release Notes ##
+# ## Release Notes This Update ##
 #
-# v1.25 - Bug fixes and filter improvements:
-#         Brown MSQ highlight only shows when SHOW_MSQ_PROGRESSION is enabled
-#         ❓ filter includes characters without FC and with potential retainer alerts
-#         🏁 Ready filter excludes disabled/excluded retainers and submarines
-#         Added explanations in expanded dropdowns for any marked character
-#         Added ⌛ Idle filter button to show only characters with idle retainers/subs
-#         ⌛ button only appears when idle count > 0
-#         ✅ shows characters actively processing retainers/subs (regardless of exclusion settings)
-#         Player Stats now collapsed by default, ✏️ button shows instead of hides
-#         Fixed idle detection: now requires Enabled=true (excluded chars don't count as idle)
-#         Non-expanded cards no longer stretch vertically when others in same row are expanded
-# v1.24 - Added HONOR_AR_EXCLUSIONS config option:
-#         When enabled, respects AutoRetainer's ExcludeRetainer and ExcludeWorkshop settings
-#         ExcludeRetainer: Hides retainers for that character (but shows submarines)
-#         ExcludeWorkshop: Hides submarines for that character (but shows retainers)
-#         Useful for ensuring dashboard accurately reflects AR automation settings
-# v1.23 - Added highlight toggle configuration options:
-#         HIGHLIGHT_POTENTIAL_RETAINER: Toggle brown outline for chars with MSQ 66060 done but 0 retainers
-#         Added version number in display options
-# v1.22 - Added highlight toggle configuration options:
-#         HIGHLIGHT_IDLE_RETAINERS: Toggle cyan outline for idle retainers (default: true)
-#         HIGHLIGHT_IDLE_SUBS: Toggle pink outline for idle submarines (default: true)
-#         HIGHLIGHT_READY_ITEMS: Toggle red background for ready items (default: true)
-#         HIGHLIGHT_MAX_MB: Toggle gold outline for max MB listings (default: true)
-#         When all false, character boxes display in theme color with no highlighting
-# v1.21 - Fixed javascript regex syntax issue
-# v1.20 - Major UI/UX enhancement release
-#         STICKY HEADER & GLOBAL CONTROLS:
-#         • Sticky header with summary cards fixed at top when scrolling
-#         • Global filter buttons in header: hide money, anonymize, houses, retainers, subs, MSQ
-#         • Expand/collapse all accounts button (▶/▼) for quick navigation
-#         • Mass hide buttons: ✏️ Player Stats, 🐋 Submarines, 🛎️ Retainers, 📖 Classes, 🪶 Currencies
-#         NEW SUMMARY CARDS & TRACKING:
-#         • Characters summary card showing total chars, Lv 25+, Lv 100, personal/FC plots
-#         • Consolidated summary cards (Treasure shows combined total, Annual Income shows profit)
-#         • Max MB listings indicator with gold outline highlight
-#         • Idle retainer tracking with cyan highlight, idle submarine tracking with pink highlight
-#         ENHANCED FILTERING:
-#         • Region filter buttons (NA, EU, JP, OCE) to filter by data center region
-#         • New filter buttons: 📦 Coffers, 🎨 Dyes, 💎 Treasure, 🪧 MB items
-#         • Changed MB icon from 📦 to 🪧 (placard) for clarity
-#         UI IMPROVEMENTS:
-#         • Collapsible Player Stats section (📊) with comprehensive character data
-#         • "None" in Venture/Plan columns shows bold for visibility
-#         • Fixed rounded corners on account tabs (collapsed and sticky states)
-#         • Hide Money mode preserves labels with asterisks for privacy screenshots
-#         CONFIG ENHANCEMENTS:
-#         • Custom build gil rates and consumption rates via config.json
-#         • Supply cost overrides (ceruleum_tank_cost, repair_kit_cost)
-#         • SHOW_MSQ_PROGRESSION toggle (disabled until Altoholic tracking fixed)
-#         BUG FIXES:
-#         • Fixed plot counting to avoid duplicates from shared houses
-#         • Fixed dye/coffer scanning to include retainer MarketInventory
-#         • Fixed anonymize toggle with proper error handling
-# v1.15 - Added 10 color theme presets with theme selector buttons under search bar
-#         Themes: Default (Blue), Ultra Dark, Dark Gray, Ocean Blue, Forest Green,
-#                 Crimson Red, Purple Haze, Pastel Pink, Dark Orange, Brown
-#         DEFAULT_THEME config option in script and config.json
-# v1.14 - Added character search bar in header (filters characters by name across all accounts)
-#         Added loading overlay with animated progress bar for large character counts
-#         Added anchor emoji favicon for browser tab
-# v1.13 - Fixed Current Class to show last played job (using LastJob/LastJobLevel from Altoholic)
-#         Added Lowest/Highest Class fields, "Classes" sort button, individual dye counts
-# v1.12 - Added Hide Money Stats button to privatize earnings for screenshots
-# v1.11 - Improved Currencies display with categories and shortened names
-# v1.10 - Added MSQ progression percentage display with color coding
-# v1.09 - Added Player Name@World, DoW/DoM, DoH/DoL, and Currencies collapsible sections
-# v1.08 - Added housing filters, level sorting, anonymization improvements
-# v1.07 - Added Housing information from Lifestream DefaultConfig.json
-# v1.06 - Added Inventory Space tracking with color coding
-# v1.05 - Added Anonymize mode and Expand/Collapse All buttons
-# v1.04 - Added character filtering (hide no retainers/submarines)
-# v1.03 - Major Altoholic integration: submarine plans, FC Points, Coffers, class/level display
-# v1.02 - UI color refinements: blue account headers, red highlights for ready items
-# v1.01 - Fixed stale submarine display bug
-# v1.00 - Initial release with Flask web server, AutoRetainer parsing, dark-themed UI
+# v1.28 - FC Data & Data page overhaul
+#         Sub Planner bidirectional sorting, Name@World display, ETA column, inventory stats
+#         Data page: Excel export, sticky filters/headers, dark scrollbars, full-viewport layout
+#         Unique FC count summary card, compact summary cards, integer formatting
+#         FC Detection Diagnostic gated behind DEBUG flag
+# v1.27 - Added /data/ page: Data Master List across all accounts
+#         Sortable table with character name, world, account, sub 1-4 levels/builds/plans/returns
+#         Character-level data: gil, ceruleum, repair kits, days to restock, inventory, treasure
+#         Click any column header to sort ascending/descending
+#         Summary cards: total subs, farming/leveling counts, daily income, supply costs
+# v1.26 - Added /fcdata/ page: Plot Map & FC Capacity Planner
+#         Visual housing plot overview with 5-column district grid (Goblet, LB, Mist, Empyreum, Shirogane)
+#         Per-ward plot dots (green=FC, gold=Personal) with hover tooltips
+#         FC Capacity Planner with per-account/region breakdown and world-level bars
+#         Enhanced summary cards: Total Chars, In FC, Can Join FC, FC/Personal Plots
+#         FC detection uses submarines + Lifestream FC house (not stale fc_name)
+#         Disclaimer explaining sub-based FC detection and OCE 39/40 max capacity
 #
 ############################################################################################################################
 
@@ -138,7 +79,7 @@ DEBUG = False           # Flask debug mode (set True for development)
 AUTO_REFRESH = 60       # Auto-refresh interval in seconds (0 to disable)
 
 # Display options
-VERSION = "v1.25"       # Version number shown in footer and startup
+VERSION = "v1.28"       # Version number shown in footer and startup
 SHOW_CLASSES = True     # Show DoW/DoM and DoH/DoL job sections, disable to speed up page load
 SHOW_CURRENCIES = True  # Show currencies section, disable to speed up page load
 SHOW_MSQ_PROGRESSION = True  # Show MSQ progression (disabled until Altoholic tracking works)
@@ -192,10 +133,14 @@ def acc(nickname, pluginconfigs_path):
     }
 
 # Default account locations - update these paths for your setup
+# Supports both local paths (C:\Users\...) and network/UNC paths (\\server\share\...)
 account_locations = [
     acc("Main", f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs"),
     # acc("Acc1", f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs"),
     # acc("Acc2", f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs"),
+    # Network/UNC path examples:
+    # acc("NetworkAcc", f"\\\\server\\share\\Users\\{user}\\pluginConfigs"),
+    # acc("NAS-Acc", r"\\NAS\FFXIVData\pluginConfigs"),
 ]
 
 #########################################
@@ -747,6 +692,26 @@ submarine_plan_names = {}  # GUID -> Name
 # Flask Application
 # ===============================================
 app = Flask(__name__)
+
+@app.template_filter('sp_compact')
+def sp_compact_filter(value):
+    """Compact number: 404288500 -> 404.2m, 1155110 -> 1,155k, 32000 -> 32k, 1500 -> 1.5k, 872 -> 872"""
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if n >= 1_000_000_000:
+        b = n / 1_000_000_000
+        return f"{b:,.1f}b".replace('.0b', 'b')
+    elif n >= 1_000_000:
+        m = n / 1_000_000
+        return f"{m:,.1f}m".replace('.0m', 'm')
+    elif n >= 10000:
+        return f"{n // 1000:,}k"
+    elif n >= 1000:
+        k = n / 1000
+        return f"{k:.1f}k".replace('.0k', 'k')
+    return str(n)
 
 # ===============================================
 # Data Parsing Functions
@@ -3063,7 +3028,7 @@ HTML_TEMPLATE = '''
             <header>
                 <div class="header-content">
                     <div class="header-left">
-                        <h1>⚓ AutoRetainer Dashboard</h1>
+                        <h1>⚓ AutoRetainer Dashboard <a href="/fcdata/" style="font-size:0.7rem;color:var(--accent-light);text-decoration:none;padding:3px 10px;border:1px solid var(--border);border-radius:6px;margin-left:8px;vertical-align:middle;font-weight:400;">🏨 FC Data</a><a href="/data/" style="font-size:0.7rem;color:var(--accent-light);text-decoration:none;padding:3px 10px;border:1px solid var(--border);border-radius:6px;margin-left:6px;vertical-align:middle;font-weight:400;">📝 Data</a></h1>
                         <div class="subtitle">Last Updated: <span id="last-updated">{{ data.last_updated }}</span> | Auto-refresh: {{ auto_refresh }}s</div>
                     </div>
                     <div class="header-right">
@@ -4926,6 +4891,2362 @@ HTML_TEMPLATE = '''
 
 
 # ===============================================
+# Map Page Data Collection
+# ===============================================
+# Region character limits per account
+REGION_CHAR_LIMITS = {"NA": 40, "EU": 40, "JP": 40, "OCE": 39}
+MAX_CHARS_PER_WORLD = 8
+MAX_PLOTS_PER_WARD = 60
+DISTRICT_ORDER = ["Goblet", "LB", "Mist", "Empyreum", "Shirogane"]
+
+
+def get_map_data():
+    """
+    Collect all data needed for the /map/ page:
+    - Plot locations by district/ward with character details
+    - Characters not in FC grouped by account
+    - Per-account, per-region, per-world character counts
+    - Capacity calculations for FC planning
+    """
+    plot_list = []           # All individual plot entries
+    district_ward_map = {}   # district -> ward -> [plot entries]
+    seen_fc_plots = set()    # Deduplicate FC plots by world+district+ward+plot (same as main page)
+    no_fc_chars = []         # Characters not in any FC
+    account_summaries = []   # Per-account capacity info
+
+    # First pass: build global FC manager map across ALL accounts
+    # Maps fc_key -> {name, account} for the first char with active subs per FC
+    global_fc_managers = {}
+    for account in account_locations:
+        auto_path = account["auto_path"]
+        if not os.path.isfile(auto_path):
+            continue
+        try:
+            with open(auto_path, 'r', encoding='utf-8-sig') as f:
+                pre_data = json.load(f)
+        except Exception:
+            continue
+        pre_fc_data = extract_fc_data(pre_data)
+        pre_characters = collect_characters(pre_data, account["nickname"])
+        pre_housing = {}
+        lfstrm_path = account.get("lfstrm_path", "")
+        if lfstrm_path:
+            pre_housing = load_lifestream_data(lfstrm_path)
+        for char in pre_characters:
+            cid = char.get("CID", 0)
+            if not bool(char.get("OfflineSubmarineData", [])):
+                continue
+            if char.get("ExcludeWorkshop", False) if HONOR_AR_EXCLUSIONS else False:
+                continue
+            world = char.get("World", "Unknown")
+            name = char.get("Name", "Unknown")
+            fc_name = pre_fc_data[cid].get("Name", "") if cid in pre_fc_data else ""
+            has_fc_house = cid in pre_housing and pre_housing[cid].get('fc') is not None
+            fc_key = None
+            if has_fc_house:
+                fcd = pre_housing[cid]['fc']
+                fc_key = f"{world}_{fcd['district']}_W{fcd['ward']}_P{fcd['plot']}"
+            elif fc_name:
+                fc_key = f"{world}_{fc_name}"
+            if fc_key and fc_key not in global_fc_managers:
+                global_fc_managers[fc_key] = {"name": name, "account": account["nickname"]}
+
+    sub_planner_accounts = []  # Per-account submarine planner data
+
+    for account in account_locations:
+        auto_path = account["auto_path"]
+        if not os.path.isfile(auto_path):
+            continue
+
+        try:
+            with open(auto_path, 'r', encoding='utf-8-sig') as f:
+                data = json.load(f)
+        except Exception:
+            continue
+
+        build_plan_name_lookup(data)
+        fc_data = extract_fc_data(data)
+        characters = collect_characters(data, account["nickname"])
+
+        # Scan Altoholic for highest_level
+        alto_map = {}
+        alto_path = account.get("alto_path", "")
+        if alto_path:
+            alto_map = scan_altoholic_db(alto_path)
+
+        # Load Lifestream housing
+        housing_map = {}
+        lfstrm_path = account.get("lfstrm_path", "")
+        if lfstrm_path:
+            housing_map = load_lifestream_data(lfstrm_path)
+
+        # Track per-account stats
+        acc_chars_total = 0
+        acc_chars_in_fc = 0
+        acc_chars_in_fc_no_subs = 0  # orange: FC house no subs OR duplicate FC (managed by alt)
+        acc_chars_no_fc = 0
+        acc_chars_excluded = 0
+        acc_region_counts = {}   # region -> count of chars
+        acc_world_counts = {}    # world -> count of chars
+        acc_world_fc_counts = {} # world -> count of unique FCs with subs (green)
+        acc_world_fc_nosubs_counts = {} # world -> count of managed-by-alt (orange)
+        acc_world_excluded_counts = {} # world -> count of excluded chars
+        acc_region_fc = {}       # region -> count of unique FCs with subs (green)
+        acc_region_fc_nosubs = {} # region -> count of managed-by-alt (orange)
+        acc_region_excluded = {} # region -> count of excluded chars
+        acc_no_fc_list = []      # chars not in FC for this account
+        seen_fc_keys = {}        # FC plot dedup: fc_key -> first char name that claimed it
+        per_world_chars = {}     # world -> list of {name, status, fc_name} for clickable UI
+        acc_sub_chars = []       # Characters with subs for Sub Planner
+
+        for char in characters:
+            cid = char.get("CID", 0)
+            name = char.get("Name", "Unknown")
+            world = char.get("World", "Unknown")
+            region = region_from_world(world)
+
+            # Get highest level from altoholic
+            highest_level = 0
+            if cid in alto_map:
+                highest_level = alto_map[cid].get("highest_level", 0)
+
+            # FC membership for capacity planner
+            fc_name = ""
+            if cid in fc_data:
+                fc_name = fc_data[cid].get("Name", "")
+
+            # Check AR exclusion settings for this character
+            exclude_workshop = char.get("ExcludeWorkshop", False) if HONOR_AR_EXCLUSIONS else False
+            is_excluded = exclude_workshop
+
+            has_subs = bool(char.get("OfflineSubmarineData", []))
+            has_fc_house = cid in housing_map and housing_map[cid].get('fc') is not None
+
+            # Build FC key for dedup (same plot = same FC = same earnings)
+            fc_key = None
+            if has_fc_house:
+                fcd = housing_map[cid]['fc']
+                fc_key = f"{world}_{fcd['district']}_W{fcd['ward']}_P{fcd['plot']}"
+            elif fc_name:
+                fc_key = f"{world}_{fc_name}"
+
+            # Classify character into 4 categories:
+            # GREEN  (in_fc):         unique FC with active subs
+            # ORANGE (in_fc_no_subs): managed by alt — FC house no subs, or duplicate FC with subs
+            # GRAY   (excluded):      ExcludeWorkshop enabled
+            # YELLOW (can_join):      not in any FC
+            if is_excluded:
+                char_status = "excluded"
+            elif has_subs:
+                if fc_key and fc_key in seen_fc_keys:
+                    char_status = "fc_managed"  # duplicate FC — subs managed by another toon
+                else:
+                    char_status = "in_fc"  # unique FC with active subs
+                    if fc_key:
+                        seen_fc_keys[fc_key] = {"name": name, "account": account["nickname"]}
+            elif has_fc_house:
+                char_status = "fc_managed"  # has FC plot but no subs on this char
+            else:
+                char_status = "can_join"
+
+            acc_chars_total += 1
+            if char_status == "excluded":
+                acc_chars_excluded += 1
+            elif char_status == "in_fc":
+                acc_chars_in_fc += 1
+            elif char_status == "fc_managed":
+                acc_chars_in_fc_no_subs += 1
+            else:
+                acc_chars_no_fc += 1
+
+            # Region/world counts
+            if region:
+                acc_region_counts[region] = acc_region_counts.get(region, 0) + 1
+                if char_status == "excluded":
+                    acc_region_excluded[region] = acc_region_excluded.get(region, 0) + 1
+                elif char_status == "in_fc":
+                    acc_region_fc[region] = acc_region_fc.get(region, 0) + 1
+                elif char_status == "fc_managed":
+                    acc_region_fc_nosubs[region] = acc_region_fc_nosubs.get(region, 0) + 1
+            if world:
+                acc_world_counts[world] = acc_world_counts.get(world, 0) + 1
+                if char_status == "excluded":
+                    acc_world_excluded_counts[world] = acc_world_excluded_counts.get(world, 0) + 1
+                elif char_status == "in_fc":
+                    acc_world_fc_counts[world] = acc_world_fc_counts.get(world, 0) + 1
+                elif char_status == "fc_managed":
+                    acc_world_fc_nosubs_counts[world] = acc_world_fc_nosubs_counts.get(world, 0) + 1
+
+            # Track character for clickable world UI
+            if world not in per_world_chars:
+                per_world_chars[world] = []
+            char_info = {
+                "name": name,
+                "status": char_status,
+                "fc_name": fc_name,
+            }
+            if char_status == "fc_managed" and fc_key and fc_key in global_fc_managers:
+                mgr = global_fc_managers[fc_key]
+                char_info["managed_by"] = mgr["name"]
+                char_info["managed_by_account"] = mgr["account"]
+            per_world_chars[world].append(char_info)
+
+            # Characters not in FC (can_join or excluded — not green/orange)
+            if char_status in ("can_join", "excluded"):
+                char_entry = {
+                    "name": name,
+                    "world": world,
+                    "region": region,
+                    "highest_level": highest_level,
+                    "account": account["nickname"],
+                    "has_fc_house": False,
+                    "has_private_house": False,
+                    "is_excluded": is_excluded,
+                }
+                if cid in housing_map:
+                    if housing_map[cid].get('fc'):
+                        char_entry["has_fc_house"] = True
+                    if housing_map[cid].get('private'):
+                        char_entry["has_private_house"] = True
+                        pd = housing_map[cid]['private']
+                        char_entry["private_house"] = f"{pd['district']} W{pd['ward']} P{pd['plot']}"
+                acc_no_fc_list.append(char_entry)
+                no_fc_chars.append(char_entry)
+
+            # Collect plot data from housing_map
+            if cid in housing_map:
+                for plot_type in ['private', 'fc']:
+                    pd = housing_map[cid].get(plot_type)
+                    if pd:
+                        # Deduplicate FC plots by world+district+ward+plot (same as main page unique_fc_plots)
+                        plot_key = f"{world}_{pd['district']}_W{pd['ward']}_P{pd['plot']}"
+                        if plot_type == 'fc':
+                            if plot_key in seen_fc_plots:
+                                continue  # Skip duplicate FC plot (shared by multiple chars in same FC)
+                            seen_fc_plots.add(plot_key)
+
+                        entry = {
+                            "type": plot_type,
+                            "district": pd['district'],
+                            "ward": pd['ward'],
+                            "plot": pd['plot'],
+                            "world": world,
+                            "region": region,
+                            "character": name,
+                            "account": account["nickname"],
+                            "fc_name": fc_name if plot_type == 'fc' else "",
+                        }
+                        plot_list.append(entry)
+
+                        # Build district -> ward map
+                        dist = pd['district']
+                        if dist not in district_ward_map:
+                            district_ward_map[dist] = {}
+                        ward = pd['ward']
+                        if ward not in district_ward_map[dist]:
+                            district_ward_map[dist][ward] = []
+                        district_ward_map[dist][ward].append(entry)
+
+            # Collect submarine data for Sub Planner
+            submarines = parse_submarine_data(char)
+            if submarines:
+                subs_sleeping = not char.get("WorkshopEnabled", True)
+                sub_list = []
+                for s in submarines:
+                    # Compact ETA: "R" if ready, "Xh" or "Xm" or "XdYh"
+                    eta = "R"
+                    if not s.get("is_ready", False) and s.get("return_time"):
+                        delta = datetime.datetime.fromtimestamp(s["return_time"]) - datetime.datetime.now()
+                        secs = delta.total_seconds()
+                        if secs > 0:
+                            hrs = int(secs // 3600)
+                            mins = int((secs % 3600) // 60)
+                            if hrs >= 24:
+                                eta = f"{hrs // 24}d{hrs % 24}h"
+                            elif hrs > 0:
+                                eta = f"{hrs}h"
+                            else:
+                                eta = f"{mins}m"
+                    sub_list.append({
+                        "name": s["name"],
+                        "level": s["level"],
+                        "build": s["build"],
+                        "plan_name": s.get("plan_name", ""),
+                        "is_farming": s.get("is_farming", False),
+                        "is_leveling": s.get("is_leveling", False),
+                        "eta": eta,
+                    })
+
+                # Character inventory stats
+                ceruleum = char.get("Ceruleum", 0)
+                repair_kits = char.get("RepairKits", 0)
+                inventory_space = char.get("InventorySpace", 0)
+                total_tanks_per_day = sum(s.get("tanks_per_day", 0) for s in submarines)
+                total_kits_per_day = sum(s.get("kits_per_day", 0) for s in submarines)
+                restock_days = None
+                if total_tanks_per_day > 0 and total_kits_per_day > 0:
+                    d_tanks = ceruleum / total_tanks_per_day if ceruleum > 0 else 0
+                    d_kits = repair_kits / total_kits_per_day if repair_kits > 0 else 0
+                    restock_days = int(min(d_tanks, d_kits))
+
+                acc_sub_chars.append({
+                    "name": name,
+                    "world": world,
+                    "region": region,
+                    "fc_name": fc_name,
+                    "excluded": is_excluded,
+                    "sleeping": subs_sleeping,
+                    "subs": sub_list,
+                    "tanks": ceruleum,
+                    "kits": repair_kits,
+                    "restock_days": restock_days,
+                    "inventory": inventory_space,
+                })
+
+        # Calculate capacity per region
+        region_capacity = []
+        for reg in ["NA", "EU", "JP", "OCE"]:
+            limit = REGION_CHAR_LIMITS[reg]
+            current = acc_region_counts.get(reg, 0)
+            in_fc_count = acc_region_fc.get(reg, 0)
+            in_fc_no_subs_count = acc_region_fc_nosubs.get(reg, 0)
+            excluded_count = acc_region_excluded.get(reg, 0)
+            not_in_fc = current - in_fc_count - in_fc_no_subs_count - excluded_count
+            remaining = limit - current
+
+            # Per-world breakdown for this region
+            world_set = NA_WORLDS if reg == "NA" else EU_WORLDS if reg == "EU" else JP_WORLDS if reg == "JP" else OCE_WORLDS
+            world_breakdown = []
+            for w in sorted(world_set):
+                w_title = w.title()
+                count = acc_world_counts.get(w_title, 0)
+                if count > 0:
+                    w_in_fc = acc_world_fc_counts.get(w_title, 0)
+                    w_in_fc_no_subs = acc_world_fc_nosubs_counts.get(w_title, 0)
+                    w_excluded = acc_world_excluded_counts.get(w_title, 0)
+                    w_not_in_fc = count - w_in_fc - w_in_fc_no_subs - w_excluded
+                    world_breakdown.append({"world": w_title, "count": count, "in_fc": w_in_fc, "in_fc_no_subs": w_in_fc_no_subs, "not_in_fc": w_not_in_fc, "excluded": w_excluded, "max": MAX_CHARS_PER_WORLD, "remaining": MAX_CHARS_PER_WORLD - count, "chars": per_world_chars.get(w_title, [])})
+
+            region_capacity.append({
+                "region": reg,
+                "limit": limit,
+                "current": current,
+                "in_fc": in_fc_count,
+                "in_fc_no_subs": in_fc_no_subs_count,
+                "not_in_fc": not_in_fc,
+                "excluded": excluded_count,
+                "remaining": remaining,
+                "worlds": world_breakdown,
+            })
+
+        account_summaries.append({
+            "nickname": account["nickname"],
+            "total_chars": acc_chars_total,
+            "in_fc": acc_chars_in_fc,
+            "in_fc_no_subs": acc_chars_in_fc_no_subs,
+            "not_in_fc": acc_chars_no_fc,
+            "excluded": acc_chars_excluded,
+            "no_fc_chars": acc_no_fc_list,
+            "region_capacity": region_capacity,
+        })
+
+        if acc_sub_chars:
+            sub_planner_accounts.append({
+                "nickname": account["nickname"],
+                "characters": acc_sub_chars,
+                "total_subs": sum(len(c["subs"]) for c in acc_sub_chars),
+                "total_chars": len(acc_sub_chars),
+            })
+
+    # Build district summary for visualization (ordered: Goblet, LB, Mist, Empyreum, Shirogane)
+    district_summary = {}
+    # Process in defined order, then any extras alphabetically
+    ordered_districts = [d for d in DISTRICT_ORDER if d in district_ward_map]
+    ordered_districts += sorted(d for d in district_ward_map if d not in DISTRICT_ORDER)
+    for dist in ordered_districts:
+        wards = district_ward_map[dist]
+        ward_list = []
+        for ward_num in sorted(wards.keys()):
+            plots = sorted(wards[ward_num], key=lambda p: p['plot'])
+            fc_count = sum(1 for p in plots if p['type'] == 'fc')
+            personal_count = sum(1 for p in plots if p['type'] == 'private')
+            ward_list.append({
+                "ward": ward_num,
+                "plots": plots,
+                "fc_count": fc_count,
+                "personal_count": personal_count,
+                "total": len(plots),
+            })
+        district_summary[dist] = {
+            "wards": ward_list,
+            "total_plots": sum(w['total'] for w in ward_list),
+            "total_fc": sum(w['fc_count'] for w in ward_list),
+            "total_personal": sum(w['personal_count'] for w in ward_list),
+            "ward_count": len(ward_list),
+        }
+
+    total_plots = sum(d['total_plots'] for d in district_summary.values())
+    total_fc = sum(d['total_fc'] for d in district_summary.values())
+    total_personal = sum(d['total_personal'] for d in district_summary.values())
+
+    # Aggregate character counts across all accounts
+    total_chars = sum(a["total_chars"] for a in account_summaries)
+    total_in_fc = sum(a["in_fc"] for a in account_summaries)
+    total_in_fc_no_subs = sum(a["in_fc_no_subs"] for a in account_summaries)
+    total_not_in_fc = sum(a["not_in_fc"] for a in account_summaries)
+    num_accounts = len(account_summaries)
+
+    # Max capacity: sum of all region limits across all accounts
+    max_capacity = 0
+    for acc in account_summaries:
+        for rc in acc["region_capacity"]:
+            max_capacity += rc["limit"]
+
+    # FC coverage percentage
+    fc_coverage_pct = round(total_in_fc / total_chars * 100, 1) if total_chars > 0 else 0
+
+    # Max ward total across all districts (for bar chart scaling)
+    max_ward_total = 0
+    for dist_data in district_summary.values():
+        for w in dist_data["wards"]:
+            if w["total"] > max_ward_total:
+                max_ward_total = w["total"]
+
+    return {
+        "plots": plot_list,
+        "district_summary": district_summary,
+        "district_ward_map": district_ward_map,
+        "no_fc_chars": no_fc_chars,
+        "account_summaries": account_summaries,
+        "total_plots": total_plots,
+        "total_fc": total_fc,
+        "total_personal": total_personal,
+        "total_chars": total_chars,
+        "total_in_fc": total_in_fc,
+        "total_in_fc_no_subs": total_in_fc_no_subs,
+        "total_not_in_fc": total_not_in_fc,
+        "num_accounts": num_accounts,
+        "max_capacity": max_capacity,
+        "fc_coverage_pct": fc_coverage_pct,
+        "max_ward_total": max_ward_total,
+        "sub_planner_accounts": sub_planner_accounts,
+        "plot_regions": sorted(set(p["region"] for p in plot_list if p.get("region"))),
+        "plot_account_names": sorted(set(p["account"] for p in plot_list if p.get("account"))),
+        "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
+# ===============================================
+# Map Page HTML Template
+# ===============================================
+MAP_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plot Map - AutoRetainer Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #0f3460;
+            --bg-hover: #1a4a7a;
+            --text-primary: #e8e8e8;
+            --text-secondary: #a0a0a0;
+            --accent: #3a7aaa;
+            --accent-light: #4a9aca;
+            --accent-highlight: #e94560;
+            --success: #00d26a;
+            --warning: #ffc107;
+            --border: #2a2a4a;
+            --gold: #ffd700;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
+
+        .top-bar {
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .top-bar h1 { font-size: 1.3rem; color: var(--accent-light); }
+        .top-bar h1 span { color: var(--text-secondary); font-weight: 400; font-size: 0.85rem; margin-left: 8px; }
+        .top-bar a { color: var(--accent-light); text-decoration: none; font-size: 0.9rem; padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; transition: all 0.2s; }
+        .top-bar a:hover { background: var(--bg-hover); border-color: var(--accent); }
+        .top-bar a.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        .container { max-width: 1700px; margin: 0 auto; padding: 20px; }
+
+        /* Summary cards */
+        .summary-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .summary-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 24px;
+            flex: 1;
+            min-width: 160px;
+            text-align: center;
+        }
+        .summary-card .value { font-size: 2rem; font-weight: 700; color: var(--accent-light); }
+        .summary-card .label { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; }
+        .summary-card .sublabel { font-size: 0.7rem; color: var(--text-secondary); margin-top: 4px; }
+        .summary-card.fc .value { color: var(--success); }
+        .summary-card.personal .value { color: var(--gold); }
+        .summary-card.warn .value { color: var(--warning); }
+        .summary-card.accent .value { color: var(--accent-highlight); }
+
+        .info-disclaimer {
+            background: rgba(58, 122, 170, 0.1);
+            border: 1px solid rgba(58, 122, 170, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 8px 0 16px 0;
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        .info-disclaimer strong { color: var(--accent-light); }
+
+        /* Section headers */
+        .section-header {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--accent-light);
+            margin: 28px 0 14px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* District visualization */
+        .district-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .district-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: visible;
+            transition: border-color 0.2s;
+        }
+        .district-card:hover { border-color: var(--accent); }
+        .district-card-header {
+            padding: 10px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            border-radius: 10px 10px 0 0;
+            background: var(--bg-card);
+        }
+        .district-name { font-weight: 700; font-size: 1.05rem; }
+        .district-count {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 10px;
+        }
+        .district-count .fc-tag { color: var(--success); }
+        .district-count .personal-tag { color: var(--gold); }
+        .district-body { padding: 10px 10px; border-radius: 0 0 10px 10px; background: var(--bg-card); }
+
+        /* Ward rows */
+        .ward-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .ward-row:last-child { border-bottom: none; }
+        .ward-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            width: 30px;
+            flex-shrink: 0;
+            font-weight: 600;
+        }
+        .ward-plots { display: flex; gap: 3px; flex-wrap: wrap; flex: 1; }
+
+        /* Plot dots */
+        .plot-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.48rem;
+            font-weight: 700;
+            cursor: default;
+            position: relative;
+            transition: transform 0.15s;
+        }
+        .plot-dot:hover { transform: scale(1.4); z-index: 50; }
+        .plot-dot.fc { background: var(--success); color: #000; }
+        .plot-dot.private { background: var(--gold); color: #000; }
+
+        /* Tooltip */
+        .plot-dot .tooltip {
+            display: none;
+            position: absolute;
+            bottom: 130%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #111;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 10px;
+            white-space: nowrap;
+            font-size: 0.75rem;
+            color: var(--text-primary);
+            z-index: 50;
+            pointer-events: none;
+            font-weight: 400;
+        }
+        .plot-dot:hover .tooltip { display: block; }
+
+        /* Ward bar chart */
+        .ward-bar-container { margin-top: 10px; }
+        .ward-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .ward-bar-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            width: 52px;
+            flex-shrink: 0;
+            text-align: right;
+        }
+        .ward-bar-track {
+            flex: 1;
+            height: 14px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 3px;
+            overflow: hidden;
+            display: flex;
+        }
+        .ward-bar-fc {
+            height: 100%;
+            background: var(--success);
+            transition: width 0.4s;
+        }
+        .ward-bar-personal {
+            height: 100%;
+            background: var(--gold);
+            transition: width 0.4s;
+        }
+        .ward-bar-value {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            width: 40px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        /* View toggle */
+        .view-toggle {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 3px;
+            border: 1px solid var(--border);
+        }
+        .view-toggle button {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            padding: 5px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+        .view-toggle button.active { background: var(--accent); color: #fff; }
+        .view-toggle button:hover:not(.active) { color: var(--text-primary); }
+
+        /* FC Planner section */
+        .planner-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .planner-controls label { font-size: 0.85rem; color: var(--text-secondary); }
+        .planner-controls select {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .planner-controls select:focus { outline: none; border-color: var(--accent); }
+
+        /* Region cards */
+        .region-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .region-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+        }
+        .region-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .region-card-header h3 { font-size: 1.05rem; color: var(--accent-light); }
+        .region-badge {
+            font-size: 0.75rem;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+        .region-badge.full { background: var(--accent-highlight); color: #fff; }
+        .region-badge.available { background: var(--success); color: #000; }
+
+        /* Capacity bar */
+        .capacity-bar {
+            height: 28px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            overflow: hidden;
+            display: flex;
+            margin: 8px 0;
+            position: relative;
+        }
+        .capacity-bar .in-fc {
+            height: 100%;
+            background: var(--success);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #000;
+            min-width: 20px;
+            transition: width 0.4s;
+        }
+        .capacity-bar .in-fc-no-subs {
+            height: 100%;
+            background: #e67e22;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #000;
+            min-width: 20px;
+            transition: width 0.4s;
+        }
+        .capacity-bar .not-in-fc {
+            height: 100%;
+            background: var(--warning);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #000;
+            min-width: 20px;
+            transition: width 0.4s;
+        }
+        .capacity-bar .excluded {
+            height: 100%;
+            background: rgba(255,255,255,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: rgba(255,255,255,0.5);
+            min-width: 20px;
+            transition: width 0.4s;
+        }
+        .capacity-bar .remaining-space {
+            height: 100%;
+            flex: 1;
+        }
+        .capacity-legend {
+            display: flex;
+            gap: 16px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 6px;
+        }
+        .capacity-legend span { display: flex; align-items: center; gap: 4px; cursor: default; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+        .legend-dot.fc-dot { background: var(--success); }
+        .legend-dot.fc-nosubs-dot { background: #e67e22; }
+        .legend-dot.nofc-dot { background: var(--warning); }
+        .legend-dot.excluded-dot { background: rgba(255,255,255,0.15); }
+        .legend-dot.empty-dot { background: rgba(255,255,255,0.1); }
+
+        .capacity-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+            text-align: center;
+        }
+        .cap-stat { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 8px; }
+        .cap-stat .cap-val { font-size: 1.1rem; font-weight: 700; }
+        .cap-stat .cap-lbl { font-size: 0.7rem; color: var(--text-secondary); }
+        .cap-stat.green .cap-val { color: var(--success); }
+        .cap-stat.orange .cap-val { color: #e67e22; }
+        .cap-stat.yellow .cap-val { color: var(--warning); }
+        .cap-stat.gray .cap-val { color: rgba(255,255,255,0.5); }
+        .cap-stat.blue .cap-val { color: var(--accent-light); }
+
+        /* World breakdown */
+        .world-breakdown { margin-top: 12px; }
+        .world-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            font-size: 0.8rem;
+        }
+        .world-name { width: 100px; color: var(--text-secondary); }
+        .world-bar-track {
+            flex: 1;
+            height: 14px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 3px;
+            overflow: hidden;
+            display: flex;
+        }
+        .world-bar-fc {
+            height: 100%;
+            background: var(--success);
+            transition: width 0.3s;
+        }
+        .world-bar-fc-nosubs {
+            height: 100%;
+            background: #e67e22;
+            transition: width 0.3s;
+        }
+        .world-bar-nofc {
+            height: 100%;
+            background: var(--warning);
+            transition: width 0.3s;
+        }
+        .world-bar-excluded {
+            height: 100%;
+            background: rgba(255,255,255,0.15);
+            transition: width 0.3s;
+        }
+        .world-count { width: 40px; text-align: right; font-size: 0.75rem; color: var(--text-secondary); }
+        .world-row { cursor: pointer; border-radius: 4px; padding: 4px 6px !important; }
+        .world-row:hover { background: rgba(255,255,255,0.05); }
+        .world-chars {
+            display: none;
+            padding: 6px 8px 8px 108px;
+            font-size: 0.75rem;
+            line-height: 1.6;
+        }
+        .world-chars.open { display: block; }
+        .world-chars .ch-name { margin-right: 6px; }
+        .world-chars .ch-name.st-in_fc { color: var(--success); }
+        .world-chars .ch-name.st-fc_managed { color: #e67e22; }
+        .world-chars .ch-name.st-can_join { color: var(--warning); }
+        .world-chars .ch-name.st-excluded { color: rgba(255,255,255,0.4); }
+        .world-chars .ch-fc { font-size: 0.65rem; color: var(--text-secondary); }
+
+        /* Sub Planner */
+        .sub-planner-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 6px;
+        }
+        .sp-account {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .sp-acc-header {
+            background: rgba(255,255,255,0.04);
+            padding: 4px 6px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--accent-light);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .sp-acc-header .sp-count {
+            font-weight: 400;
+            color: var(--text-secondary);
+            font-size: 0.55rem;
+        }
+        .sp-char {
+            padding: 2px 5px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .sp-char:last-child { border-bottom: none; }
+        .sp-char-name {
+            font-size: 0.6rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sp-char-name .sp-world {
+            font-weight: 400;
+            color: var(--text-secondary);
+            font-size: 0.55rem;
+        }
+        .sp-sub-row {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.58rem;
+            line-height: 1.35;
+            padding-left: 4px;
+        }
+        .sp-sub-lvl {
+            min-width: 22px;
+            font-weight: 600;
+        }
+        .sp-sub-lvl.farming { color: var(--success); }
+        .sp-sub-lvl.leveling { color: var(--warning); }
+        .sp-sub-build {
+            color: var(--text-secondary);
+            min-width: 34px;
+            font-family: monospace;
+            font-size: 0.55rem;
+        }
+        .sp-sub-eta {
+            min-width: 22px;
+            font-size: 0.55rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-align: center;
+        }
+        .sp-sub-eta.ready { color: var(--success); }
+        .sp-sub-plan {
+            color: var(--text-secondary);
+            font-size: 0.55rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+        }
+        .sp-inv-row {
+            display: flex;
+            gap: 4px;
+            padding: 1px 4px 2px;
+            font-size: 0.5rem;
+            color: var(--text-secondary);
+            border-top: 1px solid rgba(255,255,255,0.04);
+            flex-wrap: wrap;
+        }
+        .sp-inv-row span { cursor: default; white-space: nowrap; }
+        .sp-sort-bar {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+        }
+        .sp-sort-btn {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 0.65rem;
+            padding: 2px 7px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .sp-sort-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+        .sp-sort-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .sp-char.excluded { opacity: 0.35; }
+        .sp-char.sleeping { opacity: 0.5; }
+
+        /* No FC character table */
+        .char-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        .char-table th {
+            text-align: left;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--border);
+        }
+        .char-table td {
+            padding: 6px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .char-table tr:hover td { background: rgba(255,255,255,0.03); }
+        .char-table .lv-high { color: var(--success); font-weight: 600; }
+        .char-table .lv-mid { color: var(--warning); }
+        .char-table .lv-low { color: var(--text-secondary); }
+        .char-table .region-tag {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.08);
+            font-weight: 600;
+        }
+        .char-table .house-icon { font-size: 0.85rem; }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .footer-note {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            padding: 20px 0;
+            border-top: 1px solid var(--border);
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <h1>🗺️ Plot Map & FC Planner <span>{{ version }}</span></h1>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:0.75rem;color:var(--text-secondary);">Updated: {{ data.last_updated }}</span>
+            <a href="/">📊 Dashboard</a>
+            <a href="/fcdata/" class="active">🏨 FC Data</a>
+            <a href="/data/">📝 Data</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Summary cards -->
+        <div class="summary-row">
+            <div class="summary-card">
+                <div class="value">{{ data.total_chars }}</div>
+                <div class="label">👥 Total Characters</div>
+                <div class="sublabel">{{ data.num_accounts }} accounts</div>
+            </div>
+            <div class="summary-card fc">
+                <div class="value">{{ data.total_in_fc }}</div>
+                <div class="label">✅ In FC</div>
+                <div class="sublabel">{{ data.fc_coverage_pct }}% coverage</div>
+            </div>
+            <div class="summary-card warn">
+                <div class="value">{{ data.total_not_in_fc }}</div>
+                <div class="label">⚠️ Can Join FC</div>
+                <div class="sublabel">of {{ data.max_capacity }} max capacity</div>
+            </div>
+            <div class="summary-card fc">
+                <div class="value">{{ data.total_fc }}</div>
+                <div class="label">🏨 FC Plots</div>
+                <div class="sublabel">{{ data.total_plots }} total plots</div>
+            </div>
+            <div class="summary-card personal">
+                <div class="value">{{ data.total_personal }}</div>
+                <div class="label">🏡 Personal Plots</div>
+                <div class="sublabel">{{ data.district_summary|length }} districts</div>
+            </div>
+        </div>
+
+        <!-- Plot Visualization -->
+        <div class="section-header">
+            <span>🏘️ Housing Plot Overview</span>
+            <div style="margin-left:auto;">
+                <div class="view-toggle">
+                    <button class="active" onclick="setView('dots', this)">Grid</button>
+                    <button onclick="setView('bars', this)">Bars</button>
+                </div>
+            </div>
+        </div>
+
+        {% if data.district_summary %}
+        <div class="plot-filters" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px;font-size:0.8rem;">
+            <span style="color:var(--text-secondary);font-weight:600;">Region:</span>
+            <div class="view-toggle" id="region-plot-toggle">
+                <button class="active" onclick="setPlotRegion('all', this)">All</button>
+                {% for reg in data.plot_regions %}
+                <button onclick="setPlotRegion('{{ reg }}', this)">{{ reg }}</button>
+                {% endfor %}
+            </div>
+            <span style="color:var(--text-secondary);font-weight:600;margin-left:8px;">Accounts:</span>
+            {% for acc_name in data.plot_account_names %}
+            <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;color:var(--text-secondary);">
+                <input type="checkbox" checked onchange="filterPlots()" class="plot-acc-cb" value="{{ acc_name }}" style="cursor:pointer;"> {{ acc_name }}
+            </label>
+            {% endfor %}
+        </div>
+        <div class="district-grid">
+            {% for dist_name, dist_data in data.district_summary.items() %}
+            <div class="district-card">
+                <div class="district-card-header">
+                    <span class="district-name">
+                        {% if dist_name == "Mist" %}🌊{% elif dist_name == "Goblet" %}🏜️{% elif dist_name == "LB" %}🌿{% elif dist_name == "Empyreum" %}⛰️{% elif dist_name == "Shirogane" %}🏯{% endif %}
+                        {{ dist_name }}
+                    </span>
+                    <span class="district-count">
+                        <span class="fc-tag">🏨 {{ dist_data.total_fc }}</span>
+                        <span class="personal-tag">🏡 {{ dist_data.total_personal }}</span>
+                    </span>
+                </div>
+                <div class="district-body">
+                    <!-- Dot view -->
+                    <div class="view-dots">
+                        {% for ward_data in dist_data.wards %}
+                        <div class="ward-row">
+                            <span class="ward-label">W{{ ward_data.ward }}</span>
+                            <div class="ward-plots">
+                                {% for plot in ward_data.plots %}
+                                <div class="plot-dot {{ plot.type }}" title="P{{ plot.plot }}" data-region="{{ plot.region }}" data-account="{{ plot.account }}">
+                                    {{ plot.plot }}
+                                    <div class="tooltip">
+                                        <b>{{ plot.character }}</b><br>
+                                        {{ dist_name }} W{{ ward_data.ward }} P{{ plot.plot }}<br>
+                                        {{ "FC" if plot.type == "fc" else "Personal" }}{% if plot.fc_name %} - {{ plot.fc_name }}{% endif %}<br>
+                                        <span style="color:var(--text-secondary)">{{ plot.world }} ({{ plot.account }})</span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <!-- Bar view -->
+                    <div class="view-bars" style="display:none;">
+                        <div class="ward-bar-container">
+                            {% for ward_data in dist_data.wards %}
+                            <div class="ward-bar-row">
+                                <span class="ward-bar-label">W{{ ward_data.ward }}</span>
+                                <div class="ward-bar-track">
+                                    <div class="ward-bar-fc" style="width:{{ (ward_data.fc_count / data.max_ward_total * 100)|round(1) if ward_data.fc_count > 0 else 0 }}%;{% if ward_data.fc_count == 0 %}display:none{% endif %}"></div>
+                                    <div class="ward-bar-personal" style="width:{{ (ward_data.personal_count / data.max_ward_total * 100)|round(1) if ward_data.personal_count > 0 else 0 }}%;{% if ward_data.personal_count == 0 %}display:none{% endif %}"></div>
+                                </div>
+                                <span class="ward-bar-value">{{ ward_data.total }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div style="display:flex;gap:16px;justify-content:center;margin-bottom:24px;font-size:0.8rem;">
+            <span style="display:flex;align-items:center;gap:5px;"><span class="legend-dot fc-dot"></span> FC Plot</span>
+            <span style="display:flex;align-items:center;gap:5px;"><span class="legend-dot nofc-dot" style="background:var(--gold)"></span> Personal Plot</span>
+        </div>
+        {% else %}
+        <div class="no-data">No housing plot data found. Ensure Lifestream DefaultConfig.json is configured.</div>
+        {% endif %}
+
+        <!-- FC Capacity Planner -->
+        <div class="section-header">
+            <span>📊 FC Capacity Planner</span>
+        </div>
+
+        <div class="info-disclaimer">
+            <strong>ℹ️ How "In FC" is determined:</strong> A character counts as <span style="color:var(--success);font-weight:600;">In FC</span> (green) only if it has active submarines in a <em>unique</em> FC &mdash; multiple characters in the same FC are de-duplicated by plot location. Green characters may or may not show an FC name; what matters is they have active subs. <span style="color:#e67e22;font-weight:600;">Managed by Alt</span> (orange) means another character is already managing the subs for that FC &mdash; click on a world bar to see which character and account is handling it. <span style="color:var(--warning);font-weight:600;">Can Join FC</span> (yellow) characters are not in any FC for capacity purposes; they may still show an FC name if they're in an FC but have no plot or active subs. <span style="color:rgba(255,255,255,0.4);font-weight:600;">Excluded</span> (gray) characters have <code>ExcludeWorkshop</code> enabled in AutoRetainer.<br>
+            <strong>⚠️ FC Name Data:</strong> AutoRetainer may not always have your FC name saved correctly. If a character shows an FC name but is no longer in that FC, open AutoRetainer settings in-game &rarr; Exclusions &rarr; search the character &rarr; click <em>"Remove FC Data"</em> to clear stale data. You can refresh sub data by interacting with the submersible console afterwards if needed.<br>
+            <strong>📊 OCE Max Capacity:</strong> OCE shows 39 max per account by default, reserving 1 slot for DC travel from other regions. NA/EU/JP/OCE max is 40 per account, 8 max per world.
+        </div>
+
+        <div class="planner-controls">
+            <label for="account-select">Account:</label>
+            <select id="account-select" onchange="updatePlanner()">
+                <option value="all">All Accounts</option>
+                {% for acc in data.account_summaries %}
+                <option value="{{ acc.nickname }}">{{ acc.nickname }} ({{ acc.total_chars }} chars)</option>
+                {% endfor %}
+            </select>
+
+            <label for="region-select">Region:</label>
+            <select id="region-select" onchange="updatePlanner()">
+                <option value="all">All Regions</option>
+                <option value="NA">NA (40 max)</option>
+                <option value="EU">EU (40 max)</option>
+                <option value="JP">JP (40 max)</option>
+                <option value="OCE">OCE (39 max)</option>
+            </select>
+        </div>
+
+        <div id="planner-content">
+            <!-- Populated by JS -->
+        </div>
+
+        <!-- Sub Planners -->
+        <div class="section-header">
+            <span>🚢 Sub Planners</span>
+            <span style="font-size:0.8rem;color:var(--text-secondary);margin-left:auto;">
+                {{ data.sub_planner_accounts|sum(attribute='total_subs') }} subs across {{ data.sub_planner_accounts|sum(attribute='total_chars') }} characters
+            </span>
+        </div>
+
+        {% if data.sub_planner_accounts %}
+        <div class="sp-sort-bar">
+            <span style="color:var(--text-secondary);font-size:0.7rem;margin-right:4px;">Sort:</span>
+            <button class="sp-sort-btn active" onclick="sortSubPlanners('default',this)" title="Default order">Default</button>
+            <button class="sp-sort-btn" onclick="sortSubPlanners('maxlvl',this)" data-key="maxlvl" data-dir="desc" title="Sort by sub level">🔱 Level ▼</button>
+            <button class="sp-sort-btn" onclick="sortSubPlanners('tanks',this)" data-key="tanks" data-dir="desc" title="Sort by ceruleum tanks">⛽ Tanks ▼</button>
+            <button class="sp-sort-btn" onclick="sortSubPlanners('kits',this)" data-key="kits" data-dir="desc" title="Sort by repair kits">🔧 Kits ▼</button>
+            <button class="sp-sort-btn" onclick="sortSubPlanners('restock',this)" data-key="restock" data-dir="asc" title="Sort by restock days">♻️ Restock ▲</button>
+            <button class="sp-sort-btn" onclick="sortSubPlanners('inv',this)" data-key="inv" data-dir="desc" title="Sort by inventory slots">🎒 Inventory ▼</button>
+        </div>
+        <div class="sub-planner-grid">
+            {% for spa in data.sub_planner_accounts %}
+            <div class="sp-account">
+                <div class="sp-acc-header">
+                    <span>{{ spa.nickname }}</span>
+                    <span class="sp-count">{{ spa.total_subs }} subs / {{ spa.total_chars }} chars</span>
+                </div>
+                {% for ch in spa.characters %}
+                <div class="sp-char{% if ch.excluded %} excluded{% endif %}{% if ch.sleeping %} sleeping{% endif %}" data-maxlvl="{{ ch.subs|map(attribute='level')|max }}" data-tanks="{{ ch.tanks }}" data-kits="{{ ch.kits }}" data-restock="{{ ch.restock_days if ch.restock_days is not none else 9999 }}" data-inv="{{ ch.inventory }}">
+                    <div class="sp-char-name" title="{{ ch.name }}@{{ ch.world }} ({{ ch.region }}){% if ch.fc_name %} — {{ ch.fc_name }}{% endif %}{% if ch.excluded %} [EXCLUDED]{% endif %}{% if ch.sleeping %} [SLEEPING]{% endif %}">
+                        {{ ch.name }}<span class="sp-world">@{{ ch.world }}</span>
+                    </div>
+                    {% for sub in ch.subs %}
+                    <div class="sp-sub-row">
+                        <span class="sp-sub-lvl {{ 'farming' if sub.is_farming else 'leveling' }}">{{ sub.level }}</span>
+                        <span class="sp-sub-build">{{ sub.build }}</span>
+                        <span class="sp-sub-eta{% if sub.eta == 'R' %} ready{% endif %}">{{ sub.eta }}</span>
+                        <span class="sp-sub-plan" title="{{ sub.plan_name if sub.plan_name else 'No plan' }}">{{ sub.plan_name if sub.plan_name else '—' }}</span>
+                    </div>
+                    {% endfor %}
+                    <div class="sp-inv-row">
+                        <span title="Ceruleum Tanks: {{ '{:,}'.format(ch.tanks) }}">⛽{{ ch.tanks|sp_compact }}</span>
+                        <span title="Repair Kits: {{ '{:,}'.format(ch.kits) }}">🔧{{ ch.kits|sp_compact }}</span>
+                        <span title="Days until restock">♻️{{ ch.restock_days if ch.restock_days is not none else '?' }}</span>
+                        <span title="Inventory slots remaining">🎒{{ ch.inventory }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div style="display:flex;gap:16px;justify-content:center;margin:10px 0 20px;font-size:0.75rem;color:var(--text-secondary);">
+            <span style="display:flex;align-items:center;gap:4px;"><span style="color:var(--success);font-weight:700;">Lv</span> Farming</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="color:var(--warning);font-weight:700;">Lv</span> Leveling</span>
+        </div>
+        {% else %}
+        <div class="no-data">No submarine data found.</div>
+        {% endif %}
+
+        <!-- Characters Not in FC -->
+        <div class="section-header">
+            <span>👤 Characters Not in FC</span>
+            <span style="font-size:0.8rem;color:var(--text-secondary);margin-left:auto;">{{ data.no_fc_chars|length }} characters</span>
+        </div>
+
+        {% if data.no_fc_chars %}
+        <div style="margin-bottom:8px;">
+            <label style="font-size:0.8rem;color:var(--text-secondary);cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                <input type="checkbox" id="hide-excluded" onchange="toggleExcluded()" style="cursor:pointer;" checked> Hide excluded toons
+            </label>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+            <table class="char-table">
+                <thead>
+                    <tr>
+                        <th>Character</th>
+                        <th>World</th>
+                        <th>Region</th>
+                        <th>Level</th>
+                        <th>Account</th>
+                        <th>Housing</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ch in data.no_fc_chars|sort(attribute='highest_level', reverse=true) %}
+                    <tr{% if ch.get('is_excluded') %} data-excluded="1" style="opacity:0.4"{% endif %}>
+                        <td style="color:{{ 'rgba(255,255,255,0.4)' if ch.get('is_excluded') else 'var(--warning)' }}">{{ ch.name }}{% if ch.get('is_excluded') %} 🚫{% endif %}</td>
+                        <td>{{ ch.world }}</td>
+                        <td><span class="region-tag">{{ ch.region }}</span></td>
+                        <td class="{{ 'lv-high' if ch.highest_level >= 25 else ('lv-mid' if ch.highest_level >= 10 else 'lv-low') }}">
+                            Lv {{ ch.highest_level }}
+                        </td>
+                        <td style="color:var(--text-secondary)">{{ ch.account }}</td>
+                        <td>
+                            {% if ch.has_private_house %}<span class="house-icon" title="{{ ch.get('private_house', '') }}">🏡</span>{% endif %}
+                            {% if ch.has_fc_house %}<span class="house-icon">🏨 <span style="font-size:0.7rem;color:var(--text-secondary)">(no subs)</span></span>{% endif %}
+                            {% if not ch.has_private_house and not ch.has_fc_house %}<span style="color:var(--text-secondary)">-</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="no-data">All characters are in a Free Company!</div>
+        {% endif %}
+
+        <div class="footer-note">
+            AutoRetainer Dashboard {{ version }} &bull; <a href="/" style="color:var(--accent-light);text-decoration:none;">Back to Dashboard</a>
+        </div>
+    </div>
+
+    <script>
+        function toggleExcluded() {
+            const hide = document.getElementById('hide-excluded').checked;
+            document.querySelectorAll('tr[data-excluded]').forEach(r => r.style.display = hide ? 'none' : '');
+        }
+        // Apply default hide on page load
+        toggleExcluded();
+        // Raw data from backend
+        const accountData = {{ data.account_summaries | tojson }};
+        const REGION_LIMITS = {"NA": 40, "EU": 40, "JP": 40, "OCE": 39};
+        const MAX_PER_WORLD = 8;
+
+        let currentPlotRegion = 'all';
+
+        function setView(view, btn) {
+            btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.view-dots').forEach(el => el.style.display = view === 'dots' ? '' : 'none');
+            document.querySelectorAll('.view-bars').forEach(el => el.style.display = view === 'bars' ? '' : 'none');
+        }
+
+        function setPlotRegion(region, btn) {
+            currentPlotRegion = region;
+            const toggle = document.getElementById('region-plot-toggle');
+            if (toggle) toggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            filterPlots();
+        }
+
+        function filterPlots() {
+            const selRegion = currentPlotRegion;
+            const checkedAccs = new Set();
+            document.querySelectorAll('.plot-acc-cb:checked').forEach(cb => checkedAccs.add(cb.value));
+
+            // Filter dots
+            document.querySelectorAll('.plot-dot').forEach(dot => {
+                const r = dot.getAttribute('data-region');
+                const a = dot.getAttribute('data-account');
+                const show = (selRegion === 'all' || r === selRegion) && checkedAccs.has(a);
+                dot.style.display = show ? '' : 'none';
+            });
+
+            // Update district counts
+            document.querySelectorAll('.district-card').forEach(card => {
+                const dots = card.querySelectorAll('.plot-dot');
+                let fcCount = 0, personalCount = 0;
+                dots.forEach(d => {
+                    if (d.style.display !== 'none') {
+                        if (d.classList.contains('fc')) fcCount++;
+                        else personalCount++;
+                    }
+                });
+                const fcTag = card.querySelector('.fc-tag');
+                const pTag = card.querySelector('.personal-tag');
+                if (fcTag) fcTag.textContent = '🏨 ' + fcCount;
+                if (pTag) pTag.textContent = '🏡 ' + personalCount;
+            });
+
+            // Update bar view: recalculate per-ward bars
+            document.querySelectorAll('.district-card').forEach(card => {
+                const wardRows = card.querySelectorAll('.view-dots .ward-row');
+                const barRows = card.querySelectorAll('.ward-bar-row');
+                let maxTotal = 0;
+                const wardTotals = [];
+                wardRows.forEach((wr, i) => {
+                    const dots = wr.querySelectorAll('.plot-dot');
+                    let fc = 0, personal = 0;
+                    dots.forEach(d => {
+                        if (d.style.display !== 'none') {
+                            if (d.classList.contains('fc')) fc++;
+                            else personal++;
+                        }
+                    });
+                    const total = fc + personal;
+                    if (total > maxTotal) maxTotal = total;
+                    wardTotals.push({fc, personal, total});
+                });
+                barRows.forEach((br, i) => {
+                    if (i >= wardTotals.length) return;
+                    const wt = wardTotals[i];
+                    const scale = maxTotal > 0 ? maxTotal : 1;
+                    const fcBar = br.querySelector('.ward-bar-fc');
+                    const pBar = br.querySelector('.ward-bar-personal');
+                    const valSpan = br.querySelector('.ward-bar-value');
+                    if (fcBar) {
+                        fcBar.style.width = (wt.fc / scale * 100) + '%';
+                        fcBar.style.display = wt.fc > 0 ? '' : 'none';
+                    }
+                    if (pBar) {
+                        pBar.style.width = (wt.personal / scale * 100) + '%';
+                        pBar.style.display = wt.personal > 0 ? '' : 'none';
+                    }
+                    if (valSpan) valSpan.textContent = wt.total;
+                });
+            });
+        }
+
+        // Sub Planner sorting — store original DOM order on first load
+        (function() {
+            document.querySelectorAll('.sp-account').forEach(acc => {
+                const chars = Array.from(acc.querySelectorAll('.sp-char'));
+                chars.forEach((ch, i) => ch.setAttribute('data-orig', i));
+            });
+        })();
+
+        function sortSubPlanners(key, btn) {
+            if (key === 'default') {
+                document.querySelectorAll('.sp-sort-btn').forEach(b => b.classList.remove('active'));
+                if (btn) btn.classList.add('active');
+            } else {
+                // If clicking the already-active button, flip direction
+                const wasActive = btn && btn.classList.contains('active');
+                if (wasActive) {
+                    const cur = btn.dataset.dir;
+                    btn.dataset.dir = cur === 'desc' ? 'asc' : 'desc';
+                    const label = btn.textContent.replace(/[▲▼]/, btn.dataset.dir === 'desc' ? '▼' : '▲');
+                    btn.textContent = label;
+                } else {
+                    document.querySelectorAll('.sp-sort-btn').forEach(b => b.classList.remove('active'));
+                    if (btn) btn.classList.add('active');
+                }
+            }
+
+            const dir = (btn && btn.dataset.dir === 'asc') ? 1 : -1;
+
+            document.querySelectorAll('.sp-account').forEach(acc => {
+                const chars = Array.from(acc.querySelectorAll('.sp-char'));
+                chars.sort((a, b) => {
+                    if (key === 'default') {
+                        return parseInt(a.dataset.orig) - parseInt(b.dataset.orig);
+                    }
+                    const av = parseFloat(a.dataset[key]) || 0;
+                    const bv = parseFloat(b.dataset[key]) || 0;
+                    return (av - bv) * dir;
+                });
+                chars.forEach(ch => acc.appendChild(ch));
+            });
+        }
+
+        function updatePlanner() {
+            const accSel = document.getElementById('account-select').value;
+            const regSel = document.getElementById('region-select').value;
+            const container = document.getElementById('planner-content');
+
+            // Filter accounts
+            let accounts = accountData;
+            if (accSel !== 'all') {
+                accounts = accounts.filter(a => a.nickname === accSel);
+            }
+
+            let html = '';
+
+            for (const acc of accounts) {
+                const fcNS = acc.in_fc_no_subs || 0;
+                html += `<h3 style="color:var(--accent-light);margin:16px 0 10px;font-size:1rem;display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
+                    <span>${acc.nickname}</span>
+                    <span style="color:var(--text-secondary);font-weight:400;font-size:0.8rem;">${acc.total_chars} chars</span>
+                    <span style="font-size:0.75rem;display:inline-flex;gap:4px;margin-left:4px;">
+                        <span title="${acc.in_fc} character${acc.in_fc !== 1 ? 's' : ''} in FCs with active subs" style="background:var(--success);color:#000;padding:1px 6px;border-radius:4px;font-weight:600;cursor:default;">${acc.in_fc} 🟢</span>
+                        ${fcNS > 0 ? `<span title="${fcNS} character${fcNS !== 1 ? 's' : ''} managed by another alt in the same FC" style="background:#e67e22;color:#000;padding:1px 6px;border-radius:4px;font-weight:600;cursor:default;">${fcNS} 🟠</span>` : ''}
+                        <span title="${acc.not_in_fc} character${acc.not_in_fc !== 1 ? 's' : ''} not in any FC — available to join one" style="background:var(--warning);color:#000;padding:1px 6px;border-radius:4px;font-weight:600;cursor:default;">${acc.not_in_fc} 🟡</span>
+                        ${acc.excluded > 0 ? `<span title="${acc.excluded} character${acc.excluded !== 1 ? 's' : ''} excluded via ExcludeWorkshop" style="background:rgba(255,255,255,0.2);color:#fff;padding:1px 6px;border-radius:4px;font-weight:600;cursor:default;">${acc.excluded} ⬜</span>` : ''}
+                    </span>
+                </h3>`;
+
+                let regions = acc.region_capacity;
+                if (regSel !== 'all') {
+                    regions = regions.filter(r => r.region === regSel);
+                }
+
+                html += '<div class="region-grid">';
+                for (const reg of regions) {
+                    if (reg.current === 0 && regSel === 'all') continue; // skip empty regions in "all" view
+
+                    const pctFc = reg.limit > 0 ? (reg.in_fc / reg.limit * 100) : 0;
+                    const fcNoSubs = reg.in_fc_no_subs || 0;
+                    const pctFcNoSubs = reg.limit > 0 ? (fcNoSubs / reg.limit * 100) : 0;
+                    const pctNoFc = reg.limit > 0 ? (reg.not_in_fc / reg.limit * 100) : 0;
+                    const pctExcl = reg.limit > 0 ? ((reg.excluded || 0) / reg.limit * 100) : 0;
+                    const isFull = reg.remaining <= 0;
+                    const hasExcluded = (reg.excluded || 0) > 0;
+                    const hasFcNoSubs = fcNoSubs > 0;
+                    const maxFcPotential = reg.in_fc + fcNoSubs + reg.not_in_fc; // only non-excluded chars
+                    // Dynamic grid columns: base 3 + 1 for each optional category
+                    const statCols = 3 + (hasFcNoSubs ? 1 : 0) + (hasExcluded ? 1 : 0);
+
+                    html += `
+                    <div class="region-card">
+                        <div class="region-card-header">
+                            <h3>${reg.region} Region</h3>
+                            <span class="region-badge ${isFull ? 'full' : 'available'}">
+                                ${isFull ? 'FULL' : reg.remaining + ' slots open'}
+                            </span>
+                        </div>
+
+                        <div class="capacity-bar">
+                            ${reg.in_fc > 0 ? `<div class="in-fc" style="width:${pctFc}%">${reg.in_fc}</div>` : ''}
+                            ${hasFcNoSubs ? `<div class="in-fc-no-subs" style="width:${pctFcNoSubs}%">${fcNoSubs}</div>` : ''}
+                            ${reg.not_in_fc > 0 ? `<div class="not-in-fc" style="width:${pctNoFc}%">${reg.not_in_fc}</div>` : ''}
+                            ${hasExcluded ? `<div class="excluded" style="width:${pctExcl}%">${reg.excluded}</div>` : ''}
+                            <div class="remaining-space"></div>
+                        </div>
+
+                        <div class="capacity-legend">
+                            <span title="${reg.in_fc} character${reg.in_fc !== 1 ? 's' : ''} in FCs with active subs"><span class="legend-dot fc-dot"></span> ${reg.in_fc}</span>
+                            ${hasFcNoSubs ? `<span title="${fcNoSubs} character${fcNoSubs !== 1 ? 's' : ''} managed by another alt in the same FC"><span class="legend-dot fc-nosubs-dot"></span> ${fcNoSubs}</span>` : ''}
+                            <span title="${reg.not_in_fc} character${reg.not_in_fc !== 1 ? 's' : ''} not in any FC — available to join one"><span class="legend-dot nofc-dot"></span> ${reg.not_in_fc}</span>
+                            ${hasExcluded ? `<span title="${reg.excluded} character${reg.excluded !== 1 ? 's' : ''} excluded via ExcludeWorkshop"><span class="legend-dot excluded-dot"></span> ${reg.excluded}</span>` : ''}
+                            <span title="${reg.remaining > 0 ? reg.remaining : 0} open slot${reg.remaining !== 1 ? 's' : ''} remaining"><span class="legend-dot empty-dot"></span> ${reg.remaining > 0 ? reg.remaining : 0}</span>
+                        </div>
+
+                        ${reg.worlds.length > 0 ? `
+                        <div class="world-breakdown">
+                            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:12px;margin-bottom:6px;font-weight:600;">
+                                Per-World (${MAX_PER_WORLD} max each)
+                            </div>
+                            ${reg.worlds.map((w, idx) => {
+                                const wFcNoSubs = w.in_fc_no_subs || 0;
+                                const wId = `wc_${acc.nickname}_${reg.region}_${idx}`;
+                                const chars = w.chars || [];
+                                const charHtml = chars.map(c => {
+                                    const fcTag = c.fc_name ? `<span class="ch-fc">[${c.fc_name}]</span>` : '';
+                                    const mgrTag = (c.status === 'fc_managed' && c.managed_by) ? `<span class="ch-fc"> &mdash; subs managed by ${c.managed_by} (${c.managed_by_account})</span>` : '';
+                                    return `<span class="ch-name st-${c.status}">${c.name}</span>${fcTag}${mgrTag}`;
+                                }).join('<br>');
+                                return `
+                            <div class="world-row" onclick="document.getElementById('${wId}').classList.toggle('open')">
+                                <span class="world-name">${w.world}</span>
+                                <div class="world-bar-track">
+                                    ${w.in_fc > 0 ? `<div class="world-bar-fc" style="width:${w.in_fc / MAX_PER_WORLD * 100}%"></div>` : ''}
+                                    ${wFcNoSubs > 0 ? `<div class="world-bar-fc-nosubs" style="width:${wFcNoSubs / MAX_PER_WORLD * 100}%"></div>` : ''}
+                                    ${w.not_in_fc > 0 ? `<div class="world-bar-nofc" style="width:${w.not_in_fc / MAX_PER_WORLD * 100}%"></div>` : ''}
+                                    ${(w.excluded || 0) > 0 ? `<div class="world-bar-excluded" style="width:${w.excluded / MAX_PER_WORLD * 100}%"></div>` : ''}
+                                </div>
+                                <span class="world-count">${w.count}/${MAX_PER_WORLD}</span>
+                            </div>
+                            <div class="world-chars" id="${wId}">${charHtml}</div>`;
+                            }).join('')}
+                        </div>
+                        ` : ''}
+
+                        <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:0.8rem;color:var(--text-secondary);">
+                            Max FC earning potential: <b style="color:var(--accent-light)">${maxFcPotential}</b> characters
+                            ${reg.not_in_fc > 0 ? ` (+${reg.not_in_fc} if all join FC)` : ''}
+                            ${hasExcluded ? `<br><span style="color:rgba(255,255,255,0.4);font-size:0.75rem;">* ${reg.excluded} excluded character${reg.excluded !== 1 ? 's' : ''} not counted in above results</span>` : ''}
+                        </div>
+                    </div>`;
+                }
+                html += '</div>';
+            }
+
+            if (html === '') {
+                html = '<div class="no-data">No character data found for the selected filters.</div>';
+            }
+
+            container.innerHTML = html;
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', updatePlanner);
+    </script>
+</body>
+</html>
+'''
+
+
+# ===============================================
+# Submarine Master List Data
+# ===============================================
+def get_subs_data():
+    """
+    Collect all character data across all accounts for the /subs/ master list page.
+    Returns one row per character with up to 4 submarine slots,
+    plus character-level context like gil, ceruleum, kits, inventory, treasure.
+    Characters with no FC, no subs, no tanks, no kits are flagged as 'unused'.
+    """
+    rows = []
+    seen_fcs = {}  # Track unique FCs by (account, fc_name) to avoid double-counting points
+    unique_fc_names = set()  # Track globally unique FC names
+    
+    totals = {
+        "total_chars": 0,
+        "total_subs": 0,
+        "total_chars_with_subs": 0,
+        "total_unused": 0,
+        "total_farming": 0,
+        "total_leveling": 0,
+        "total_idle": 0,
+        "total_ready": 0,
+        "total_daily_income": 0,
+        "total_daily_cost": 0,
+        "total_ceruleum": 0,
+        "total_kits": 0,
+        "total_fc_points": 0,
+    }
+    
+    for account in account_locations:
+        auto_path = account["auto_path"]
+        if not os.path.isfile(auto_path):
+            continue
+        
+        try:
+            with open(auto_path, 'r', encoding='utf-8-sig') as f:
+                data = json.load(f)
+        except Exception:
+            continue
+        
+        build_plan_name_lookup(data)
+        fc_data = extract_fc_data(data)
+        characters = collect_characters(data, account["nickname"])
+        
+        # Scan Altoholic for treasure values
+        alto_map = {}
+        alto_path = account.get("alto_path", "")
+        if alto_path:
+            alto_map = scan_altoholic_db(alto_path)
+        
+        for char in characters:
+            cid = char.get("CID", 0)
+            submarines = parse_submarine_data(char)
+            
+            totals["total_chars"] += 1
+            
+            # Character-level data
+            char_name = char.get("Name", "Unknown")
+            world = char.get("World", "Unknown")
+            region = region_from_world(world)
+            char_gil = char.get("Gil", 0)
+            ceruleum = char.get("Ceruleum", 0)
+            repair_kits = char.get("RepairKits", 0)
+            inventory_space = char.get("InventorySpace", 0)
+            ventures = char.get("Ventures", 0)
+            
+            # Altoholic data
+            treasure_value = 0
+            highest_level = 0
+            highest_job = ""
+            if cid in alto_map:
+                treasure_value = alto_map[cid].get("treasure_value", 0)
+                highest_level = alto_map[cid].get("highest_level", 0)
+                highest_job = alto_map[cid].get("highest_job", "")
+            
+            # FC info
+            fc_name = ""
+            fc_points = 0
+            if cid in fc_data:
+                fc_name = fc_data[cid].get("Name", "")
+                fc_points = fc_data[cid].get("FCPoints", 0)
+                # Only count FC points once per unique FC per account
+                fc_key = (account["nickname"], fc_name)
+                if fc_key not in seen_fcs and fc_name:
+                    seen_fcs[fc_key] = fc_points
+                if fc_name:
+                    unique_fc_names.add(fc_name)
+            
+            # Exclusion / sleeping flags
+            exclude_workshop = char.get("ExcludeWorkshop", False) if HONOR_AR_EXCLUSIONS else False
+            subs_sleeping = not char.get("WorkshopEnabled", True)
+            
+            # Calculate days until restock
+            total_tanks_per_day = sum(s.get("tanks_per_day", 0) for s in submarines)
+            total_kits_per_day = sum(s.get("kits_per_day", 0) for s in submarines)
+            days_until_restock = None
+            if total_tanks_per_day > 0 and total_kits_per_day > 0:
+                days_from_tanks = ceruleum / total_tanks_per_day if ceruleum > 0 else 0
+                days_from_kits = repair_kits / total_kits_per_day if repair_kits > 0 else 0
+                days_until_restock = int(min(days_from_tanks, days_from_kits))
+            
+            # Daily totals for this character
+            daily_income = sum(s["daily_gil"] for s in submarines) if submarines else 0
+            daily_cost = sum(s["daily_cost"] for s in submarines) if submarines else 0
+            
+            # Pad submarines to 4 slots
+            sub_slots = []
+            for i in range(4):
+                if i < len(submarines):
+                    s = submarines[i]
+                    sub_slots.append({
+                        "name": s["name"],
+                        "level": s["level"],
+                        "build": s["build"],
+                        "plan_name": s["plan_name"] if s["plan_name"] else ("Farming" if s["is_farming"] else ("Leveling" if s["is_leveling"] else "None")),
+                        "return_formatted": s["return_formatted"],
+                        "return_time": s["return_time"] if s["return_time"] else 0,
+                        "is_ready": s["is_ready"],
+                        "is_farming": s["is_farming"],
+                        "is_leveling": s["is_leveling"],
+                        "daily_gil": s["daily_gil"],
+                    })
+                else:
+                    sub_slots.append(None)
+            
+            # Determine if character is "unused" (no FC, no subs, no tanks, no kits)
+            has_fc = bool(fc_name)
+            has_subs = len(submarines) > 0
+            has_tanks = ceruleum > 0
+            has_kits = repair_kits > 0
+            is_unused = not has_fc and not has_subs and not has_tanks and not has_kits
+            
+            # Accumulate totals
+            if has_subs:
+                totals["total_chars_with_subs"] += 1
+                totals["total_subs"] += len(submarines)
+                totals["total_farming"] += sum(1 for s in submarines if s["is_farming"])
+                totals["total_leveling"] += sum(1 for s in submarines if s["is_leveling"])
+                totals["total_idle"] += sum(1 for s in submarines if not s["plan_name"] and not s["is_farming"] and not s["is_leveling"])
+                totals["total_ready"] += sum(1 for s in submarines if s["is_ready"])
+                totals["total_daily_income"] += daily_income
+                totals["total_daily_cost"] += daily_cost
+            totals["total_ceruleum"] += ceruleum
+            totals["total_kits"] += repair_kits
+            if is_unused:
+                totals["total_unused"] += 1
+            
+            rows.append({
+                "account": account["nickname"],
+                "char_name": char_name,
+                "world": world,
+                "region": region,
+                "fc_name": fc_name,
+                "char_level": highest_level,
+                "char_job": highest_job,
+                "gil": char_gil,
+                "ceruleum": ceruleum,
+                "repair_kits": repair_kits,
+                "inventory_space": inventory_space,
+                "ventures": ventures,
+                "treasure_value": treasure_value,
+                "days_until_restock": days_until_restock,
+                "daily_income": daily_income,
+                "daily_cost": daily_cost,
+                "num_subs": len(submarines),
+                "subs": sub_slots,
+                "exclude_workshop": exclude_workshop,
+                "subs_sleeping": subs_sleeping,
+                "is_unused": is_unused,
+            })
+    
+    totals["total_monthly_income"] = totals["total_daily_income"] * 30
+    totals["total_monthly_cost"] = totals["total_daily_cost"] * 30
+    totals["total_net_daily"] = totals["total_daily_income"] - totals["total_daily_cost"]
+    totals["total_net_monthly"] = totals["total_net_daily"] * 30
+    
+    # FC points totals (deduplicated per unique FC)
+    totals["total_fc_points"] = sum(seen_fcs.values())
+    totals["total_fc_tanks"] = totals["total_fc_points"] // 100
+    totals["total_fc_stacks"] = round(totals["total_fc_tanks"] / 999, 1)
+    totals["total_fc_tank_value"] = totals["total_fc_tanks"] * CERULEUM_TANK_COST
+    totals["unique_fc_count"] = len(unique_fc_names)
+    
+    return {
+        "rows": rows,
+        "totals": totals,
+        "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
+# ===============================================
+# Submarine Master List HTML Template
+# ===============================================
+SUBS_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Master List - AutoRetainer Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-card: #131a2b;
+            --bg-header: #0d1320;
+            --border: #1e2d44;
+            --text-primary: #e0e6ed;
+            --text-secondary: #7a8ba3;
+            --accent: #3a7aaa;
+            --accent-light: #5ba0d0;
+            --accent-highlight: #7ec8e3;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+            --gold: #ffd700;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; overflow: hidden; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        /* Dark scrollbars */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: #2a3a52; border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3a5070; }
+        ::-webkit-scrollbar-corner { background: var(--bg-primary); }
+        * { scrollbar-color: #2a3a52 var(--bg-primary); scrollbar-width: thin; }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 100%;
+            padding: 12px 24px 0;
+        }
+
+        /* Navigation */
+        .nav-bar {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 10px;
+            padding: 10px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+        .nav-bar a {
+            color: var(--accent-light);
+            text-decoration: none;
+            font-size: 0.85rem;
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .nav-bar a:hover { background: rgba(58, 122, 170, 0.2); }
+        .nav-bar a.active { background: var(--accent); color: #fff; }
+        .nav-bar .title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-right: auto;
+        }
+
+        /* Summary cards */
+        .summary-row {
+            flex-shrink: 0;
+            display: flex;
+            gap: 12px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .summary-card {
+            flex: 1;
+            min-width: 100px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+            text-align: center;
+        }
+        .summary-card .value { font-size: 1.1rem; font-weight: 700; color: var(--accent-highlight); }
+        .summary-card .label { font-size: 0.68rem; color: var(--text-secondary); margin-top: 2px; }
+        .summary-card .sublabel { font-size: 0.6rem; color: var(--text-secondary); margin-top: 2px; }
+        .summary-card.fc .value { color: var(--success); }
+        .summary-card.warn .value { color: var(--warning); }
+        .summary-card.danger .value { color: var(--danger); }
+        .summary-card.gold .value { color: var(--gold); }
+
+        /* Table container */
+        .table-wrapper {
+            flex: 1;
+            overflow: auto;
+            min-height: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+
+        /* Master table */
+        .sub-master-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 0.78rem;
+            white-space: nowrap;
+        }
+        .sub-master-table th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--bg-header);
+            color: var(--accent-light);
+            padding: 10px 8px;
+            text-align: left;
+            border-bottom: 2px solid var(--border);
+            cursor: pointer;
+            user-select: none;
+            font-weight: 600;
+            font-size: 0.72rem;
+            transition: background 0.15s;
+        }
+        .sub-master-table th:hover { background: rgba(58, 122, 170, 0.2); }
+        .sub-master-table th .sort-arrow { margin-left: 4px; font-size: 0.6rem; opacity: 0.5; }
+        .sub-master-table th.sorted .sort-arrow { opacity: 1; color: var(--gold); }
+        .sub-master-table td {
+            padding: 7px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: var(--text-primary);
+        }
+        .sub-master-table tbody tr:hover { background: rgba(58, 122, 170, 0.08); }
+
+        /* Sub slot header groups */
+        .sub-master-table th.sub-group-1 { border-top: 3px solid var(--success); }
+        .sub-master-table th.sub-group-2 { border-top: 3px solid var(--accent); }
+        .sub-master-table th.sub-group-3 { border-top: 3px solid var(--warning); }
+        .sub-master-table th.sub-group-4 { border-top: 3px solid var(--danger); }
+
+        /* Cell colors */
+        .text-success { color: var(--success); }
+        .text-warning { color: var(--warning); }
+        .text-danger { color: var(--danger); }
+        .text-gold { color: var(--gold); }
+        .text-muted { color: var(--text-secondary); }
+        .text-accent { color: var(--accent-light); }
+
+        .cell-ready { color: var(--success); font-weight: 700; }
+        .cell-returning { color: var(--warning); }
+        .cell-empty { color: var(--text-secondary); opacity: 0.4; }
+        .cell-sleeping { color: #666; font-style: italic; }
+
+        .restock-critical { color: var(--danger); font-weight: 700; }
+        .restock-warning { color: var(--warning); }
+        .restock-ok { color: var(--success); }
+
+        /* Footer */
+        .footer {
+            flex-shrink: 0;
+            text-align: center;
+            padding: 8px;
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+        }
+
+        /* Filter bar */
+        .sticky-filters {
+            flex-shrink: 0;
+            background: var(--bg-primary);
+            padding: 6px 0 4px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 6px;
+        }
+
+        /* Search */
+        .search-bar {
+            margin-bottom: 8px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .search-bar input {
+            flex: 1;
+            max-width: 300px;
+            padding: 8px 12px;
+            background: var(--bg-header);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            outline: none;
+        }
+        .search-bar input:focus { border-color: var(--accent); }
+        .search-bar .count { font-size: 0.8rem; color: var(--text-secondary); }
+
+        /* Filter buttons */
+        .filter-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .filter-btn {
+            padding: 5px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-header);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.15s;
+        }
+        .filter-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+        .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        /* Checkbox toggle */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 16px;
+        }
+        .toggle-row label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .toggle-row input[type="checkbox"] {
+            accent-color: var(--accent);
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+        }
+        .toggle-row .unused-count {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+        tr.row-unused { opacity: 0.5; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation -->
+        <div class="nav-bar">
+            <span class="title">📝 Data Master List</span>
+            <a href="/">📊 Dashboard</a>
+            <a href="/fcdata/">🏨 FC Data</a>
+            <a href="/data/" class="active">📝 Data</a>
+        </div>
+
+        <!-- Summary cards -->
+        <div class="summary-row">
+            <div class="summary-card">
+                <div class="value">{{ data.totals.total_subs }}</div>
+                <div class="label">🚢 Total Subs</div>
+                <div class="sublabel">{{ data.totals.total_chars_with_subs }} w/ subs · {{ data.totals.total_chars }} total</div>
+            </div>
+            <div class="summary-card fc">
+                <div class="value">{{ data.totals.total_farming }}</div>
+                <div class="label">🌾 Farming</div>
+                <div class="sublabel">{{ data.totals.total_ready }} ready now</div>
+            </div>
+            <div class="summary-card warn">
+                <div class="value">{{ data.totals.total_leveling }}</div>
+                <div class="label">📈 Leveling</div>
+                <div class="sublabel">{{ data.totals.total_idle }} idle</div>
+            </div>
+            <div class="summary-card gold">
+                <div class="value">{{ "{:,}".format(data.totals.total_daily_income|int) }}</div>
+                <div class="label">💰 Daily Income</div>
+                <div class="sublabel">{{ "{:,}".format(data.totals.total_monthly_income|int) }}/mo</div>
+            </div>
+            <div class="summary-card danger">
+                <div class="value">{{ "{:,}".format(data.totals.total_daily_cost|int) }}</div>
+                <div class="label">🔧 Daily Cost</div>
+                <div class="sublabel">{{ "{:,}".format(data.totals.total_monthly_cost|int) }}/mo</div>
+            </div>
+            <div class="summary-card fc">
+                <div class="value">{{ "{:,}".format(data.totals.total_net_daily|int) }}</div>
+                <div class="label">📊 Net Daily</div>
+                <div class="sublabel">{{ "{:,}".format(data.totals.total_net_monthly|int) }}/mo</div>
+            </div>
+            <div class="summary-card">
+                <div class="value">{{ "{:,}".format(data.totals.total_ceruleum) }}</div>
+                <div class="label">⛽ Ceruleum</div>
+                <div class="sublabel">{{ "{:,}".format(data.totals.total_kits) }} kits</div>
+            </div>
+            <div class="summary-card gold">
+                <div class="value">{{ "{:,}".format(data.totals.total_fc_points) }}</div>
+                <div class="label">🪙 FC Points</div>
+                <div class="sublabel">{{ "{:,.1f}".format(data.totals.total_fc_stacks) }} stacks · {{ data.totals.total_fc_tank_value|sp_compact }} gil</div>
+            </div>
+            <div class="summary-card">
+                <div class="value">{{ data.totals.unique_fc_count }}</div>
+                <div class="label">🏠 Unique FCs</div>
+                <div class="sublabel">across all accounts</div>
+            </div>
+        </div>
+
+        <!-- Search and filters (sticky) -->
+        <div class="sticky-filters">
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search characters, worlds, accounts..." oninput="filterTable()">
+                <span class="count" id="rowCount">{{ data.rows|length }} characters</span>
+                <div class="toggle-row">
+                    <label><input type="checkbox" id="subsOnly" checked onchange="filterTable()"> Show only toons with subs</label>
+                    <label><input type="checkbox" id="showUnused" onchange="filterTable()"> Show unused toons <span class="unused-count">({{ data.totals.total_unused }})</span></label>
+                </div>
+                <button onclick="exportToExcel()" style="margin-left:auto;padding:4px 12px;font-size:0.75rem;background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:6px;cursor:pointer;" title="Export visible rows to Excel">📥 Export Excel</button>
+            </div>
+            <div class="filter-row">
+                <button class="filter-btn active" onclick="filterRegion(this, 'all')">All</button>
+                <button class="filter-btn" onclick="filterRegion(this, 'NA')">NA</button>
+                <button class="filter-btn" onclick="filterRegion(this, 'EU')">EU</button>
+                <button class="filter-btn" onclick="filterRegion(this, 'JP')">JP</button>
+                <button class="filter-btn" onclick="filterRegion(this, 'OCE')">OCE</button>
+            </div>
+        </div>
+
+        <!-- Master table -->
+        <div class="table-wrapper">
+            <table class="sub-master-table" id="subsTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable(0, 'str')" data-col="0">Account <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(1, 'str')" data-col="1">Character <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(2, 'str')" data-col="2">World <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(3, 'str')" data-col="3">Region <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(4, 'num')" data-col="4">Lvl <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(5, 'num')" data-col="5">Gil <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(6, 'num')" data-col="6">⛽ Tanks <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(7, 'num')" data-col="7">🔧 Kits <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(8, 'num')" data-col="8">♻️ Restock <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(9, 'num')" data-col="9">📦 Inv <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(10, 'num')" data-col="10">💎 Treasure <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(11, 'num')" data-col="11" class="sub-group-1">S1 Lvl <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(12, 'str')" data-col="12" class="sub-group-1">S1 Build <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(13, 'str')" data-col="13" class="sub-group-1">S1 Plan <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(14, 'str')" data-col="14" class="sub-group-1">S1 Return <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(15, 'num')" data-col="15" class="sub-group-2">S2 Lvl <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(16, 'str')" data-col="16" class="sub-group-2">S2 Build <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(17, 'str')" data-col="17" class="sub-group-2">S2 Plan <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(18, 'str')" data-col="18" class="sub-group-2">S2 Return <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(19, 'num')" data-col="19" class="sub-group-3">S3 Lvl <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(20, 'str')" data-col="20" class="sub-group-3">S3 Build <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(21, 'str')" data-col="21" class="sub-group-3">S3 Plan <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(22, 'str')" data-col="22" class="sub-group-3">S3 Return <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(23, 'num')" data-col="23" class="sub-group-4">S4 Lvl <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(24, 'str')" data-col="24" class="sub-group-4">S4 Build <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(25, 'str')" data-col="25" class="sub-group-4">S4 Plan <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(26, 'str')" data-col="26" class="sub-group-4">S4 Return <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(27, 'num')" data-col="27">💰 Daily <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(28, 'num')" data-col="28">🔧 Cost <span class="sort-arrow">▲▼</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in data.rows %}
+                    <tr data-region="{{ row.region }}" data-unused="{{ 'true' if row.is_unused else 'false' }}" data-hassubs="{{ 'true' if row.num_subs > 0 else 'false' }}" data-search="{{ row.account|lower }} {{ row.char_name|lower }} {{ row.world|lower }} {{ row.region|lower }} {{ row.fc_name|lower }}"{% if row.num_subs == 0 %} style="display:none"{% endif %}{% if row.is_unused %} class="row-unused"{% endif %}>
+                        <td>{{ row.account }}</td>
+                        <td><strong>{{ row.char_name }}</strong>{% if row.subs_sleeping %} <span class="cell-sleeping">💤</span>{% endif %}{% if row.exclude_workshop %} <span class="text-muted">🚫</span>{% endif %}</td>
+                        <td>{{ row.world }}</td>
+                        <td>{{ row.region }}</td>
+                        <td>{{ row.char_level }}</td>
+                        <td class="text-gold">{{ "{:,}".format(row.gil) }}</td>
+                        <td>{{ "{:,}".format(row.ceruleum) }}</td>
+                        <td>{{ "{:,}".format(row.repair_kits) }}</td>
+                        <td class="{% if row.days_until_restock is not none %}{% if row.days_until_restock < 7 %}restock-critical{% elif row.days_until_restock < 14 %}restock-warning{% else %}restock-ok{% endif %}{% endif %}">{% if row.days_until_restock is not none %}{{ row.days_until_restock }}d{% else %}-{% endif %}</td>
+                        <td{% if row.inventory_space <= 10 %} class="text-danger"{% elif row.inventory_space <= 35 %} class="text-warning"{% endif %}>{{ row.inventory_space }}</td>
+                        <td class="text-gold">{{ "{:,}".format(row.treasure_value) }}</td>
+                        {% for i in range(4) %}
+                        {% if row.subs[i] %}
+                        <td class="{% if row.subs[i].is_ready %}cell-ready{% endif %}">{{ row.subs[i].level }}</td>
+                        <td>{{ row.subs[i].build }}</td>
+                        <td class="{% if row.subs[i].is_farming %}text-success{% elif row.subs[i].is_leveling %}text-warning{% else %}text-muted{% endif %}">{{ row.subs[i].plan_name }}</td>
+                        <td class="{% if row.subs[i].is_ready %}cell-ready{% else %}cell-returning{% endif %}">{{ row.subs[i].return_formatted }}</td>
+                        {% else %}
+                        <td class="cell-empty">-</td>
+                        <td class="cell-empty">-</td>
+                        <td class="cell-empty">-</td>
+                        <td class="cell-empty">-</td>
+                        {% endif %}
+                        {% endfor %}
+                        <td class="text-success">{{ "{:,}".format(row.daily_income) }}</td>
+                        <td class="text-warning">{{ "{:,}".format(row.daily_cost) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            AutoRetainer Dashboard {{ version }} — Submarine Master List — Last updated: {{ data.last_updated }}
+        </div>
+    </div>
+
+    <script>
+        // Sort state
+        let currentSortCol = -1;
+        let currentSortDir = 'asc';
+
+        function sortTable(colIdx, type) {
+            const table = document.getElementById('subsTable');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            const headers = table.querySelectorAll('th');
+
+            // Toggle direction
+            if (currentSortCol === colIdx) {
+                currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortDir = 'asc';
+                currentSortCol = colIdx;
+            }
+
+            // Clear sorted class
+            headers.forEach(h => h.classList.remove('sorted'));
+            headers[colIdx].classList.add('sorted');
+
+            rows.sort((a, b) => {
+                let aVal = a.cells[colIdx].textContent.trim();
+                let bVal = b.cells[colIdx].textContent.trim();
+
+                if (type === 'num') {
+                    aVal = parseFloat(aVal.replace(/[^0-9.\\-]/g, '')) || 0;
+                    bVal = parseFloat(bVal.replace(/[^0-9.\\-]/g, '')) || 0;
+                    return currentSortDir === 'asc' ? aVal - bVal : bVal - aVal;
+                } else {
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                    if (aVal < bVal) return currentSortDir === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return currentSortDir === 'asc' ? 1 : -1;
+                    return 0;
+                }
+            });
+
+            rows.forEach(r => tbody.appendChild(r));
+            updateArrows(colIdx);
+        }
+
+        function updateArrows(sortedCol) {
+            document.querySelectorAll('.sub-master-table th').forEach((th, idx) => {
+                const arrow = th.querySelector('.sort-arrow');
+                if (!arrow) return;
+                if (idx === sortedCol) {
+                    arrow.textContent = currentSortDir === 'asc' ? '▲' : '▼';
+                } else {
+                    arrow.textContent = '▲▼';
+                }
+            });
+        }
+
+        // Search filter
+        let activeRegion = 'all';
+
+        function filterTable() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const subsOnly = document.getElementById('subsOnly').checked;
+            const showUnused = document.getElementById('showUnused').checked;
+            const rows = document.querySelectorAll('#subsTable tbody tr');
+            let visible = 0;
+
+            rows.forEach(row => {
+                const searchData = row.getAttribute('data-search');
+                const region = row.getAttribute('data-region');
+                const isUnused = row.getAttribute('data-unused') === 'true';
+                const hasSubs = row.getAttribute('data-hassubs') === 'true';
+                const matchesSearch = !query || searchData.includes(query);
+                const matchesRegion = activeRegion === 'all' || region === activeRegion;
+                const matchesSubs = !subsOnly || hasSubs;
+                const matchesUnused = showUnused || !isUnused;
+                const show = matchesSearch && matchesRegion && matchesSubs && matchesUnused;
+                row.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+
+            document.getElementById('rowCount').textContent = visible + ' characters';
+        }
+
+        function filterRegion(btn, region) {
+            activeRegion = region;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            filterTable();
+        }
+
+        function exportToExcel() {
+            const table = document.getElementById('subsTable');
+            const headers = [];
+            table.querySelectorAll('thead th').forEach(th => {
+                headers.push(th.textContent.replace(/[▲▼]/g, '').trim());
+            });
+
+            const dataRows = [];
+            table.querySelectorAll('tbody tr').forEach(row => {
+                if (row.style.display === 'none') return;
+                const cells = [];
+                row.querySelectorAll('td').forEach(td => {
+                    let val = td.textContent.trim();
+                    // Try to parse as number (strip commas, gil suffix, etc.)
+                    const num = parseFloat(val.replace(/[^0-9.\-]/g, ''));
+                    cells.push(!isNaN(num) && val.match(/^[\d,.\-]+[dg]?$/) ? num : val);
+                });
+                dataRows.push(cells);
+            });
+
+            const wsData = [headers, ...dataRows];
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            // Frozen row 1 (header)
+            ws['!freeze'] = {xSplit: 0, ySplit: 1};
+            // Auto-filter on all columns
+            ws['!autofilter'] = {ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:dataRows.length, c:headers.length-1}})};
+            // Column widths (auto-fit approximation)
+            ws['!cols'] = headers.map((h, i) => {
+                let maxLen = h.length;
+                dataRows.forEach(r => {
+                    const len = String(r[i] || '').length;
+                    if (len > maxLen) maxLen = len;
+                });
+                return {wch: Math.min(maxLen + 2, 30)};
+            });
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Data');
+
+            // Set freeze pane via sheet views
+            wb.Sheets['Data']['!views'] = [{state: 'frozen', ySplit: 1}];
+
+            const now = new Date();
+            const ts = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+            XLSX.writeFile(wb, 'AutoRetainer_Data_' + ts + '.xlsx');
+        }
+
+        // Update row count on page load to match default filter state
+        document.addEventListener('DOMContentLoaded', filterTable);
+    </script>
+</body>
+</html>
+'''
+
+
+# ===============================================
 # Flask Routes
 # ===============================================
 @app.route('/')
@@ -4950,6 +7271,36 @@ def index():
                                   highlight_color_potential_subs=HIGHLIGHT_COLOR_POTENTIAL_SUBS)
 
 
+@app.route('/fcdata/')
+@app.route('/fcdata')
+def map_page():
+    """Plot map and FC capacity planner page"""
+    data = get_map_data()
+    return render_template_string(MAP_TEMPLATE, data=data, version=VERSION)
+
+
+@app.route('/data/')
+@app.route('/data')
+def subs_page():
+    """Submarine master list page"""
+    data = get_subs_data()
+    return render_template_string(SUBS_TEMPLATE, data=data, version=VERSION)
+
+
+@app.route('/api/subs-data')
+def api_subs_data():
+    """API endpoint for subs page JSON data"""
+    data = get_subs_data()
+    return jsonify(data)
+
+
+@app.route('/api/map-data')
+def api_map_data():
+    """API endpoint for map page JSON data"""
+    data = get_map_data()
+    return jsonify(data)
+
+
 @app.route('/api/data')
 def api_data():
     """API endpoint for raw JSON data"""
@@ -4965,18 +7316,213 @@ def api_refresh():
 
 
 # ===============================================
+# FC Detection Diagnostic
+# ===============================================
+def run_fc_diagnostic():
+    """
+    Compare FC detection methods across all accounts.
+    Prints per-character breakdown showing which indicators triggered.
+    """
+    print("\n" + "=" * 100)
+    print("  FC DETECTION DIAGNOSTIC — Comparing main page vs /map/ page logic")
+    print("=" * 100)
+    
+    grand_total = {"chars": 0, "in_fc": 0, "fc_managed": 0, "excluded": 0, "not_in_fc": 0}
+    
+    for account in account_locations:
+        auto_path = account["auto_path"]
+        if not os.path.isfile(auto_path):
+            continue
+        try:
+            with open(auto_path, 'r', encoding='utf-8-sig') as f:
+                data = json.load(f)
+        except Exception:
+            continue
+        
+        fc_data = extract_fc_data(data)
+        characters = collect_characters(data, account["nickname"])
+        
+        housing_map = {}
+        lfstrm_path = account.get("lfstrm_path", "")
+        if lfstrm_path:
+            housing_map = load_lifestream_data(lfstrm_path)
+        
+        # Per-account counters
+        acc = {"chars": 0, "in_fc": 0, "fc_managed": 0, "excluded": 0, "not_in_fc": 0}
+        # Per-region counters
+        region_counts = {}
+        char_details = []
+        seen_fc_keys = {}  # FC plot dedup
+        
+        for char in characters:
+            cid = char.get("CID", 0)
+            name = char.get("Name", "Unknown")
+            world = char.get("World", "Unknown")
+            region = region_from_world(world)
+            
+            # FC indicators
+            fc_name = fc_data[cid].get("Name", "") if cid in fc_data else ""
+            has_subs = bool(char.get("OfflineSubmarineData", []))
+            has_fc_house = cid in housing_map and housing_map[cid].get('fc') is not None
+            
+            # Build FC key for dedup
+            fc_key = None
+            if has_fc_house:
+                fcd = housing_map[cid]['fc']
+                fc_key = f"{world}_{fcd['district']}_W{fcd['ward']}_P{fcd['plot']}"
+            elif fc_name:
+                fc_key = f"{world}_{fc_name}"
+            
+            # Exclusion flags (only ExcludeWorkshop affects FC capacity)
+            excl_ret = char.get("ExcludeRetainer", False) if HONOR_AR_EXCLUSIONS else False
+            excl_ws = char.get("ExcludeWorkshop", False) if HONOR_AR_EXCLUSIONS else False
+            is_excluded = excl_ws
+            
+            # Classify with dedup (matches get_map_data logic)
+            if is_excluded:
+                status = "EXCLUDED"
+            elif has_subs:
+                if fc_key and fc_key in seen_fc_keys:
+                    status = "FC_MANAGED"
+                else:
+                    status = "IN_FC"
+                    if fc_key:
+                        seen_fc_keys[fc_key] = name
+            elif has_fc_house:
+                status = "FC_MANAGED"
+            else:
+                status = "NOT_IN_FC"
+            
+            acc["chars"] += 1
+            if status == "EXCLUDED":
+                acc["excluded"] += 1
+            elif status == "IN_FC":
+                acc["in_fc"] += 1
+            elif status == "FC_MANAGED":
+                acc["fc_managed"] += 1
+            else:
+                acc["not_in_fc"] += 1
+            
+            # Track per region
+            if region:
+                if region not in region_counts:
+                    region_counts[region] = {"chars": 0, "in_fc": 0, "fc_managed": 0, "excluded": 0, "not_in_fc": 0}
+                rc = region_counts[region]
+                rc["chars"] += 1
+                if status == "EXCLUDED":
+                    rc["excluded"] += 1
+                elif status == "IN_FC":
+                    rc["in_fc"] += 1
+                elif status == "FC_MANAGED":
+                    rc["fc_managed"] += 1
+                else:
+                    rc["not_in_fc"] += 1
+            
+            # Build indicators list for detail display
+            indicators = []
+            if has_subs: indicators.append("SUBS")
+            if has_fc_house: indicators.append("FC_HOUSE")
+            if fc_name: indicators.append(f"FC:{fc_name}")
+            if excl_ret: indicators.append("EXCL_RET")
+            if excl_ws: indicators.append("EXCL_WS")
+            if fc_key and fc_key in seen_fc_keys and status == "FC_MANAGED": indicators.append("DEDUP")
+            
+            char_details.append({
+                "name": name, "world": world, "region": region,
+                "status": status, "indicators": indicators,
+                "is_excluded": is_excluded
+            })
+        
+        # Print account summary
+        print(f"\n  [{account['nickname']}] {acc['chars']} chars — InFC: {acc['in_fc']}, ManagedByAlt: {acc['fc_managed']}, Excluded: {acc['excluded']}, CanJoin: {acc['not_in_fc']}")
+        
+        for reg in sorted(region_counts.keys()):
+            rc = region_counts[reg]
+            mg = rc['fc_managed']
+            mg_str = f" | MgdByAlt: {mg:3d}" if mg > 0 else ""
+            print(f"    {reg:4s}: {rc['chars']:3d} chars | InFC: {rc['in_fc']:3d}{mg_str} | Excluded: {rc['excluded']:3d} | CanJoin: {rc['not_in_fc']:3d}")
+        
+        # Show excluded characters with their indicators
+        excluded_chars = [c for c in char_details if c["is_excluded"]]
+        if excluded_chars:
+            print(f"    --- Excluded Characters ({len(excluded_chars)}) ---")
+            for c in excluded_chars:
+                print(f"      {c['name']:24s} {c['world']:15s} {c['region']:4s} [{', '.join(c['indicators'])}]")
+        
+        # Show characters managed by alt (orange category)
+        fc_managed_chars = [c for c in char_details if c["status"] == "FC_MANAGED"]
+        if fc_managed_chars:
+            print(f"    --- Managed by Alt ({len(fc_managed_chars)}) — shown as ORANGE ---")
+            for c in fc_managed_chars:
+                print(f"      {c['name']:24s} {c['world']:15s} {c['region']:4s} [{', '.join(c['indicators'])}]")
+        
+        grand_total["chars"] += acc["chars"]
+        grand_total["in_fc"] += acc["in_fc"]
+        grand_total["fc_managed"] += acc["fc_managed"]
+        grand_total["excluded"] += acc["excluded"]
+        grand_total["not_in_fc"] += acc["not_in_fc"]
+    
+    print(f"\n  GRAND TOTAL: {grand_total['chars']} chars")
+    print(f"    In FC (unique):   {grand_total['in_fc']}")
+    print(f"    Managed by Alt:   {grand_total['fc_managed']}")
+    print(f"    Excluded:         {grand_total['excluded']}")
+    print(f"    Can Join FC:      {grand_total['not_in_fc']}")
+    print(f"    HONOR_AR_EXCLUSIONS: {HONOR_AR_EXCLUSIONS}")
+    print(f"    FC Detection: unique subs=GREEN, dup FC or no subs=ORANGE(managed), else=CAN_JOIN")
+    print(f"    Dedup: by FC plot (world+district+ward+plot) or fc_name+world")
+    print("=" * 100 + "\n")
+
+
+# ===============================================
 # Main Entry Point
 # ===============================================
-if __name__ == "__main__":
+def main():
     load_external_config()
     
     print("=" * 60)
     print(f"  AutoRetainer Dashboard {VERSION}")
     print("=" * 60)
     print(f"  Server: http://{HOST}:{PORT}")
+    print(f"  FC Data: http://{HOST}:{PORT}/fcdata/")
+    print(f"  Data:   http://{HOST}:{PORT}/data/")
     print(f"  Accounts: {len(account_locations)}")
     print(f"  Auto-refresh: {AUTO_REFRESH}s" if AUTO_REFRESH > 0 else "  Auto-refresh: Disabled")
     print("=" * 60)
-    print()
+    
+    # Run FC detection diagnostic (only when DEBUG is enabled)
+    if DEBUG:
+        run_fc_diagnostic()
     
     app.run(host=HOST, port=PORT, debug=DEBUG)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        from datetime import datetime
+        from pathlib import Path
+        
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        error_msg = f"\n{'='*80}\n[CRITICAL ERROR] Script crashed with unhandled exception:\n{'='*80}\n"
+        error_msg += f"Exception Type: {type(e).__name__}\n"
+        error_msg += f"Exception Message: {e}\n"
+        error_msg += f"\nFull Traceback:\n{traceback.format_exc()}"
+        error_msg += f"{'='*80}\n"
+        print(error_msg)
+        
+        # Save crash log to file
+        crash_log_path = Path(__file__).parent / f"crash_log_{timestamp}.log"
+        try:
+            with open(crash_log_path, 'w', encoding='utf-8') as f:
+                f.write(f"Crash Log - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(error_msg)
+            print(f"[CRASH LOG SAVED] {crash_log_path}")
+        except:
+            print("[CRASH LOG] Failed to save crash log to file")
+        
+        # Keep window open for debugging
+        print("\n[CRASH] Script has stopped. Window will remain open for debugging.")
+        print("Press Enter to close this window...")
+        input()
