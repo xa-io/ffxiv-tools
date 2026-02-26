@@ -1,6 +1,6 @@
-# AutoRetainer Dashboard v1.25
+# AutoRetainer Dashboard v1.28
 
-A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels, currencies, income/cost calculations, and comprehensive supply tracking.
+A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels, currencies, income/cost calculations, comprehensive supply tracking, an FC Data page with Plot Map & FC Capacity Planner, and a Data Master List page for managing all submarines across all accounts with Excel export.
 
 
 <p align="center">
@@ -38,6 +38,17 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 - **Auto-Refresh**: Configurable auto-refresh interval (default: 60 seconds)
 - **Modern UI**: Dark-themed responsive design with collapsible sections
 - **Ready Status Indicators**: Visual highlighting when retainers/submarines are ready
+- **FC Data Page** (`/fcdata/`): Visual housing plot overview with district grid, bar chart views, FC Capacity Planner, and Sub Planners with bidirectional sorting
+- **FC Capacity Planner**: Account/region selector showing FC membership, character limits (NA/EU/JP=40, OCE=39), per-world breakdowns (8 max), and earning potential calculations
+- **Sub Planners**: Per-account submarine overview with Name@World display, ETA countdown, inventory stats, and bidirectional sorting by level, tanks, kits, restock days, and inventory
+- **Characters Not in FC Table**: List of all characters without FC membership, with level and housing status (hidden by default, toggle to show)
+- **Data Master List** (`/data/`): Full-viewport sortable table of all submarines across all accounts
+- **Excel Export**: Export visible/filtered table rows to Excel with headers, auto-filters, frozen header row, and auto-fit column widths
+- **Sticky UI Elements**: Filter bar and table column headers remain visible when scrolling on Data page
+- **Sub Filtering**: "Show only toons with subs" (default on), "Show unused toons" toggle for characters with no FC/subs/tanks/kits
+- **FC Points Summary**: Total FC points across all FCs (deduplicated), convertible tanks count, and total tank gil value
+- **Unique FC Count**: Summary card showing count of distinct Free Companies across all accounts
+- **Cross-Page Navigation**: Dashboard, FC Data, and Data links accessible from every page
 
 ### Data Displayed
 
@@ -210,6 +221,29 @@ account_locations = [
 
 **Note**: Use `{user}` as a placeholder for the current username - it will be replaced automatically.
 
+### Network/UNC Path Support
+
+For users with pluginConfigs stored on network shares or NAS devices, you can use UNC paths:
+
+```json
+{
+    "account_locations": [
+        {
+            "enabled": true,
+            "nickname": "NetworkAcc",
+            "pluginconfigs_path": "\\\\server\\share\\Users\\{user}\\pluginConfigs"
+        },
+        {
+            "enabled": true,
+            "nickname": "NAS-Acc",
+            "pluginconfigs_path": "\\\\NAS\\FFXIVData\\{user}\\pluginConfigs"
+        }
+    ]
+}
+```
+
+**Important**: In JSON, backslashes must be escaped with double backslashes (`\\`), so a network path like `\\server\share` becomes `\\\\server\\share` in the config file.
+
 ### Submarine Plans Configuration
 
 The `submarine_plans` section allows you to configure which AutoRetainer plan names indicate leveling vs farming:
@@ -289,7 +323,11 @@ http://127.0.0.1:1234
 ### API Endpoints
 
 - `GET /` - Main dashboard page
+- `GET /fcdata/` - FC Data page (Plot Map, FC Capacity Planner, Sub Planners)
+- `GET /data/` - Data Master List page (all submarines across all accounts)
 - `GET /api/data` - Raw JSON data for all accounts
+- `GET /api/map-data` - Map and FC planner JSON data
+- `GET /api/subs-data` - Submarine master list JSON data
 - `GET /api/refresh` - Force data refresh and return status
 
 ## Configuration Parameters
@@ -369,6 +407,81 @@ AutoRetainer-Dashboard/
 Created by: https://github.com/xa-io
 
 ## Version History
+
+### v1.28 (2026-02-26) - FC Data & Data Page Overhaul
+
+**FC Data Page (`/fcdata/`) Enhancements:**
+
+- **Sub Planner Sorting**: Bidirectional sorting for characters within each account — click sort buttons to toggle ascending/descending order with dynamic ▲/▼ indicators
+- **Sortable Metrics**: Sub level, ceruleum tanks, repair kits, restock days, inventory slots
+- **Name@World Display**: Character names now show as `Name@World` in Sub Planners
+- **ETA Column**: Submarine return countdown displayed per sub
+- **Inventory Stats Row**: Compact inventory/tanks/kits/restock stats per character
+- **Hide Excluded Toons**: Checkbox defaults to checked — characters with `ExcludeWorkshop` hidden by default, toggle to reveal
+
+**Data Master List (`/data/`) Enhancements:**
+
+- **Excel Export**: 📥 Export button exports visible/filtered rows to `.xlsx` file using SheetJS
+  - Headers match table columns exactly
+  - Auto-filters enabled on all columns
+  - Row 1 (headers) frozen for scrolling
+  - Auto-fit column widths
+  - Filename includes current date
+- **Sticky Filter Bar**: Search input, region buttons, and filter checkboxes remain fixed at top when scrolling
+- **Sticky Table Headers**: Column headers (Account, Character, World, etc.) stay pinned at top of table scroll area
+- **Full-Viewport Layout**: Page uses flex column layout — nav, summary cards, filters, and footer are fixed; table fills remaining space with its own scrollbar
+- **Unique FC Count Card**: New summary card showing count of distinct Free Companies across all accounts
+- **Compact Summary Cards**: Reduced padding and font sizes for tighter layout
+- **Integer Formatting**: Daily Cost, Net Daily, and income values display without decimal places
+
+**Debug & Diagnostics:**
+
+- FC Detection Diagnostic now only runs when `DEBUG = True` — no longer clutters startup log in production mode
+
+### v1.27 (2026-02-25) - Data Master List Page
+
+**New Page — `/data/`:**
+
+- **Submarine Master List**: Full-width sortable table showing all characters across all accounts
+- **Per-Character Row**: Account, character name, world, region, character level, gil
+- **Sub Slots (S1–S4)**: Level, build, plan name, return time per submarine
+- **Supply Columns**: Ceruleum tanks, repair kits, days until restock, inventory space, treasure value
+- **Income Columns**: Daily income, daily cost
+- **Color-Coded Data**: Farming (green), leveling (orange), ready (green bold), returning (orange), restock warnings (red/orange/green)
+- **Sleeping/Excluded Indicators**: 💤 and 🚫 icons on character names
+
+**Summary Cards:**
+
+- Total Subs (with character count), Farming (ready now), Leveling (idle)
+- Daily Income, Daily Cost, Net Daily (all with monthly projections)
+- Ceruleum total (with kits count)
+- 🪙 FC Points: Total FC points (deduplicated per FC), tanks buyable (100 FC points each), total tank value at 350g/tank
+
+**Filtering & Sorting:**
+
+- "Show only toons with subs" checkbox (checked by default) — minimal view with only sub-owning characters
+- "Show unused toons" checkbox — reveals characters with no FC, no subs, no tanks, no kits
+- Text search across character name, world, account, FC name
+- Region filter buttons (All, NA, EU, JP, OCE)
+- Click any column header to sort ascending/descending
+
+**Navigation:**
+
+- Data link added to main dashboard header (next to 🏨 FC Data)
+- Data link added to /fcdata/ page nav bar
+- All three pages (Dashboard, FC Data, Data) interlinked
+
+### v1.26 (2026-02-25) - FC Data & Capacity Planner Page
+
+**New Page — `/fcdata/`:**
+
+- **Visual Housing Plot Overview**: 5-column district grid (Goblet, Lavender Beds, Mist, Empyreum, Shirogane)
+- **Per-Ward Plot Dots**: Color-coded (green = FC, gold = Personal) with hover tooltips
+- **FC Capacity Planner**: Per-account and per-region breakdown with world-level horizontal bars
+- **Summary Cards**: Total characters, characters in FC, characters that can join FC, FC/Personal plot counts
+- **Characters Not in FC Table**: Sortable by character name, world, level, housing, with account/region selectors
+- **FC Detection**: Uses submarine ownership + Lifestream FC house data (not stale fc_name field)
+- **Disclaimer**: Explains sub-based FC detection methodology and OCE 39/40 max capacity note
 
 ### v1.25 (2026-02-03) - Bug Fixes and Filter Improvements
 
