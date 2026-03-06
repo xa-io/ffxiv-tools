@@ -9,14 +9,14 @@
 #
 # AutoRetainer Dashboard - Self-Hosted Web Interface
 #
-# A comprehensive web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream.
+# A comprehensive web dashboard that displays FFXIV character data from AutoRetainer, XA Database, and Lifestream.
 # Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers,
 # housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels,
 # currencies, income/cost calculations, and comprehensive supply tracking.
 #
 # Core Features:
 # • Self-hosted Flask web server with configurable host/port
-# • Real-time data parsing from AutoRetainer, Altoholic, and Lifestream configs
+# • Real-time data parsing from AutoRetainer, XA Database, and Lifestream configs
 # • Character overview with gil, FC points, venture coins, coffers, dyes, and inventory
 # • MSQ progression tracking with color-coded percentage (green ≥90%, yellow ≥50%, gray <50%)
 # • Job level display: DoW/DoM and DoH/DoL collapsible sections with all job levels
@@ -39,7 +39,7 @@
 # ## Release Notes This Update ##
 #
 # v1.29 - Added support for redeploy and finalize planners
-#         *IN BETA* - Added /charts/ page: Financial Charts powered by sublord.db
+#         *IN BETA* - Added /charts/ page: Financial Charts powered by XA Database
 #         Historical timeline charts for daily gil earnings, supply costs, net profit
 #         Total Wealth chart: character Gil + retainer Gil + treasure value over time
 #         Submarine fleet composition (farming vs leveling) stacked bar chart
@@ -69,9 +69,9 @@ AUTO_REFRESH = 60       # Auto-refresh interval in seconds (0 to disable)
 
 # Display options
 VERSION = "v1.29"       # Version number shown in footer and startup
-SHOW_CLASSES = True     # Show DoW/DoM and DoH/DoL job sections, disable to speed up page load
-SHOW_CURRENCIES = True  # Show currencies section, disable to speed up page load
-SHOW_MSQ_PROGRESSION = True  # Show MSQ progression (disabled until Altoholic tracking works)
+SHOW_CLASSES = False     # Show DoW/DoM and DoH/DoL job sections, disable to speed up page load
+SHOW_CURRENCIES = False  # Show currencies section, disable to speed up page load
+SHOW_MSQ_PROGRESSION = True  # Show MSQ progression tracking
 DEFAULT_THEME = "default"  # Theme preset for dashboard
 HIGHLIGHT_IDLE_RETAINERS = True  # Cyan outline on character cards with idle retainers
 HIGHLIGHT_IDLE_SUBS = True       # Pink outline on character cards with idle submarines
@@ -81,9 +81,9 @@ HIGHLIGHT_POTENTIAL_RETAINER = True  # Brown outline on characters with MSQ 6606
 HIGHLIGHT_POTENTIAL_SUBS = True  # Black outline on characters Lv 25+ not in FC (potential sub farmers)
 HONOR_AR_EXCLUSIONS = True  # Honor AutoRetainer's ExcludeRetainer/ExcludeWorkshop settings per character
 
-# Sublord DB Integration (Auto-AutoRetainer financial data)
-USE_AAR_DB = False          # Enable /charts/ page with sublord.db data from Auto-AutoRetainer
-AAR_DB_PATH = ""            # Path to sublord.db (empty = auto-detect in script directory)
+# XA Database Integration (financial data from XA Database plugin)
+# This Is Under Development And May Not Report Everything Correctly
+USE_AAR_DB = True          # Enable /charts/ page with xa.db data from XA Database plugin
 
 # Highlight Colors (customizable)
 HIGHLIGHT_COLOR_IDLE_RETAINERS = "cyan"       # Cyan for idle retainers
@@ -116,13 +116,13 @@ user = getpass.getuser()
 def acc(nickname, pluginconfigs_path):
     """Create account configuration dictionary"""
     auto_path = os.path.join(pluginconfigs_path, "AutoRetainer", "DefaultConfig.json")
-    alto_path = os.path.join(pluginconfigs_path, "Altoholic", "altoholic.db")
     lfstrm_path = os.path.join(pluginconfigs_path, "Lifestream", "DefaultConfig.json")
+    xa_db_path = os.path.join(pluginconfigs_path, "XADatabase", "xa.db")
     return {
         "nickname": nickname,
         "auto_path": auto_path,
-        "alto_path": alto_path,
         "lfstrm_path": lfstrm_path,
+        "xa_db_path": xa_db_path,
     }
 
 # Default account locations - update these paths for your setup
@@ -268,7 +268,7 @@ BUILD_CONSUMPTION_RATES = {
 DEFAULT_CONSUMPTION = {"tanks_per_day": 9.0, "kits_per_day": 1.33}
 
 # ===============================================
-# Altoholic Treasure Values
+# Treasure Values (scanned from XA Database inventory)
 # ===============================================
 TREASURE_VALUES = {
     22500: 8000,   # Salvaged Ring
@@ -405,6 +405,13 @@ JOB_DISPLAY_NAMES = {
     "Leatherworker": "Leatherworker", "Weaver": "Weaver", "Alchemist": "Alchemist", "Culinarian": "Culinarian",
     "Miner": "Miner", "Botanist": "Botanist", "Fisher": "Fisher",
 }
+
+# Reverse mapping: xa.db lowercase job name -> CamelCase key used by JOB_CATEGORIES
+# xa.db stores names like "paladin", "dark knight"; templates expect "Paladin", "DarkKnight"
+XA_JOB_NAME_TO_KEY = {display.lower(): key for key, display in JOB_DISPLAY_NAMES.items()}
+# Also map base class lowercase names to their CamelCase equivalents
+for _jkey, _base in JOB_BASE_CLASS.items():
+    XA_JOB_NAME_TO_KEY[_base.lower()] = _base
 
 # ===============================================
 # Currency Categories and Display Names
@@ -723,7 +730,7 @@ def load_external_config():
     global HIGHLIGHT_COLOR_IDLE_RETAINERS, HIGHLIGHT_COLOR_IDLE_SUBS, HIGHLIGHT_COLOR_MAX_MB, HIGHLIGHT_COLOR_POTENTIAL_RETAINER, HIGHLIGHT_COLOR_POTENTIAL_SUBS
     global BUILD_GIL_RATES, BUILD_CONSUMPTION_RATES
     global CERULEUM_TANK_COST, REPAIR_KIT_COST
-    global USE_AAR_DB, AAR_DB_PATH
+    global USE_AAR_DB
     
     config_path = Path(__file__).parent / CONFIG_FILE
     if not config_path.exists():
@@ -788,12 +795,8 @@ def load_external_config():
         if "repair_kit_cost" in config:
             REPAIR_KIT_COST = config["repair_kit_cost"]
         
-        # Load sublord DB integration settings
+        # Load XA Database integration settings
         USE_AAR_DB = config.get("USE_AAR_DB", USE_AAR_DB)
-        AAR_DB_PATH = config.get("AAR_DB_PATH", AAR_DB_PATH)
-        if AAR_DB_PATH:
-            AAR_DB_PATH = os.path.expandvars(AAR_DB_PATH)
-            AAR_DB_PATH = AAR_DB_PATH.replace("{user}", user)
         
         print(f"[CONFIG] Loaded configuration from {config_path}")
     except Exception as e:
@@ -801,28 +804,167 @@ def load_external_config():
 
 
 # ===============================================
-# Sublord DB Reading Functions (for /charts/ page)
+# Sublord DB Functions (local historical snapshots for /charts/)
 # ===============================================
+# Landing Page creates and maintains sublord.db in its own directory.
+# Each page load, live data from xa.db files is aggregated into a daily snapshot.
+# The charts page reads historical snapshots from sublord.db.
+
+SUBLORD_DB_NAME = "sublord.db"
+
 def get_sublord_db_path():
-    """Get the path to sublord.db for reading."""
-    if AAR_DB_PATH:
-        return Path(AAR_DB_PATH)
-    # Auto-detect: look in script directory first
-    local_path = Path(__file__).parent / "sublord.db"
-    if local_path.exists():
-        return local_path
-    return None
+    """Get path to local sublord.db in script directory."""
+    return Path(__file__).parent / SUBLORD_DB_NAME
+
+def init_sublord_db():
+    """Create sublord.db tables if they don't exist."""
+    db_path = get_sublord_db_path()
+    try:
+        conn = sqlite3.connect(str(db_path))
+        c = conn.cursor()
+        c.execute("""CREATE TABLE IF NOT EXISTS daily_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT UNIQUE,
+            timestamp TEXT,
+            total_character_gil INTEGER DEFAULT 0,
+            total_retainer_gil INTEGER DEFAULT 0,
+            total_treasure_value INTEGER DEFAULT 0,
+            total_gil_plus_treasure INTEGER DEFAULT 0,
+            total_subs INTEGER DEFAULT 0,
+            total_subs_farming INTEGER DEFAULT 0,
+            total_subs_leveling INTEGER DEFAULT 0,
+            total_gil_per_day INTEGER DEFAULT 0,
+            total_supply_cost_per_day INTEGER DEFAULT 0,
+            total_net_per_day INTEGER DEFAULT 0,
+            ceruleum_tank_inventory INTEGER DEFAULT 0,
+            repair_kit_inventory INTEGER DEFAULT 0,
+            days_until_restocking REAL,
+            total_tanks_per_day REAL DEFAULT 0,
+            total_kits_per_day REAL DEFAULT 0
+        )""")
+        c.execute("""CREATE TABLE IF NOT EXISTS cumulative_totals (
+            id INTEGER PRIMARY KEY,
+            total_gil_overall INTEGER DEFAULT 0,
+            total_supply_cost_overall INTEGER DEFAULT 0
+        )""")
+        c.execute("INSERT OR IGNORE INTO cumulative_totals (id, total_gil_overall, total_supply_cost_overall) VALUES (1, 0, 0)")
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[SUBLORD-DB] Error initializing database: {e}")
+
+def _get_xa_gil_totals():
+    """Read character Gil and retainer Gil from all xa.db files."""
+    total_char_gil = 0
+    total_ret_gil = 0
+    for account in account_locations:
+        db_path = Path(account.get("xa_db_path", ""))
+        if not db_path or not db_path.exists():
+            continue
+        try:
+            conn = sqlite3.connect(str(db_path))
+            c = conn.cursor()
+            for row in c.execute("SELECT amount FROM currency_balances WHERE currency_name = 'Gil'").fetchall():
+                total_char_gil += row[0] or 0
+            for row in c.execute("SELECT gil FROM retainers").fetchall():
+                total_ret_gil += row[0] or 0
+            conn.close()
+        except Exception:
+            pass
+    return total_char_gil, total_ret_gil
+
+def write_daily_snapshot(summary):
+    """
+    Write a daily snapshot to sublord.db from dashboard summary data + xa.db live Gil.
+    Called after get_all_data() computes the dashboard summary.
+    Only writes once per day (INSERT OR REPLACE on date).
+    """
+    if not USE_AAR_DB:
+        return
+    
+    db_path = get_sublord_db_path()
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Get character/retainer Gil split from xa.db files
+    char_gil, ret_gil = _get_xa_gil_totals()
+    treasure = summary.get("total_treasure", 0)
+    
+    # Check if this is a new day (for cumulative tracking)
+    is_new_day = False
+    
+    try:
+        conn = sqlite3.connect(str(db_path))
+        c = conn.cursor()
+        
+        # Check if we already have a snapshot for today
+        existing = c.execute("SELECT id FROM daily_snapshots WHERE date = ?", (today,)).fetchone()
+        is_new_day = existing is None
+        
+        c.execute("""INSERT INTO daily_snapshots (date, timestamp, total_character_gil, total_retainer_gil,
+            total_treasure_value, total_gil_plus_treasure, total_subs, total_subs_farming, total_subs_leveling,
+            total_gil_per_day, total_supply_cost_per_day, total_net_per_day,
+            ceruleum_tank_inventory, repair_kit_inventory, days_until_restocking,
+            total_tanks_per_day, total_kits_per_day)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(date) DO UPDATE SET
+            timestamp=excluded.timestamp,
+            total_character_gil=excluded.total_character_gil,
+            total_retainer_gil=excluded.total_retainer_gil,
+            total_treasure_value=excluded.total_treasure_value,
+            total_gil_plus_treasure=excluded.total_gil_plus_treasure,
+            total_subs=excluded.total_subs,
+            total_subs_farming=excluded.total_subs_farming,
+            total_subs_leveling=excluded.total_subs_leveling,
+            total_gil_per_day=excluded.total_gil_per_day,
+            total_supply_cost_per_day=excluded.total_supply_cost_per_day,
+            total_net_per_day=excluded.total_net_per_day,
+            ceruleum_tank_inventory=excluded.ceruleum_tank_inventory,
+            repair_kit_inventory=excluded.repair_kit_inventory,
+            days_until_restocking=excluded.days_until_restocking,
+            total_tanks_per_day=excluded.total_tanks_per_day,
+            total_kits_per_day=excluded.total_kits_per_day
+        """, (
+            today, timestamp, char_gil, ret_gil,
+            treasure, char_gil + ret_gil + treasure,
+            summary.get("enabled_subs", 0),
+            summary.get("subs_farming", 0),
+            summary.get("subs_leveling", 0),
+            int(summary.get("daily_income", 0)),
+            int(summary.get("daily_cost", 0)),
+            int(summary.get("daily_profit", 0)),
+            summary.get("total_ceruleum", 0),
+            summary.get("total_kits", 0),
+            summary.get("min_restock_days"),
+            summary.get("total_tanks_per_day", 0),
+            summary.get("total_kits_per_day", 0),
+        ))
+        
+        # Update cumulative totals only on first snapshot of the day
+        if is_new_day:
+            c.execute("""UPDATE cumulative_totals SET
+                total_gil_overall = total_gil_overall + ?,
+                total_supply_cost_overall = total_supply_cost_overall + ?
+                WHERE id = 1""", (
+                int(summary.get("daily_income", 0)),
+                int(summary.get("daily_cost", 0)),
+            ))
+        
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[SUBLORD-DB] Error writing snapshot: {e}")
 
 def read_sublord_data():
     """
-    Read all data from sublord.db for charts.
-    Returns dict with daily_snapshots list and cumulative_totals dict, or None if unavailable.
+    Read historical snapshots from local sublord.db for charts page.
+    Returns dict with daily_snapshots list and cumulative dict, or None if unavailable.
     """
     if not USE_AAR_DB:
         return None
     
     db_path = get_sublord_db_path()
-    if not db_path or not db_path.exists():
+    if not db_path.exists():
         return None
     
     try:
@@ -830,24 +972,38 @@ def read_sublord_data():
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
         
-        # Read all daily snapshots ordered by date
         c.execute("SELECT * FROM daily_snapshots ORDER BY date ASC")
         snapshots = [dict(row) for row in c.fetchall()]
         
-        # Read cumulative totals
         c.execute("SELECT * FROM cumulative_totals WHERE id = 1")
-        cumulative_row = c.fetchone()
-        cumulative = dict(cumulative_row) if cumulative_row else {}
+        cum_row = c.fetchone()
+        cumulative = dict(cum_row) if cum_row else {}
         
         conn.close()
         
+        if not snapshots:
+            return {"daily_snapshots": [], "cumulative": cumulative}
+        
         return {
             "daily_snapshots": snapshots,
-            "cumulative": cumulative
+            "cumulative": cumulative,
         }
     except Exception as e:
         print(f"[SUBLORD-DB] Error reading database: {e}")
         return None
+
+def check_xa_db_status():
+    """Check xa.db availability for all accounts. Call once at startup."""
+    found = []
+    missing = []
+    for account in account_locations:
+        nickname = account.get("nickname", "?")
+        db_path = Path(account.get("xa_db_path", ""))
+        if db_path and db_path.exists():
+            found.append(nickname)
+        else:
+            missing.append(nickname)
+    return found, missing
 
 
 def build_plan_name_lookup(data):
@@ -989,9 +1145,9 @@ def _safe_json_load(s):
 # Complete MSQ quest data in CHRONOLOGICAL ORDER (955 trackable quests)
 # Format: (quest_id, quest_name) tuples
 # Progress is calculated by finding the HIGHEST position MSQ quest the character has
-# This approach works even if Altoholic only tracks partial quest history
+# This approach works even if XA Database only tracks partial quest history
 #
-# https://raw.githubusercontent.com/Sohtoren/Altoholic/refs/heads/main/Altoholic/Models/QuestIds.cs
+# Quest IDs sourced from FFXIV game data
 # Note: ~40 quests from quests.txt are not in quest_cache.json and cannot be tracked
 # Total expected MSQ: ~993 | Trackable: 955 (938 base + 17 patch 7.x)
 #
@@ -1066,7 +1222,7 @@ def calculate_msq_progress(quest_ids, max_job_level=100):
     Calculate MSQ progress by finding the HIGHEST chronological position
     of any MSQ quest the character has tracked.
     
-    This works even if Altoholic only tracks partial quest history -
+    This works even if XA Database only tracks partial quest history -
     we just need ONE MSQ quest to determine where they are in the story.
     
     Args:
@@ -1104,190 +1260,130 @@ def calculate_msq_progress(quest_ids, max_job_level=100):
     return percentage, highest_pos, total_msq, highest_name
 
 
-def scan_altoholic_db(db_path):
+def scan_xa_db(db_path):
     """
-    Scan Altoholic DB and return comprehensive character data.
-    Returns: { CharacterId: {
-        "treasure_value": int,
-        "coffer_dye_value": int,
-        "coffer_count": int,
-        "venture_coins": int,
-        "current_job": str,
-        "current_level": int,
+    Scan XA Database (xa.db) and return comprehensive character data.
+    Replaces Altoholic - reads from pluginConfigs/XADatabase/xa.db.
+    Returns: { content_id: {
+        "treasure_value": int, "coffer_dye_value": int, "coffer_count": int,
+        "dye_count": int, "dye_pure_white": int, "dye_jet_black": int,
+        "dye_pastel_pink": int, "mb_dye_count": int, "venture_coins": int,
+        "current_job": str, "current_level": int,
+        "highest_job": str, "highest_level": int,
+        "lowest_job": str, "lowest_level": int,
+        "all_jobs": dict, "all_currencies": dict, "completed_quests": list,
     }}
     """
     result = {}
     if not os.path.isfile(db_path):
         return result
     
+    def _tally_item(r, item_id, qty, is_marketboard=False):
+        """Process a single item for treasure/coffer/dye tracking."""
+        if item_id in TREASURE_IDS:
+            r["treasure_value"] += qty * TREASURE_VALUES[item_id]
+        if item_id in COFFER_DYE_IDS:
+            if item_id == 32161:  # Venture Coffer
+                r["coffer_dye_value"] += qty * item_values.get("venture_coffer", COFFER_DYE_VALUES[item_id])
+                r["coffer_count"] += qty
+            elif item_id == 13114:  # Pure White Dye
+                r["coffer_dye_value"] += qty * item_values.get("pure_white_dye", COFFER_DYE_VALUES[item_id])
+                r["dye_count"] += qty
+                r["dye_pure_white"] += qty
+                if is_marketboard:
+                    r["mb_dye_count"] += qty
+            elif item_id == 13115:  # Jet Black Dye
+                r["coffer_dye_value"] += qty * item_values.get("jet_black_dye", COFFER_DYE_VALUES[item_id])
+                r["dye_count"] += qty
+                r["dye_jet_black"] += qty
+                if is_marketboard:
+                    r["mb_dye_count"] += qty
+            elif item_id == 13708:  # Pastel Pink Dye
+                r["coffer_dye_value"] += qty * item_values.get("pastel_pink_dye", COFFER_DYE_VALUES[item_id])
+                r["dye_count"] += qty
+                r["dye_pastel_pink"] += qty
+                if is_marketboard:
+                    r["mb_dye_count"] += qty
+            else:
+                r["coffer_dye_value"] += qty * COFFER_DYE_VALUES.get(item_id, 0)
+    
     try:
-        con = sqlite3.connect(db_path)
-        cur = con.cursor()
-        rows = cur.execute(
-            "SELECT CharacterId, Inventory, Saddle, ArmoryInventory, Retainers, Jobs, Currencies, Quests, LastJob, LastJobLevel FROM characters"
-        ).fetchall()
+        conn = sqlite3.connect(db_path)
+        c = conn.cursor()
         
-        for char_id, inv_json, saddle_json, armory_json, retainers_json, jobs_json, currencies_json, quests_json, last_job_id, last_job_level in rows:
-            treasure_value = 0
-            coffer_dye_value = 0
-            coffer_count = 0
-            dye_count = 0
-            dye_pure_white = 0
-            dye_jet_black = 0
-            dye_pastel_pink = 0
-            mb_dye_count = 0  # Dyes on marketboard
-            venture_coins = 0
-            
-            def consume(items, is_marketboard=False):
-                nonlocal treasure_value, coffer_dye_value, coffer_count, dye_count, dye_pure_white, dye_jet_black, dye_pastel_pink, mb_dye_count
-                if not items:
-                    return
-                for it in items:
-                    iid = it.get("ItemId", 0)
-                    qty = it.get("Quantity", 1)
-                    if not isinstance(qty, int):
-                        try:
-                            qty = int(qty)
-                        except Exception:
-                            qty = 1
-                    
-                    if iid in TREASURE_IDS:
-                        treasure_value += qty * TREASURE_VALUES[iid]
-                    
-                    if iid in COFFER_DYE_IDS:
-                        # Use configurable item_values if available, else fall back to defaults
-                        if iid == 32161:  # Venture Coffer
-                            coffer_dye_value += qty * item_values.get("venture_coffer", COFFER_DYE_VALUES[iid])
-                            coffer_count += qty
-                        elif iid == 13114:  # Pure White Dye
-                            coffer_dye_value += qty * item_values.get("pure_white_dye", COFFER_DYE_VALUES[iid])
-                            dye_count += qty
-                            dye_pure_white += qty
-                            if is_marketboard:
-                                mb_dye_count += qty
-                        elif iid == 13115:  # Jet Black Dye
-                            coffer_dye_value += qty * item_values.get("jet_black_dye", COFFER_DYE_VALUES[iid])
-                            dye_count += qty
-                            dye_jet_black += qty
-                            if is_marketboard:
-                                mb_dye_count += qty
-                        elif iid == 13708:  # Pastel Pink Dye
-                            coffer_dye_value += qty * item_values.get("pastel_pink_dye", COFFER_DYE_VALUES[iid])
-                            dye_count += qty
-                            dye_pastel_pink += qty
-                            if is_marketboard:
-                                mb_dye_count += qty
-                        else:
-                            coffer_dye_value += qty * COFFER_DYE_VALUES[iid]
-            
-            inv = _safe_json_load(inv_json)
-            if isinstance(inv, list):
-                consume(inv)
-            sad = _safe_json_load(saddle_json)
-            if isinstance(sad, list):
-                consume(sad)
-            
-            # Process ArmoryInventory (nested dict with slot arrays like MainHand, OffHand, etc.)
-            armory = _safe_json_load(armory_json)
-            if isinstance(armory, dict):
-                for slot_name, slot_items in armory.items():
-                    if isinstance(slot_items, list):
-                        consume(slot_items)
-            
-            # Process Retainers inventories (both Inventory and MarketInventory)
-            retainers = _safe_json_load(retainers_json)
-            if isinstance(retainers, list):
-                for retainer in retainers:
-                    if isinstance(retainer, dict):
-                        ret_inv = retainer.get("Inventory", [])
-                        if isinstance(ret_inv, list):
-                            consume(ret_inv)
-                        # Also check MarketInventory (items listed on marketboard)
-                        ret_market_inv = retainer.get("MarketInventory", [])
-                        if isinstance(ret_market_inv, list):
-                            consume(ret_market_inv, is_marketboard=True)
-            
-            # Use LastJob and LastJobLevel for current class (last played job)
-            current_job = CLASSJOB_ID_TO_ABBR.get(last_job_id, "") if last_job_id else ""
-            current_level = int(last_job_level) if last_job_level else 0
-            
-            # Parse Jobs to find highest/lowest level jobs and all job levels
-            highest_job = ""
-            highest_level = 0
-            lowest_job = ""
-            lowest_level = 999  # Start high to find minimum
-            all_jobs = {}  # Store all job levels
-            jobs = _safe_json_load(jobs_json)
-            if isinstance(jobs, dict):
-                for job_name, job_data in jobs.items():
-                    if isinstance(job_data, dict):
-                        level = job_data.get("Level", 0)
-                        if isinstance(level, int) and level > 0:
-                            all_jobs[job_name] = level
-                            # Track lowest level job (must be > 0)
-                            if level < lowest_level:
-                                lowest_level = level
-                                lowest_job = JOB_ABBREVIATIONS.get(job_name, job_name[:3].upper())
-                        if level > highest_level:
-                            highest_level = level
-                            highest_job = JOB_ABBREVIATIONS.get(job_name, job_name[:3].upper())
-            # Reset lowest if no jobs found
-            if lowest_level == 999:
-                lowest_level = 0
-                lowest_job = ""
-            
-            # Parse Currencies to get Venture coins and all currencies
-            all_currencies = {}
-            currencies = _safe_json_load(currencies_json)
-            if isinstance(currencies, dict):
-                venture_coins = currencies.get("Venture", 0)
-                if not isinstance(venture_coins, int):
-                    try:
-                        venture_coins = int(venture_coins)
-                    except Exception:
-                        venture_coins = 0
-                # Capture all currencies with values > 0
-                for curr_name, curr_value in currencies.items():
-                    if isinstance(curr_value, int) and curr_value > 0:
-                        all_currencies[curr_name] = curr_value
-                    elif curr_value:
-                        try:
-                            val = int(curr_value)
-                            if val > 0:
-                                all_currencies[curr_name] = val
-                        except Exception:
-                            pass
-            
-            # Parse Quests to get completed quest IDs
-            completed_quests = []
-            quests = _safe_json_load(quests_json)
-            if isinstance(quests, list):
-                completed_quests = [int(q) for q in quests if isinstance(q, (int, str))]
-            
-            result[int(char_id)] = {
-                "treasure_value": int(treasure_value),
-                "coffer_dye_value": int(coffer_dye_value),
-                "coffer_count": int(coffer_count),
-                "dye_count": int(dye_count),
-                "dye_pure_white": int(dye_pure_white),
-                "dye_jet_black": int(dye_jet_black),
-                "dye_pastel_pink": int(dye_pastel_pink),
-                "mb_dye_count": int(mb_dye_count),
-                "venture_coins": int(venture_coins),
-                "current_job": current_job,
-                "current_level": current_level,
-                "highest_job": highest_job,
-                "highest_level": highest_level,
-                "lowest_job": lowest_job,
-                "lowest_level": lowest_level,
-                "all_jobs": all_jobs,
-                "all_currencies": all_currencies,
-                "completed_quests": completed_quests,
+        # Get all character content_ids
+        char_rows = c.execute("SELECT content_id FROM characters").fetchall()
+        for (cid,) in char_rows:
+            result[cid] = {
+                "treasure_value": 0, "coffer_dye_value": 0, "coffer_count": 0,
+                "dye_count": 0, "dye_pure_white": 0, "dye_jet_black": 0,
+                "dye_pastel_pink": 0, "mb_dye_count": 0, "venture_coins": 0,
+                "current_job": "", "current_level": 0,
+                "highest_job": "", "highest_level": 0,
+                "lowest_job": "", "lowest_level": 0,
+                "all_jobs": {}, "all_currencies": {}, "completed_quests": [],
             }
         
-        con.close()
+        # Build retainer_id -> content_id map
+        retainer_map = {}
+        for row in c.execute("SELECT retainer_id, content_id FROM retainers").fetchall():
+            retainer_map[row[0]] = row[1]
+        
+        # Scan container_items (character inventory, saddlebag, armory)
+        for row in c.execute("SELECT content_id, item_id, quantity FROM container_items").fetchall():
+            cid, item_id, qty = row[0], row[1], row[2]
+            if cid in result:
+                _tally_item(result[cid], item_id, qty)
+        
+        # Scan retainer_items (retainer inventory - not on MB)
+        for row in c.execute("SELECT retainer_id, item_id, quantity FROM retainer_items").fetchall():
+            cid = retainer_map.get(row[0])
+            if cid and cid in result:
+                _tally_item(result[cid], row[1], row[2])
+        
+        # Scan retainer_listings (items listed on marketboard)
+        for row in c.execute("SELECT retainer_id, item_id, quantity FROM retainer_listings").fetchall():
+            cid = retainer_map.get(row[0])
+            if cid and cid in result:
+                _tally_item(result[cid], row[1], row[2], is_marketboard=True)
+        
+        # Currency balances (Gil, Venture Coins, Tomestones, etc.)
+        for row in c.execute("SELECT content_id, currency_name, amount FROM currency_balances WHERE amount > 0").fetchall():
+            cid, name, amount = row[0], row[1], row[2]
+            if cid in result:
+                result[cid]["all_currencies"][name] = amount
+                if name == "Venture Coins":
+                    result[cid]["venture_coins"] = amount
+        
+        # Job levels (all jobs with level > 0)
+        for row in c.execute("SELECT content_id, abbreviation, name, level FROM job_levels WHERE level > 0").fetchall():
+            cid, abbr, name, level = row[0], row[1], row[2], row[3]
+            if cid in result:
+                r = result[cid]
+                job_key = XA_JOB_NAME_TO_KEY.get(name, name)
+                r["all_jobs"][job_key] = level
+                if level > r["highest_level"]:
+                    r["highest_level"] = level
+                    r["highest_job"] = abbr
+                if r["lowest_level"] == 0 or level < r["lowest_level"]:
+                    r["lowest_level"] = level
+                    r["lowest_job"] = abbr
+        
+        # Set current_job/current_level to highest (xa.db doesn't track "last played" like Altoholic)
+        for cid, r in result.items():
+            if r["highest_job"]:
+                r["current_job"] = r["highest_job"]
+                r["current_level"] = r["highest_level"]
+        
+        # MSQ milestones (completed quests)
+        for row in c.execute("SELECT content_id, quest_row_id FROM msq_milestones WHERE is_complete = 1").fetchall():
+            cid, quest_id = row[0], row[1]
+            if cid in result:
+                result[cid]["completed_quests"].append(quest_id)
+        
+        conn.close()
     except Exception as e:
-        print(f"[WARNING] Failed to scan Altoholic DB '{db_path}': {e}")
+        print(f"[WARNING] Failed to scan XA Database '{db_path}': {e}")
     
     return result
 
@@ -1478,6 +1574,10 @@ def get_all_data():
     total_enabled_subs = 0  # Enabled subs (not excluded, not sleeping)
     total_all_max_mb = 0  # Characters with ALL retainers maxed
     min_restock_days = None  # Track lowest restock days across all accounts (excluding 0)
+    total_ceruleum = 0  # Total ceruleum tanks across all accounts
+    total_repair_kits = 0  # Total repair kits across all accounts
+    total_tanks_per_day_all = 0.0  # Total tank consumption per day
+    total_kits_per_day_all = 0.0  # Total kit consumption per day
     
     # Character stats tracking
     total_chars_lv25_plus = 0
@@ -1556,11 +1656,11 @@ def get_all_data():
         fc_data = extract_fc_data(data)
         characters = collect_characters(data, account["nickname"])
         
-        # Scan Altoholic database for treasure values
+        # Scan XA Database for treasure values, currencies, jobs, MSQ
         alto_map = {}
-        alto_path = account.get("alto_path", "")
-        if alto_path:
-            alto_map = scan_altoholic_db(alto_path)
+        xa_db_path = account.get("xa_db_path", "")
+        if xa_db_path:
+            alto_map = scan_xa_db(xa_db_path)
         
         # Load Lifestream housing data
         housing_map = {}
@@ -1599,6 +1699,13 @@ def get_all_data():
                 days_from_kits = repair_kits / total_kits_per_day if repair_kits > 0 else 0
                 days_until_restock = int(min(days_from_tanks, days_from_kits))
             
+            # Accumulate supply totals for sublord snapshot
+            if not exclude_workshop:
+                total_ceruleum += ceruleum
+                total_repair_kits += repair_kits
+                total_tanks_per_day_all += total_tanks_per_day
+                total_kits_per_day_all += total_kits_per_day
+            
             # Count leveling vs farming submarines
             char_subs_leveling = sum(1 for s in submarines if s.get("is_leveling", False))
             char_subs_farming = sum(1 for s in submarines if s.get("is_farming", False))
@@ -1634,7 +1741,7 @@ def get_all_data():
                 fc_name = fc_data[cid].get("Name", "")
                 fc_points = fc_data[cid].get("FCPoints", 0)
             
-            # Get Altoholic data (treasure, coffers, dyes, job, etc.)
+            # Get XA Database data (treasure, coffers, dyes, job, etc.)
             treasure_value = 0
             coffer_dye_value = 0
             coffer_count = 0
@@ -1673,7 +1780,7 @@ def get_all_data():
                 all_currencies = alto_map[cid].get("all_currencies", {})
                 completed_quests = alto_map[cid].get("completed_quests", [])
             
-            # Get venture coffers from AutoRetainer if Altoholic doesn't have it
+            # Get venture coffers from AutoRetainer if XA Database doesn't have it
             venture_coffers_ar = char.get("VentureCoffers", 0)
             if coffer_count == 0 and venture_coffers_ar > 0:
                 coffer_count = venture_coffers_ar
@@ -2031,6 +2138,11 @@ def get_all_data():
             "fc_plots": len(unique_fc_plots),
             # Max MB retainer tracking
             "max_mb_retainer_count": sum(acc.get("max_mb_retainer_count", 0) for acc in all_accounts),
+            # Supply totals for sublord snapshot
+            "total_ceruleum": total_ceruleum,
+            "total_kits": total_repair_kits,
+            "total_tanks_per_day": round(total_tanks_per_day_all, 2),
+            "total_kits_per_day": round(total_kits_per_day_all, 2),
         },
         "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
@@ -3651,7 +3763,7 @@ HTML_TEMPLATE = '''
         
         <div class="footer">
             Please wait for page to load, may take longer if importing hundreds of characters, disable classes and/or currencies to generate faster.<br>
-            AutoRetainer Dashboard {{ version }} | Data sourced from AutoRetainer, Lifestream, & Altoholic<br>
+            AutoRetainer Dashboard {{ version }} | Data sourced from AutoRetainer, Lifestream, & XA Database<br>
             <a href="https://github.com/xa-io/ffxiv-tools/tree/main/AutoRetainer-Dashboard" target="_blank" style="color: var(--accent); text-decoration: none;">github.com/xa-io/ffxiv-tools</a>
         </div>
     </div>
@@ -5032,11 +5144,11 @@ def get_map_data():
         fc_data = extract_fc_data(data)
         characters = collect_characters(data, account["nickname"])
 
-        # Scan Altoholic for highest_level
+        # Scan XA Database for highest_level
         alto_map = {}
-        alto_path = account.get("alto_path", "")
-        if alto_path:
-            alto_map = scan_altoholic_db(alto_path)
+        xa_db_path = account.get("xa_db_path", "")
+        if xa_db_path:
+            alto_map = scan_xa_db(xa_db_path)
 
         # Load Lifestream housing
         housing_map = {}
@@ -5069,7 +5181,7 @@ def get_map_data():
             world = char.get("World", "Unknown")
             region = region_from_world(world)
 
-            # Get highest level from altoholic
+            # Get highest level from XA Database
             highest_level = 0
             if cid in alto_map:
                 highest_level = alto_map[cid].get("highest_level", 0)
@@ -6603,11 +6715,11 @@ def get_subs_data():
         fc_data = extract_fc_data(data)
         characters = collect_characters(data, account["nickname"])
         
-        # Scan Altoholic for treasure values
+        # Scan XA Database for treasure values
         alto_map = {}
-        alto_path = account.get("alto_path", "")
-        if alto_path:
-            alto_map = scan_altoholic_db(alto_path)
+        xa_db_path = account.get("xa_db_path", "")
+        if xa_db_path:
+            alto_map = scan_xa_db(xa_db_path)
         
         for char in characters:
             cid = char.get("CID", 0)
@@ -6625,7 +6737,7 @@ def get_subs_data():
             inventory_space = char.get("InventorySpace", 0)
             ventures = char.get("Ventures", 0)
             
-            # Altoholic data
+            # XA Database data
             treasure_value = 0
             highest_level = 0
             highest_job = ""
@@ -7313,7 +7425,7 @@ SUBS_TEMPLATE = r'''
 
 
 # ===============================================
-# Charts Template (Sublord DB Financial Data)
+# Charts Template (XA Database Financial Data)
 # ===============================================
 CHARTS_TEMPLATE = '''
 <!DOCTYPE html>
@@ -7445,7 +7557,6 @@ CHARTS_TEMPLATE = '''
             }
         };
 
-        // Total Wealth Over Time (stacked area: Character Gil + Retainer Gil + Treasure)
         new Chart(document.getElementById('wealthChart'), {
             type: 'line',
             data: {
@@ -7460,7 +7571,6 @@ CHARTS_TEMPLATE = '''
             options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, stacked: false } } }
         });
 
-        // Daily Earnings vs Supply Costs
         new Chart(document.getElementById('earningsChart'), {
             type: 'line',
             data: {
@@ -7473,7 +7583,6 @@ CHARTS_TEMPLATE = '''
             options: chartDefaults
         });
 
-        // Net Profit
         new Chart(document.getElementById('profitChart'), {
             type: 'bar',
             data: {
@@ -7488,7 +7597,6 @@ CHARTS_TEMPLATE = '''
             options: chartDefaults
         });
 
-        // Submarine Fleet
         new Chart(document.getElementById('subsChart'), {
             type: 'bar',
             data: {
@@ -7501,20 +7609,18 @@ CHARTS_TEMPLATE = '''
             options: { ...chartDefaults, scales: { ...chartDefaults.scales, x: { ...chartDefaults.scales.x, stacked: true }, y: { ...chartDefaults.scales.y, stacked: true, ticks: { ...chartDefaults.scales.y.ticks, callback: v => v } } } }
         });
 
-        // Supply Inventory
         new Chart(document.getElementById('supplyChart'), {
             type: 'line',
             data: {
                 labels,
                 datasets: [
-                    { label: 'Ceruleum Tanks', data: snapshots.map(s => s.total_ceruleum_tanks), borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
-                    { label: 'Repair Kits', data: snapshots.map(s => s.total_repair_kits), borderColor: '#8b949e', backgroundColor: 'rgba(139,148,158,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
+                    { label: 'Ceruleum Tanks', data: snapshots.map(s => s.ceruleum_tank_inventory), borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
+                    { label: 'Repair Kits', data: snapshots.map(s => s.repair_kit_inventory), borderColor: '#8b949e', backgroundColor: 'rgba(139,148,158,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
                 ]
             },
             options: chartDefaults
         });
 
-        // Daily Consumption Rates
         new Chart(document.getElementById('consumptionChart'), {
             type: 'line',
             data: {
@@ -7527,7 +7633,6 @@ CHARTS_TEMPLATE = '''
             options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, ticks: { ...chartDefaults.scales.y.ticks, callback: v => v.toFixed(1) } } } }
         });
 
-        // Days Until Restocking
         new Chart(document.getElementById('restockChart'), {
             type: 'line',
             data: {
@@ -7551,16 +7656,16 @@ CHARTS_TEMPLATE = '''
     <div class="no-data">
         <h2>No Financial Data Available</h2>
         {% if not data %}
-        <p>sublord.db not found or USE_AAR_DB is disabled in config.json.</p>
-        <p style="margin-top:8px;color:#8b949e;">Set <code style="background:#21262d;padding:2px 6px;border-radius:3px;">"USE_AAR_DB": true</code> and ensure Auto-AutoRetainer is running with ENABLE_SUBLORD_DB enabled.</p>
+        <p>USE_AAR_DB is disabled in config.json.</p>
+        <p style="margin-top:8px;color:#8b949e;">Set <code style="background:#21262d;padding:2px 6px;border-radius:3px;">"USE_AAR_DB": true</code> to enable snapshot recording.</p>
         {% else %}
-        <p>sublord.db exists but contains no daily snapshots yet.</p>
-        <p style="margin-top:8px;color:#8b949e;">Data will appear after Auto-AutoRetainer runs and records its first snapshot.</p>
+        <p>No snapshots recorded yet. Data will appear after the dashboard loads and records its first daily snapshot.</p>
+        <p style="margin-top:8px;color:#8b949e;">Visit the main dashboard page to trigger snapshot recording.</p>
         {% endif %}
     </div>
     {% endif %}
 
-    <div class="footer">AutoRetainer Dashboard {{ version }} | Charts powered by sublord.db</div>
+    <div class="footer">AutoRetainer Dashboard {{ version }} | Charts powered by sublord.db snapshots from XA Database</div>
 </body>
 </html>
 '''
@@ -7573,6 +7678,9 @@ CHARTS_TEMPLATE = '''
 def index():
     """Main dashboard page"""
     data = get_all_data()
+    # Write daily snapshot to sublord.db for charts historical data
+    if USE_AAR_DB and data and "summary" in data:
+        write_daily_snapshot(data["summary"])
     return render_template_string(HTML_TEMPLATE, data=data, auto_refresh=AUTO_REFRESH, 
                                   job_categories=JOB_CATEGORIES, job_display_names=JOB_DISPLAY_NAMES,
                                   job_base_class=JOB_BASE_CLASS, version=VERSION,
@@ -7610,7 +7718,7 @@ def subs_page():
 @app.route('/charts/')
 @app.route('/charts')
 def charts_page():
-    """Financial charts page (sublord.db data from Auto-AutoRetainer)"""
+    """Financial charts page (historical snapshots from sublord.db)"""
     data = read_sublord_data()
     return render_template_string(CHARTS_TEMPLATE, data=data, version=VERSION)
 
@@ -7824,11 +7932,15 @@ def main():
     print(f"  Data:   http://{HOST}:{PORT}/data/")
     if USE_AAR_DB:
         print(f"  Charts: http://{HOST}:{PORT}/charts/")
-        db_path = get_sublord_db_path()
-        if db_path and db_path.exists():
-            print(f"  sublord.db: {db_path}")
-        else:
-            print(f"  sublord.db: Not found (charts will show placeholder)")
+        init_sublord_db()
+        sublord_path = get_sublord_db_path()
+        print(f"  Sublord DB: {sublord_path}")
+        found_dbs, missing_dbs = check_xa_db_status()
+        if found_dbs:
+            print(f"  XA Database: Found for {len(found_dbs)}/{len(account_locations)} accounts")
+        if missing_dbs:
+            for acc_name in missing_dbs:
+                print(f"  [XA-DB] {acc_name} doesn't have a XA Database file to parse")
     print(f"  Accounts: {len(account_locations)}")
     print(f"  Auto-refresh: {AUTO_REFRESH}s" if AUTO_REFRESH > 0 else "  Auto-refresh: Disabled")
     print("=" * 60)
