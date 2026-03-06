@@ -31,30 +31,19 @@
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.28
+# Landing Page v1.29
 # AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-02-26 13:00:00
+# Last Updated: 2026-02-27 07:38:00
 #
 # ## Release Notes This Update ##
 #
-# v1.28 - FC Data & Data page overhaul
-#         Sub Planner bidirectional sorting, Name@World display, ETA column, inventory stats
-#         Data page: Excel export, sticky filters/headers, dark scrollbars, full-viewport layout
-#         Unique FC count summary card, compact summary cards, integer formatting
-#         FC Detection Diagnostic gated behind DEBUG flag
-# v1.27 - Added /data/ page: Data Master List across all accounts
-#         Sortable table with character name, world, account, sub 1-4 levels/builds/plans/returns
-#         Character-level data: gil, ceruleum, repair kits, days to restock, inventory, treasure
-#         Click any column header to sort ascending/descending
-#         Summary cards: total subs, farming/leveling counts, daily income, supply costs
-# v1.26 - Added /fcdata/ page: Plot Map & FC Capacity Planner
-#         Visual housing plot overview with 5-column district grid (Goblet, LB, Mist, Empyreum, Shirogane)
-#         Per-ward plot dots (green=FC, gold=Personal) with hover tooltips
-#         FC Capacity Planner with per-account/region breakdown and world-level bars
-#         Enhanced summary cards: Total Chars, In FC, Can Join FC, FC/Personal Plots
-#         FC detection uses submarines + Lifestream FC house (not stale fc_name)
-#         Disclaimer explaining sub-based FC detection and OCE 39/40 max capacity
+# v1.29 - Added support for redeploy and finalize planners
+#         *IN BETA* - Added /charts/ page: Financial Charts powered by sublord.db
+#         Historical timeline charts for daily gil earnings, supply costs, net profit
+#         Total Wealth chart: character Gil + retainer Gil + treasure value over time
+#         Submarine fleet composition (farming vs leveling) stacked bar chart
+#         Supply inventory tracking (ceruleum tanks, repair kits) over time
 #
 ############################################################################################################################
 
@@ -79,7 +68,7 @@ DEBUG = False           # Flask debug mode (set True for development)
 AUTO_REFRESH = 60       # Auto-refresh interval in seconds (0 to disable)
 
 # Display options
-VERSION = "v1.28"       # Version number shown in footer and startup
+VERSION = "v1.29"       # Version number shown in footer and startup
 SHOW_CLASSES = True     # Show DoW/DoM and DoH/DoL job sections, disable to speed up page load
 SHOW_CURRENCIES = True  # Show currencies section, disable to speed up page load
 SHOW_MSQ_PROGRESSION = True  # Show MSQ progression (disabled until Altoholic tracking works)
@@ -91,6 +80,10 @@ HIGHLIGHT_MAX_MB = True          # Gold outline on character cards with max (20)
 HIGHLIGHT_POTENTIAL_RETAINER = True  # Brown outline on characters with MSQ 66060 done but 0 retainers
 HIGHLIGHT_POTENTIAL_SUBS = True  # Black outline on characters Lv 25+ not in FC (potential sub farmers)
 HONOR_AR_EXCLUSIONS = True  # Honor AutoRetainer's ExcludeRetainer/ExcludeWorkshop settings per character
+
+# Sublord DB Integration (Auto-AutoRetainer financial data)
+USE_AAR_DB = False          # Enable /charts/ page with sublord.db data from Auto-AutoRetainer
+AAR_DB_PATH = ""            # Path to sublord.db (empty = auto-detect in script directory)
 
 # Highlight Colors (customizable)
 HIGHLIGHT_COLOR_IDLE_RETAINERS = "cyan"       # Cyan for idle retainers
@@ -661,22 +654,26 @@ def load_lifestream_data(lifestream_path):
 # ===============================================
 # Submarine VesselBehavior Plan Types
 # ===============================================
-# VesselBehavior values from AutoRetainer:
-# 0 = Finalize (docked/idle)
-# 1 = Use Specified Path (farming route)
+# VesselBehavior values from AutoRetainer (VoyageMain.cs):
+# 0 = Finalize (collect sub, do not redeploy)
+# 1 = Redeploy (re-use last deployed route, no named plan)
 # 2 = Level Up (leveling mode)
 # 3 = Unlock Sectors
 # 4 = Use Point Plan
 VESSEL_BEHAVIOR_FARMING = {1, 4}  # These indicate farming mode
 VESSEL_BEHAVIOR_LEVELING = {2, 3}  # These indicate leveling mode
+VESSEL_BEHAVIOR_REDEPLOY = 1      # Redeploy: re-use last route
+VESSEL_BEHAVIOR_FINALIZE = 0      # Finalize: collect and dock
 
 # ===============================================
 # Plan Configuration (loaded from config.json)
 # ===============================================
 # These can be overridden in config.json
 submarine_plans = {
-    "leveling": [],
-    "farming": {}  # name: average_earnings
+    "leveling": [],  # plan names that indicate leveling
+    "farming": {},   # plan name: average daily earnings
+    "redeploy": [],  # build strings for subs set to Redeploy (VesselBehavior 1)
+    "finalize": []   # build strings for subs set to Finalize (VesselBehavior 0)
 }
 # Retainer leveling/farming is purely level-based: < 100 = leveling, >= 100 = farming
 item_values = {
@@ -726,6 +723,7 @@ def load_external_config():
     global HIGHLIGHT_COLOR_IDLE_RETAINERS, HIGHLIGHT_COLOR_IDLE_SUBS, HIGHLIGHT_COLOR_MAX_MB, HIGHLIGHT_COLOR_POTENTIAL_RETAINER, HIGHLIGHT_COLOR_POTENTIAL_SUBS
     global BUILD_GIL_RATES, BUILD_CONSUMPTION_RATES
     global CERULEUM_TANK_COST, REPAIR_KIT_COST
+    global USE_AAR_DB, AAR_DB_PATH
     
     config_path = Path(__file__).parent / CONFIG_FILE
     if not config_path.exists():
@@ -790,9 +788,66 @@ def load_external_config():
         if "repair_kit_cost" in config:
             REPAIR_KIT_COST = config["repair_kit_cost"]
         
+        # Load sublord DB integration settings
+        USE_AAR_DB = config.get("USE_AAR_DB", USE_AAR_DB)
+        AAR_DB_PATH = config.get("AAR_DB_PATH", AAR_DB_PATH)
+        if AAR_DB_PATH:
+            AAR_DB_PATH = os.path.expandvars(AAR_DB_PATH)
+            AAR_DB_PATH = AAR_DB_PATH.replace("{user}", user)
+        
         print(f"[CONFIG] Loaded configuration from {config_path}")
     except Exception as e:
         print(f"[CONFIG] Error loading config: {e}")
+
+
+# ===============================================
+# Sublord DB Reading Functions (for /charts/ page)
+# ===============================================
+def get_sublord_db_path():
+    """Get the path to sublord.db for reading."""
+    if AAR_DB_PATH:
+        return Path(AAR_DB_PATH)
+    # Auto-detect: look in script directory first
+    local_path = Path(__file__).parent / "sublord.db"
+    if local_path.exists():
+        return local_path
+    return None
+
+def read_sublord_data():
+    """
+    Read all data from sublord.db for charts.
+    Returns dict with daily_snapshots list and cumulative_totals dict, or None if unavailable.
+    """
+    if not USE_AAR_DB:
+        return None
+    
+    db_path = get_sublord_db_path()
+    if not db_path or not db_path.exists():
+        return None
+    
+    try:
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        
+        # Read all daily snapshots ordered by date
+        c.execute("SELECT * FROM daily_snapshots ORDER BY date ASC")
+        snapshots = [dict(row) for row in c.fetchall()]
+        
+        # Read cumulative totals
+        c.execute("SELECT * FROM cumulative_totals WHERE id = 1")
+        cumulative_row = c.fetchone()
+        cumulative = dict(cumulative_row) if cumulative_row else {}
+        
+        conn.close()
+        
+        return {
+            "daily_snapshots": snapshots,
+            "cumulative": cumulative
+        }
+    except Exception as e:
+        print(f"[SUBLORD-DB] Error reading database: {e}")
+        return None
 
 
 def build_plan_name_lookup(data):
@@ -815,15 +870,25 @@ def build_plan_name_lookup(data):
             submarine_plan_names[guid] = name
 
 
-def get_submarine_plan_info(sub_data):
+def get_submarine_plan_info(sub_data, build=""):
     """
     Determine submarine leveling/farming status and earnings based on plan name.
     Returns: (is_leveling, is_farming, plan_name, plan_earnings)
     """
+    vessel_behavior = sub_data.get("VesselBehavior", 0)
+    
+    # VesselBehavior 1 = Redeploy: re-uses last route, no named plan stored
+    if vessel_behavior == VESSEL_BEHAVIOR_REDEPLOY:
+        return False, True, "Redeploy", 0
+    
+    # VesselBehavior 0 = Finalize: check if build is in the finalize config list
+    finalize_builds = submarine_plans.get("finalize", [])
+    if vessel_behavior == VESSEL_BEHAVIOR_FINALIZE and build and build in finalize_builds:
+        return False, False, "Finalize", 0
+    
     # Get the plan GUID being used
     selected_point_plan = sub_data.get("SelectedPointPlan", "")
     selected_unlock_plan = sub_data.get("SelectedUnlockPlan", "")
-    vessel_behavior = sub_data.get("VesselBehavior", 0)
     
     # Determine which plan to look up based on VesselBehavior
     plan_guid = ""
@@ -835,7 +900,7 @@ def get_submarine_plan_info(sub_data):
     # Get plan name from GUID lookup
     plan_name = submarine_plan_names.get(plan_guid, "")
     
-    # Check if plan name matches config leveling plans
+    # Check if plan name matches config leveling or farming plans
     leveling_plans = submarine_plans.get("leveling", [])
     farming_plans = submarine_plans.get("farming", {})
     
@@ -848,7 +913,6 @@ def get_submarine_plan_info(sub_data):
     
     # Fallback to VesselBehavior detection
     if vessel_behavior in VESSEL_BEHAVIOR_FARMING:
-        # Check if we can match the plan name to get earnings
         if plan_name and plan_name in farming_plans:
             return False, True, plan_name, farming_plans[plan_name]
         return False, True, plan_name if plan_name else "Unknown Plan", 0
@@ -1298,7 +1362,7 @@ def parse_submarine_data(char_data):
         vessel_behavior = sub_data.get("VesselBehavior", 0)
         
         # Get plan info from config-based detection
-        is_leveling, is_farming, plan_name, plan_earnings = get_submarine_plan_info(sub_data)
+        is_leveling, is_farming, plan_name, plan_earnings = get_submarine_plan_info(sub_data, build)
         
         # If no plan match and no VesselBehavior detection, use level/build fallbacks
         if not plan_name and vessel_behavior == 0:
@@ -3028,7 +3092,7 @@ HTML_TEMPLATE = '''
             <header>
                 <div class="header-content">
                     <div class="header-left">
-                        <h1>⚓ AutoRetainer Dashboard <a href="/fcdata/" style="font-size:0.7rem;color:var(--accent-light);text-decoration:none;padding:3px 10px;border:1px solid var(--border);border-radius:6px;margin-left:8px;vertical-align:middle;font-weight:400;">🏨 FC Data</a><a href="/data/" style="font-size:0.7rem;color:var(--accent-light);text-decoration:none;padding:3px 10px;border:1px solid var(--border);border-radius:6px;margin-left:6px;vertical-align:middle;font-weight:400;">📝 Data</a></h1>
+                        <h1>⚓ AutoRetainer Dashboard <a href="/fcdata/" style="font-size:0.7rem;color:var(--accent-light);text-decoration:none;padding:3px 10px;border:1px solid var(--border);border-radius:6px;margin-left:8px;vertical-align:middle;font-weight:400;">🏨 FC Data</a><a href="/data/" style="font-size:0.7rem;color:var(--accent-light);text-decoration:none;padding:3px 10px;border:1px solid var(--border);border-radius:6px;margin-left:6px;vertical-align:middle;font-weight:400;">📝 Data</a><a href="/charts/" style="font-size:0.7rem;color:var(--accent-light);text-decoration:none;padding:3px 10px;border:1px solid var(--border);border-radius:6px;margin-left:6px;vertical-align:middle;font-weight:400;">📈 Charts</a></h1>
                         <div class="subtitle">Last Updated: <span id="last-updated">{{ data.last_updated }}</span> | Auto-refresh: {{ auto_refresh }}s</div>
                     </div>
                     <div class="header-right">
@@ -5959,6 +6023,7 @@ MAP_TEMPLATE = '''
             <a href="/">📊 Dashboard</a>
             <a href="/fcdata/" class="active">🏨 FC Data</a>
             <a href="/data/">📝 Data</a>
+            <a href="/charts/">📈 Charts</a>
         </div>
     </div>
 
@@ -6687,7 +6752,7 @@ def get_subs_data():
 # ===============================================
 # Submarine Master List HTML Template
 # ===============================================
-SUBS_TEMPLATE = '''
+SUBS_TEMPLATE = r'''
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6953,6 +7018,7 @@ SUBS_TEMPLATE = '''
             <a href="/">📊 Dashboard</a>
             <a href="/fcdata/">🏨 FC Data</a>
             <a href="/data/" class="active">📝 Data</a>
+            <a href="/charts/">📈 Charts</a>
         </div>
 
         <!-- Summary cards -->
@@ -7247,6 +7313,260 @@ SUBS_TEMPLATE = '''
 
 
 # ===============================================
+# Charts Template (Sublord DB Financial Data)
+# ===============================================
+CHARTS_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Charts - AutoRetainer Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; overflow: hidden; }
+        body { background: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; display: flex; flex-direction: column; }
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 6px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+        .header h1 { font-size: 16px; color: #58a6ff; }
+        .header .nav { display: flex; gap: 8px; }
+        .header .nav a { color: #8b949e; text-decoration: none; font-size: 12px; padding: 4px 10px; border-radius: 6px; transition: all 0.2s; }
+        .header .nav a:hover, .header .nav a.active { color: #f0f6fc; background: #21262d; }
+        .summary-row { display: flex; gap: 6px; padding: 6px 10px; flex-shrink: 0; }
+        .summary-card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 4px 10px; flex: 1; min-width: 0; }
+        .summary-card .label { font-size: 9px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .summary-card .value { font-size: 14px; font-weight: 600; color: #f0f6fc; white-space: nowrap; }
+        .summary-card .value.green { color: #3fb950; }
+        .summary-card .value.red { color: #f85149; }
+        .summary-card .value.blue { color: #58a6ff; }
+        .summary-card .value.gold { color: #d29922; }
+        .charts-area { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 3fr 2fr 2fr 2fr; gap: 6px; padding: 0 10px 6px; min-height: 0; }
+        .chart-box { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 6px 10px; min-height: 0; display: flex; flex-direction: column; }
+        .chart-box.full { grid-column: 1 / -1; }
+        .chart-box h3 { font-size: 10px; color: #8b949e; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.3px; flex-shrink: 0; }
+        .chart-box .chart-wrap { flex: 1; min-height: 0; position: relative; }
+        .chart-box canvas { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; }
+        .no-data { text-align: center; padding: 80px 20px; color: #484f58; font-size: 16px; }
+        .no-data h2 { color: #8b949e; margin-bottom: 8px; }
+        .footer { text-align: center; padding: 4px; color: #484f58; font-size: 10px; border-top: 1px solid #21262d; flex-shrink: 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📈 Financial Charts</h1>
+        <div class="nav">
+            <a href="/">Dashboard</a>
+            <a href="/data/">Data</a>
+            <a href="/fcdata/">FC Data</a>
+            <a href="/charts/" class="active">Charts</a>
+        </div>
+    </div>
+
+    {% if data and data.daily_snapshots|length > 0 %}
+    <div class="summary-row">
+        <div class="summary-card">
+            <div class="label">Character Gil</div>
+            <div class="value green">{{ "{:,}".format(data.daily_snapshots[-1].get('total_character_gil', 0)) }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Retainer Gil</div>
+            <div class="value green">{{ "{:,}".format(data.daily_snapshots[-1].get('total_retainer_gil', 0)) }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Treasure Value</div>
+            <div class="value gold">{{ "{:,}".format(data.daily_snapshots[-1].get('total_treasure_value', 0)) }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Combined Total</div>
+            <div class="value blue">{{ "{:,}".format(data.daily_snapshots[-1].get('total_gil_plus_treasure', 0)) }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Gil Earned (All Time)</div>
+            <div class="value green">{{ "{:,}".format(data.cumulative.get('total_gil_overall', 0)) }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Supply Cost (All Time)</div>
+            <div class="value red">{{ "{:,}".format(data.cumulative.get('total_supply_cost_overall', 0)) }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Gil/Day</div>
+            <div class="value gold">{{ "{:,}".format(data.daily_snapshots[-1].get('total_gil_per_day', 0)) }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Restock In</div>
+            <div class="value {% if data.daily_snapshots[-1].get('days_until_restocking') and data.daily_snapshots[-1]['days_until_restocking'] < 7 %}red{% else %}blue{% endif %}">
+                {{ data.daily_snapshots[-1].get('days_until_restocking', 'N/A') }}d
+            </div>
+        </div>
+    </div>
+
+    <div class="charts-area">
+        <div class="chart-box full">
+            <h3>Total Wealth Over Time (Gil + Retainer Gil + Treasure)</h3>
+            <div class="chart-wrap"><canvas id="wealthChart"></canvas></div>
+        </div>
+        <div class="chart-box">
+            <h3>Daily Gil Earnings vs Supply Costs</h3>
+            <div class="chart-wrap"><canvas id="earningsChart"></canvas></div>
+        </div>
+        <div class="chart-box">
+            <h3>Days Until Restocking Required</h3>
+            <div class="chart-wrap"><canvas id="restockChart"></canvas></div>
+        </div>
+        <div class="chart-box">
+            <h3>Net Profit Per Day</h3>
+            <div class="chart-wrap"><canvas id="profitChart"></canvas></div>
+        </div>
+        <div class="chart-box">
+            <h3>Submarine Fleet</h3>
+            <div class="chart-wrap"><canvas id="subsChart"></canvas></div>
+        </div>
+        <div class="chart-box">
+            <h3>Supply Inventory (Tanks & Kits)</h3>
+            <div class="chart-wrap"><canvas id="supplyChart"></canvas></div>
+        </div>
+        <div class="chart-box">
+            <h3>Consumption Rates</h3>
+            <div class="chart-wrap"><canvas id="consumptionChart"></canvas></div>
+        </div>
+    </div>
+
+    <script>
+        const snapshots = {{ data.daily_snapshots | tojson }};
+        const labels = snapshots.map(s => s.date);
+
+        const chartDefaults = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#8b949e', font: { size: 9 }, boxWidth: 10, padding: 6 } } },
+            scales: {
+                x: { ticks: { color: '#484f58', maxRotation: 30, font: { size: 8 }, maxTicksLimit: 15 }, grid: { color: '#21262d' } },
+                y: { ticks: { color: '#484f58', font: { size: 8 }, callback: v => v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(0)+'k' : v, maxTicksLimit: 6 }, grid: { color: '#21262d' } }
+            }
+        };
+
+        // Total Wealth Over Time (stacked area: Character Gil + Retainer Gil + Treasure)
+        new Chart(document.getElementById('wealthChart'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Character Gil', data: snapshots.map(s => s.total_character_gil || 0), borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
+                    { label: 'Retainer Gil', data: snapshots.map(s => s.total_retainer_gil || 0), borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
+                    { label: 'Treasure Value', data: snapshots.map(s => s.total_treasure_value || 0), borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
+                    { label: 'Combined Total', data: snapshots.map(s => s.total_gil_plus_treasure || 0), borderColor: '#f0f6fc', backgroundColor: 'rgba(240,246,252,0)', fill: false, tension: 0.3, pointRadius: 2, borderWidth: 2, borderDash: [5, 3] }
+                ]
+            },
+            options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, stacked: false } } }
+        });
+
+        // Daily Earnings vs Supply Costs
+        new Chart(document.getElementById('earningsChart'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Gil Per Day', data: snapshots.map(s => s.total_gil_per_day), borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
+                    { label: 'Supply Cost Per Day', data: snapshots.map(s => s.total_supply_cost_per_day), borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
+                ]
+            },
+            options: chartDefaults
+        });
+
+        // Net Profit
+        new Chart(document.getElementById('profitChart'), {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Net Profit',
+                    data: snapshots.map(s => s.total_gil_per_day - s.total_supply_cost_per_day),
+                    backgroundColor: snapshots.map(s => (s.total_gil_per_day - s.total_supply_cost_per_day) >= 0 ? 'rgba(63,185,80,0.7)' : 'rgba(248,81,73,0.7)'),
+                    borderRadius: 2
+                }]
+            },
+            options: chartDefaults
+        });
+
+        // Submarine Fleet
+        new Chart(document.getElementById('subsChart'), {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Farming', data: snapshots.map(s => s.total_subs_farming), backgroundColor: 'rgba(88,166,255,0.7)', borderRadius: 2 },
+                    { label: 'Leveling', data: snapshots.map(s => s.total_subs_leveling), backgroundColor: 'rgba(210,153,34,0.7)', borderRadius: 2 }
+                ]
+            },
+            options: { ...chartDefaults, scales: { ...chartDefaults.scales, x: { ...chartDefaults.scales.x, stacked: true }, y: { ...chartDefaults.scales.y, stacked: true, ticks: { ...chartDefaults.scales.y.ticks, callback: v => v } } } }
+        });
+
+        // Supply Inventory
+        new Chart(document.getElementById('supplyChart'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Ceruleum Tanks', data: snapshots.map(s => s.total_ceruleum_tanks), borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
+                    { label: 'Repair Kits', data: snapshots.map(s => s.total_repair_kits), borderColor: '#8b949e', backgroundColor: 'rgba(139,148,158,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
+                ]
+            },
+            options: chartDefaults
+        });
+
+        // Daily Consumption Rates
+        new Chart(document.getElementById('consumptionChart'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Tanks/Day', data: snapshots.map(s => s.total_tanks_per_day), borderColor: '#d29922', tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
+                    { label: 'Kits/Day', data: snapshots.map(s => s.total_kits_per_day), borderColor: '#8b949e', tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
+                ]
+            },
+            options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, ticks: { ...chartDefaults.scales.y.ticks, callback: v => v.toFixed(1) } } } }
+        });
+
+        // Days Until Restocking
+        new Chart(document.getElementById('restockChart'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Days Until Restock',
+                    data: snapshots.map(s => s.days_until_restocking),
+                    borderColor: '#f85149',
+                    backgroundColor: 'rgba(248,81,73,0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 1,
+                    borderWidth: 1.5,
+                    pointBackgroundColor: snapshots.map(s => s.days_until_restocking !== null && s.days_until_restocking < 7 ? '#f85149' : '#3fb950')
+                }]
+            },
+            options: chartDefaults
+        });
+    </script>
+    {% else %}
+    <div class="no-data">
+        <h2>No Financial Data Available</h2>
+        {% if not data %}
+        <p>sublord.db not found or USE_AAR_DB is disabled in config.json.</p>
+        <p style="margin-top:8px;color:#8b949e;">Set <code style="background:#21262d;padding:2px 6px;border-radius:3px;">"USE_AAR_DB": true</code> and ensure Auto-AutoRetainer is running with ENABLE_SUBLORD_DB enabled.</p>
+        {% else %}
+        <p>sublord.db exists but contains no daily snapshots yet.</p>
+        <p style="margin-top:8px;color:#8b949e;">Data will appear after Auto-AutoRetainer runs and records its first snapshot.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="footer">AutoRetainer Dashboard {{ version }} | Charts powered by sublord.db</div>
+</body>
+</html>
+'''
+
+
+# ===============================================
 # Flask Routes
 # ===============================================
 @app.route('/')
@@ -7285,6 +7605,23 @@ def subs_page():
     """Submarine master list page"""
     data = get_subs_data()
     return render_template_string(SUBS_TEMPLATE, data=data, version=VERSION)
+
+
+@app.route('/charts/')
+@app.route('/charts')
+def charts_page():
+    """Financial charts page (sublord.db data from Auto-AutoRetainer)"""
+    data = read_sublord_data()
+    return render_template_string(CHARTS_TEMPLATE, data=data, version=VERSION)
+
+
+@app.route('/api/charts-data')
+def api_charts_data():
+    """API endpoint for charts page JSON data"""
+    data = read_sublord_data()
+    if data is None:
+        return jsonify({"error": "sublord.db not available", "daily_snapshots": [], "cumulative": {}})
+    return jsonify(data)
 
 
 @app.route('/api/subs-data')
@@ -7485,6 +7822,13 @@ def main():
     print(f"  Server: http://{HOST}:{PORT}")
     print(f"  FC Data: http://{HOST}:{PORT}/fcdata/")
     print(f"  Data:   http://{HOST}:{PORT}/data/")
+    if USE_AAR_DB:
+        print(f"  Charts: http://{HOST}:{PORT}/charts/")
+        db_path = get_sublord_db_path()
+        if db_path and db_path.exists():
+            print(f"  sublord.db: {db_path}")
+        else:
+            print(f"  sublord.db: Not found (charts will show placeholder)")
     print(f"  Accounts: {len(account_locations)}")
     print(f"  Auto-refresh: {AUTO_REFRESH}s" if AUTO_REFRESH > 0 else "  Auto-refresh: Disabled")
     print("=" * 60)
