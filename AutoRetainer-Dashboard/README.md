@@ -1,7 +1,6 @@
-# AutoRetainer Dashboard v1.28
+# AutoRetainer Dashboard v1.29
 
 A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels, currencies, income/cost calculations, comprehensive supply tracking, an FC Data page with Plot Map & FC Capacity Planner, and a Data Master List page for managing all submarines across all accounts with Excel export.
-
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/8f876572-2517-408f-b092-14ae0c9f9004" alt="Loading Page">
@@ -11,6 +10,8 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
   <img width="1164" height="816" alt="image" src="https://github.com/user-attachments/assets/a1001bd7-56dc-4188-ab03-f3c511a4c274" />
 </p>
 
+## Support
+- Discord server: <https://discord.gg/g2NmYxPQCa>
 
 ## Features
 
@@ -48,7 +49,9 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 - **Sub Filtering**: "Show only toons with subs" (default on), "Show unused toons" toggle for characters with no FC/subs/tanks/kits
 - **FC Points Summary**: Total FC points across all FCs (deduplicated), convertible tanks count, and total tank gil value
 - **Unique FC Count**: Summary card showing count of distinct Free Companies across all accounts
-- **Cross-Page Navigation**: Dashboard, FC Data, and Data links accessible from every page
+- **Financial Charts** (`/charts/`): Historical timeline charts powered by sublord.db from Auto-AutoRetainer
+- **Charts Include**: Daily gil earnings vs supply costs, net profit, submarine fleet composition, supply inventory, consumption rates, days until restocking
+- **Cross-Page Navigation**: Dashboard, FC Data, Data, and Charts links accessible from every page
 
 ### Data Displayed
 
@@ -406,7 +409,33 @@ AutoRetainer-Dashboard/
 
 Created by: https://github.com/xa-io
 
-## Version History
+<details>
+
+<summary>Version History</summary>
+
+### v1.29 (2026-03-06) - Redeploy & Finalize Planner Support + Financial Charts
+
+**Redeploy & Finalize Submarine Modes:**
+
+- **Redeploy Support**: Submarines set to `Redeploy` (VesselBehavior 1) in AutoRetainer now display **"Redeploy"** as their plan name instead of "Unknown Plan"
+  - Redeploy re-uses the last deployed route with no named plan — detection is automatic via VesselBehavior
+- **Finalize Support**: Submarines set to `Finalize` (VesselBehavior 0) now display **"Finalize"** as their plan name
+  - Identified by build string — list your finalize builds in `config.json` under `submarine_plans.finalize`
+- **New Config Sections**: Added `redeploy` and `finalize` arrays to `submarine_plans` in `config.json`
+  - `redeploy`: List of build strings for subs expected in Redeploy mode (e.g. `"WSCC"`, `"WS+UC"`)
+  - `finalize`: List of build strings for subs expected in Finalize mode (e.g. `"SSSS"`)
+- **VesselBehavior Reference** (from AutoRetainer `VoyageMain.cs`): `0=Finalize`, `1=Redeploy`, `2=LevelUp`, `3=Unlock`, `4=Use_plan`
+
+**Financial Charts Page (`/charts/`) — Beta:**
+
+- **Historical Timeline Charts**: Daily gil earnings, supply costs, and net profit over time
+- **Total Wealth Chart**: Character Gil + retainer Gil + treasure value combined over time
+- **Submarine Fleet Composition**: Farming vs leveling stacked bar chart
+- **Supply Inventory Tracking**: Ceruleum tanks and repair kits over time
+- **Powered by `sublord.db`**: Reads financial snapshots from Auto-AutoRetainer's sublord database
+- **Configurable**: Set `USE_AAR_DB` and `AAR_DB_PATH` in `config.json` to point to your sublord.db
+
+---
 
 ### v1.28 (2026-02-26) - FC Data & Data Page Overhaul
 
@@ -437,6 +466,8 @@ Created by: https://github.com/xa-io
 **Debug & Diagnostics:**
 
 - FC Detection Diagnostic now only runs when `DEBUG = True` — no longer clutters startup log in production mode
+
+---
 
 ### v1.27 (2026-02-25) - Data Master List Page
 
@@ -471,6 +502,8 @@ Created by: https://github.com/xa-io
 - Data link added to /fcdata/ page nav bar
 - All three pages (Dashboard, FC Data, Data) interlinked
 
+---
+
 ### v1.26 (2026-02-25) - FC Data & Capacity Planner Page
 
 **New Page — `/fcdata/`:**
@@ -482,6 +515,8 @@ Created by: https://github.com/xa-io
 - **Characters Not in FC Table**: Sortable by character name, world, level, housing, with account/region selectors
 - **FC Detection**: Uses submarine ownership + Lifestream FC house data (not stale fc_name field)
 - **Disclaimer**: Explains sub-based FC detection methodology and OCE 39/40 max capacity note
+
+---
 
 ### v1.25 (2026-02-03) - Bug Fixes and Filter Improvements
 
@@ -505,6 +540,8 @@ Created by: https://github.com/xa-io
 - **Refresh Bug Fix**: Fixed 60-second refresh showing all retainers instead of enabled count
   - Refresh now uses `enabled_retainers`/`enabled_subs` instead of total counts
 
+---
+
 ### v1.24 (2026-02-02) - AutoRetainer Exclusion Settings Support
 
 **New Configuration Option:**
@@ -527,6 +564,8 @@ Created by: https://github.com/xa-io
 - Useful when certain characters have specific triggers blocked and you want the landing page to show accurate data
 - Default: `false` (shows all retainers and submarines regardless of AR exclusion settings)
 
+---
+
 ### v1.22 (2026-02-01) - Highlight Toggle Configuration
 
 **New Configuration Options:**
@@ -542,6 +581,8 @@ Created by: https://github.com/xa-io
 - When all five options are set to false, all character boxes display in the theme color with no highlighting
 - Allows users to customize the visual appearance based on preference
 - Settings can be changed in config.json or the script configuration section
+
+---
 
 ### v1.20 (2026-01-31) - Major UI/UX Enhancement Release
 
@@ -576,6 +617,8 @@ Created by: https://github.com/xa-io
 **Bug Fixes:**
 - Fixed plot counting duplicates, dye/coffer MarketInventory scanning, anonymize toggle errors
 
+---
+
 ### v1.15 (2026-01-27)
 
 - **Color Theme System**: Added 10 color theme presets with theme selector buttons under search bar
@@ -597,6 +640,8 @@ Created by: https://github.com/xa-io
 | `dark-orange` | Warm orange/amber tones |
 | `brown` | Earthy brown/sienna tones |
 
+---
+
 ### v1.14 (2026-01-27)
 
 - **Character Search Bar**: Added search input in header to filter characters by name across all accounts
@@ -607,12 +652,16 @@ Created by: https://github.com/xa-io
 - **Auto-Expand on Search**: Accounts with matching characters automatically expand during search
 - **Search Clear**: Clearing search restores original collapse states
 
+---
+
 ### v1.13 (2026-01-27)
 
 - **Current Class Fix**: Fixed to show last played job using LastJob/LastJobLevel from Altoholic
 - **Lowest/Highest Class**: Added fields that only show when level differs from Current
 - **Classes Sort Button**: Added "Classes" sort button (after Level, before Gil) - requires SHOW_CLASSES=true
 - **Individual Dye Counts**: Shows Pure White, Jet Black, Pastel Pink counts after total dyes
+
+---
 
 ### v1.12 (2026-01-27)
 
@@ -627,6 +676,8 @@ Created by: https://github.com/xa-io
 - **Currencies Unaffected**: Currencies dropdown displays normally (crystals, tomestones, etc.)
 - **Toggle Behavior**: Button changes from 💰 to 💸 when active, click again to restore values
 
+---
+
 ### v1.11 (2026-01-26)
 
 - **Improved Currencies Display**: Categorized currencies (Crystals, Common, Tomestones, Battle, Societies, Other)
@@ -636,6 +687,8 @@ Created by: https://github.com/xa-io
   - `SHOW_CLASSES`: Toggle DoW/DoM and DoH/DoL sections (default: true)
   - `SHOW_CURRENCIES`: Toggle Currencies section (default: true)
 
+---
+
 ### v1.10 (2026-01-26)
 
 - **MSQ Progression Tracking**: Shows MSQ completion percentage after Lv/Class in character header
@@ -643,6 +696,8 @@ Created by: https://github.com/xa-io
 - **Quest Details**: Tooltip shows completed/total quest count and current quest name
 - **Comprehensive Quest Data**: 1,041 trackable MSQ quests from ARR through Patch 7.4
 - **Altoholic Integration**: Extracts completed quests from Altoholic database
+
+---
 
 ### v1.09 (2026-01-26)
 
@@ -653,12 +708,16 @@ Created by: https://github.com/xa-io
 - **Job Level Mapping**: Base class levels mapped to final jobs (e.g., Gladiator → Paladin)
 - **Anonymize Enhancement**: Player name field shows "Toon X@Eorzea" when anonymized
 
+---
+
 ### v1.08 (2026-01-26)
 
 - **Housing Filter Buttons**: Added Personal House and FC House filter buttons to show only characters with houses
 - **Level Sort Buttons**: Added Retainer Lv and Submarine Lv sort buttons for sorting by max retainer/submarine level
 - **Compact Sort Buttons**: Renamed sort buttons to emojis for more compact display
 - **Anonymization Improvements**: Housing addresses now show "TOP SECRET" when anonymized, housing icons preserved in character header
+
+---
 
 ### v1.07 (2026-01-26)
 
@@ -667,20 +726,28 @@ Created by: https://github.com/xa-io
 - **FC House Display**: Shows FC House icon and location for characters with FC housing
 - **Housing Format**: Displays as "Mist W1 P15" for Ward 1, Plot 15 in Mist district
 
+---
+
 ### v1.06 (2026-01-26)
 
 - **Inventory Space Tracking**: Displays 🎒 X/140 in character summary card after FC name
 - **Inventory Breakdown**: Added Inventory row in character expanded details with color coding (red >= 130, yellow >= 100)
 - **Inventory Sorting**: Added "Inventory ▼" sort button to sort characters by inventory slots used
 
+---
+
 ### v1.05 (2026-01-26)
 
 - **Anonymize Mode**: Hide personal data for screenshots - replaces character names, worlds, FC names, retainer names, and submarine names with generic placeholders
 - **Expand/Collapse All**: Quick buttons to expand or collapse all character cards within an account
 
+---
+
 ### v1.04 (2026-01-26)
 
 - **Character Filtering**: Hide characters without submarines or retainers using toggle buttons in the sort bar
+
+---
 
 ### v1.03 (2026-01-26)
 
@@ -698,6 +765,8 @@ Created by: https://github.com/xa-io
 - **Leveling/Farming Stats**: Summary cards show breakdown of leveling vs farming submarines and retainers
 - **Retainer Status**: Retainers under level 100 shown as leveling, level 100 shown as farming
 
+---
+
 ### v1.02 (2026-01-25)
 
 - Changed account header bars from red gradient to lighter blue for better theme cohesion
@@ -705,11 +774,15 @@ Created by: https://github.com/xa-io
 - Account header stats turn red when retainers/subs are ready
 - Stats stay white when nothing is ready
 
+---
+
 ### v1.01 (2026-01-25)
 
 - Fixed stale submarine display bug
 - Submarines now validated against OfflineSubmarineData (source of truth)
 - Stale/deleted submarines no longer appear in dashboard
+
+---
 
 ### v1.00 (2026-01-25)
 
@@ -719,3 +792,4 @@ Created by: https://github.com/xa-io
 - Character, submarine, and retainer tracking
 - Income and cost calculations
 - Modern dark-themed responsive UI
+</details>
