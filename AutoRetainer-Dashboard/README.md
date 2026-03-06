@@ -1,6 +1,6 @@
 # AutoRetainer Dashboard v1.29
 
-A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, Altoholic, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels, currencies, income/cost calculations, comprehensive supply tracking, an FC Data page with Plot Map & FC Capacity Planner, and a Data Master List page for managing all submarines across all accounts with Excel export.
+A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, XA Database, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels, currencies, income/cost calculations, comprehensive supply tracking, an FC Data page with Plot Map & FC Capacity Planner, and a Data Master List page for managing all submarines across all accounts with Excel export.
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/8f876572-2517-408f-b092-14ae0c9f9004" alt="Loading Page">
@@ -16,8 +16,8 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 ## Features
 
 - **Self-Hosted Web Server**: Flask-based server with configurable host/port (default: `127.0.0.1:1234`)
-- **Real-Time Data**: Parses AutoRetainer, Altoholic, and Lifestream configs on each page load
-- **Altoholic Integration**: Reads treasure values, venture coins, coffers, dyes, and job levels from Altoholic's altoholic.db
+- **Real-Time Data**: Parses AutoRetainer, XA Database, and Lifestream configs on each page load
+- **XA Database Integration**: Reads treasure values, venture coins, coffers, dyes, and job levels from XA Database's xa.db
 - **Lifestream Integration**: Reads housing data (Personal House and FC House locations)
 - **Submarine Plan Detection**: Automatically detects leveling vs farming submarines based on AutoRetainer plan names
 - **Configurable Plan Earnings**: Set custom average earnings per submarine plan route
@@ -49,7 +49,7 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 - **Sub Filtering**: "Show only toons with subs" (default on), "Show unused toons" toggle for characters with no FC/subs/tanks/kits
 - **FC Points Summary**: Total FC points across all FCs (deduplicated), convertible tanks count, and total tank gil value
 - **Unique FC Count**: Summary card showing count of distinct Free Companies across all accounts
-- **Financial Charts** (`/charts/`): Historical timeline charts powered by sublord.db from Auto-AutoRetainer
+- **Financial Charts** (`/charts/`): Historical timeline charts powered by xa.db from XA Database plugin
 - **Charts Include**: Daily gil earnings vs supply costs, net profit, submarine fleet composition, supply inventory, consumption rates, days until restocking
 - **Cross-Page Navigation**: Dashboard, FC Data, Data, and Charts links accessible from every page
 
@@ -58,7 +58,7 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 #### Summary Cards
 
 - Total Gil across all accounts
-- Treasure Value (from Altoholic)
+- Treasure Value (from XA Database)
 - Coffer + Dyes estimated value
 - Gil + Treasure combined total
 - Total Submarines (ready/total) with Leveling/Farming breakdown
@@ -71,7 +71,7 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 #### Per-Character Information
 
 - Character name, world, and FC
-- Current class and level (from Altoholic)
+- Current class and level (from XA Database)
 - MSQ progress percentage with quest count and current quest name
 - Player Name@World (for easy copy/paste)
 - Personal House and FC House locations (from Lifestream)
@@ -343,7 +343,7 @@ http://127.0.0.1:1234
 | `AUTO_REFRESH` | `60` | Auto-refresh interval in seconds (0 to disable) |
 | `SHOW_CLASSES` | `true` | Show DoW/DoM and DoH/DoL job sections |
 | `SHOW_CURRENCIES` | `true` | Show Currencies section |
-| `SHOW_MSQ_PROGRESSION` | `false` | Show MSQ progression display (disabled until Altoholic fix) |
+| `SHOW_MSQ_PROGRESSION` | `false` | Show MSQ progression display |
 | `DEFAULT_THEME` | `default` | Color theme (see Available Themes below) |
 | `HIGHLIGHT_IDLE_RETAINERS` | `true` | Cyan outline on character cards with idle retainers |
 | `HIGHLIGHT_IDLE_SUBS` | `true` | Pink outline on character cards with idle submarines |
@@ -352,6 +352,7 @@ http://127.0.0.1:1234
 | `HIGHLIGHT_POTENTIAL_RETAINER` | `true` | Brown outline on characters with MSQ 66060 done but 0 retainers |
 | `HIGHLIGHT_POTENTIAL_SUBS` | `true` | Black outline on characters Lv 25+ not in FC (potential sub farmers) |
 | `HONOR_AR_EXCLUSIONS` | `false` | Honor AutoRetainer's ExcludeRetainer/ExcludeWorkshop settings per character |
+| `USE_AAR_DB` | `false` | Enable `/charts/` page with xa.db data from XA Database plugin (reads from each account's `pluginConfigs/XADatabase/xa.db`) |
 
 ## Income/Cost Calculations
 
@@ -432,8 +433,10 @@ Created by: https://github.com/xa-io
 - **Total Wealth Chart**: Character Gil + retainer Gil + treasure value combined over time
 - **Submarine Fleet Composition**: Farming vs leveling stacked bar chart
 - **Supply Inventory Tracking**: Ceruleum tanks and repair kits over time
-- **Powered by `sublord.db`**: Reads financial snapshots from Auto-AutoRetainer's sublord database
-- **Configurable**: Set `USE_AAR_DB` and `AAR_DB_PATH` in `config.json` to point to your sublord.db
+- **Powered by XA Database**: Reads financial snapshots from each account's `pluginConfigs/XADatabase/xa.db`
+- **Per-Account Aggregation**: Automatically scans all configured accounts and aggregates data across xa.db files
+- **Missing DB Warnings**: Prints a one-time startup message for any account missing an xa.db file
+- **Configurable**: Set `USE_AAR_DB: true` in `config.json` — no separate path needed, derived from each account's `pluginconfigs_path`
 
 ---
 
@@ -656,7 +659,7 @@ Created by: https://github.com/xa-io
 
 ### v1.13 (2026-01-27)
 
-- **Current Class Fix**: Fixed to show last played job using LastJob/LastJobLevel from Altoholic
+- **Current Class Fix**: Fixed to show last played job using LastJob/LastJobLevel
 - **Lowest/Highest Class**: Added fields that only show when level differs from Current
 - **Classes Sort Button**: Added "Classes" sort button (after Level, before Gil) - requires SHOW_CLASSES=true
 - **Individual Dye Counts**: Shows Pure White, Jet Black, Pastel Pink counts after total dyes
@@ -695,7 +698,7 @@ Created by: https://github.com/xa-io
 - **Color-Coded Progress**: Green (≥90%), Yellow (≥50%), Gray (<50%)
 - **Quest Details**: Tooltip shows completed/total quest count and current quest name
 - **Comprehensive Quest Data**: 1,041 trackable MSQ quests from ARR through Patch 7.4
-- **Altoholic Integration**: Extracts completed quests from Altoholic database
+- **XA Database Integration**: Extracts completed quests from XA Database
 
 ---
 
@@ -754,12 +757,12 @@ Created by: https://github.com/xa-io
 - **Character Sorting**: Sort characters within each account by Level, Gil, Treasure, FC Points, Ventures, Coffers, Dyes, Tanks, Kits, Restock Days, Retainers, or Subs
 - **Submarine Plan Detection**: Automatically detects leveling vs farming based on AutoRetainer plan names
 - **Configurable Plan Earnings**: Set custom average gil/day per submarine route in config.json
-- **Enhanced Altoholic Integration**: Now reads venture coins from Currencies, coffers, dyes, and job levels from Inventory, Saddle, ArmoryInventory, and Retainers
+- **Enhanced Data Integration**: Reads venture coins, coffers, dyes, and job levels from XA Database
 - **FC Points Display**: Shows FC points in character header and details with total in summary
-- **Venture Coins Display**: Shows venture coin count from Altoholic Currencies
+- **Venture Coins Display**: Shows venture coin count from XA Database currencies
 - **Coffer + Dye Tracking**: Counts coffers and dyes separately with total value estimate and configurable prices
 - **Treasure Value Display**: Shows treasure value in character header with sort option
-- **Character Class/Level**: Shows current highest-level class from Altoholic
+- **Character Class/Level**: Shows current highest-level class from XA Database
 - **Supply Tracking**: Displays ceruleum tanks, repair kits, and days until restocking in header
 - **Days Until Restock**: Calculates based on submarine consumption rates (color-coded warnings) with lowest across all accounts shown in summary
 - **Leveling/Farming Stats**: Summary cards show breakdown of leveling vs farming submarines and retainers
@@ -788,7 +791,7 @@ Created by: https://github.com/xa-io
 
 - Initial release with comprehensive dashboard features
 - Flask-based web server with configurable host/port
-- AutoRetainer and Altoholic data parsing
+- AutoRetainer and XA Database data parsing
 - Character, submarine, and retainer tracking
 - Income and cost calculations
 - Modern dark-themed responsive UI
