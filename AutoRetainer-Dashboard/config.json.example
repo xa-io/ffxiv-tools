@@ -34,6 +34,16 @@
             "enabled": false,
             "nickname": "Acc2",
             "pluginconfigs_path": "C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs"
+        },
+        {
+            "enabled": false,
+            "nickname": "NetworkAcc",
+            "pluginconfigs_path": "\\\\server\\share\\Users\\{user}\\AltData\\NetworkAcc\\pluginConfigs"
+        },
+        {
+            "enabled": false,
+            "nickname": "NAS-Acc",
+            "pluginconfigs_path": "\\\\NAS\\FFXIVData\\{user}\\pluginConfigs"
         }
     ],
 
@@ -50,7 +60,15 @@
             "JORZ": 140404,
             "MROJZ": 116206,
             "Custom Route 1": 80000
-        }
+        },
+        "redeploy": [
+            "WSCC",
+            "WS+UC",
+            "W+S+U+C+"
+        ],
+        "finalize": [
+            "SSSS"
+        ]
     },
 
     "build_gil_rates": {
