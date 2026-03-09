@@ -32,226 +32,37 @@
 # labeled with "ProcessID - nickname" format, autologin enabled, and AutoRetainer multi-mode auto-enabled
 # for full automation. 2FA is supported via keyring integration. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.31
+# Auto-AutoRetainer v1.34
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-01-31 10:30:00
+# Last Updated: 2026-03-08 22:00:00
 #
-# ## Release Notes ##
+# ## Release Notes This Update ##
 #
-# v1.31 - Added config.json support for custom submarine plans, build rates, and supply costs
-#         NEW CONFIG OPTIONS:
-#         - submarine_plans: Configure leveling plan names and farming plans with daily earnings
-#         - build_gil_rates: Add custom submarine builds not in the default list with gil/day
-#         - build_consumption_rates: Add custom builds with tanks_per_day and kits_per_day
-#         - ceruleum_tank_cost: Override default Ceruleum Tank cost (default: 350 gil)
-#         - repair_kit_cost: Override default Repair Kit cost (default: 2000 gil)
-# v1.30 - Added force-crash timer display in status output (X:xx format after UPTIME)
-#         Shows minutes remaining before force-crash will trigger for each running client
-#         Timer adapts to retainer mode (20min) or submarine mode (10min) threshold
-#         Added script-crash reporting, can be used to report any script issues back to me.
-#         Added notifications to be sent if the script crashes, and stop functioning.
-# v1.29 - Fixed premature force-crash timer switch from retainer (20min) to submarine (10min) mode
-#         When subs become ready while retainer processing is active, timer now stays at 20min
-#         Timer only switches to 10min after actual submarine processing is detected
-#         Added retainer_mode_active tracking dictionary to preserve timer mode during transitions
-#         Prevents false force-crashes when GC turn-ins take longer than 10 minutes after subs become ready
-#         Enhanced debug logging shows when timer mode is preserved during sub-ready transitions
-# v1.28 - Added "Lowest Inventory Space (Sub-Only Farmers)" display line in terminal output
-#         Added "Lowest Inventory Space (Retainer Farmers)" display line for characters with retainers
-#         Added retainer readiness tracking and display for force247uptime accounts:
-#         - When force247uptime=True and no subs ready but retainers ready, shows "(xx Ret.)" instead of "(WAITING)"
-#         - When all retainers on ventures, shows return timer in minutes (e.g., "+17min" or "xx Ret.")
-#         - Counts ready retainers (completed ventures) and total retainers on ventures
-#         Added smart retainer processing detection similar to submarine tracking:
-#         - Resets force-crash inactivity timer when retainers are processed
-#         - Keeps monitoring active when force247uptime accounts have ready retainers
-#         - Monitoring activates immediately when retainers are ready (no threshold delay)
-#         Added FORCE_CRASH_RETAINER_MINUTES = 20 (separate from 10-min submarine timer)
-#         - Longer timeout for retainer processing due to GC turn-ins after retainer ventures
-#         Added force-crash notifications via Pushover/Discord when client is crashed
-#         Added detect_retainer_processing() function with timer change detection
-# v1.27 - Fixed batch file launcher leaving cmd.exe processes running after game launch
-#         Added cleanup_batch_launcher_processes() to terminate lingering cmd.exe processes
-#         Changed batch file launch from 'start /B' to direct cmd.exe /c execution
-#         Added post-launch cleanup delay and process termination for batch file launchers
-#         Batch files now properly close their cmd.exe shells after launching the game
-# v1.26 - Added initial startup launcher check to close any stuck XIVLauncher on bootup
-#         Code consolidation: Created generic helper functions to reduce redundant code
-#         New helpers: kill_process_by_image_name(), is_process_running_with_visible_windows(),
-#                      kill_game_client_and_cleanup(), get_process_start_time_by_name()
-#         Refactored 11 process functions to use generic helpers for consistency
-# v1.25 - Added pre-launch config validation for AutologinEnabled and OtpServerEnabled
-#         Checks launcherConfigV3.json BEFORE launching game (not just after failures)
-#         Automatically fixes AutologinEnabled to "true" if not set correctly
-#         Automatically fixes OtpServerEnabled to "true" when account has enable_2fa=True
-#         Prevents launcher from opening with login prompt instead of auto-logging in
-#         Added validate_launcher_config_before_launch() function for pre-launch checks
-#         Existing launcher stuck detection continues to close XIVLauncher if it gets stuck
-# v1.24 - Added external configuration file support (config.json)
-#         Settings can now be configured via config.json instead of editing the Python script
-#         Any setting not in config.json falls back to built-in script defaults
-#         Added 2FA/OTP support for accounts with two-factor authentication enabled
-#         Automatically generates and sends OTP codes when launching games via XIVLauncher API
-#         OTP secrets stored securely in Windows Credential Manager via keyring
-#         Added OtpServerEnabled auto-fix: checks launcherConfigV3.json when 2FA enabled and launcher fails
-#         Added Pushover notification support for logged issues (sends push to phone)
-#         Added Discord webhook notification support for logged issues (sends to Discord channel)
-#         Notification validation: halts script if enabled but credentials missing
-#         Added OTP_LAUNCH_DELAY setting to control timing of OTP code submission
-#         Added config.json.example with all settings documented
-# v1.23 - Critical bug fix: Window title failure no longer kills all running game clients
-#         In multi-client mode, failing to launch one account no longer closes other running games
-#         Added ENABLE_AUTOLOGIN_UPDATER to auto-fix launcher config when game fails to open
-#         Checks launcherConfigV3.json and updates AutologinEnabled from "false" to "true" before retry
-#         Runs autologin check after launcher fail 1/3 and 2/3 (two chances to fix before final failure)
-#         Added ENABLE_LOGGING and arr.log file for tracking major issues (17 logged events)
-#         Logs process kills, game launches, config errors, window crashes, autologin updates, and launcher failures
-#         Multi-client mode continues normal rotation when window title check fails
-#         Game client checker retries failed accounts in WINDOW_REFRESH_INTERVAL (60) seconds
-# v1.22 - Added robust window movement with retry logic and responsiveness checking
-#         Implemented is_window_responding() to detect frozen windows before move attempts
-#         Added MAX_WINDOW_MOVE_ATTEMPTS = 3 configuration for retry logic per window
-#         Window position verification now only checks x,y coordinates (FFXIV controls own size via graphics settings)
-#         Up to 3 move attempts per window with 1-second verification delay between attempts
-#         Script skips unresponsive windows instead of freezing, continues processing remaining windows
-#         Failed windows tracked separately with detailed failure reasons in debug output
-#         Enhanced move_window_to_position() with MoveWindow API for reliable positioning
-#         WINDOW_MOVE_VERIFICATION_DELAY = 1 second (reduced from 3 for faster processing)
-#         Added MAX_FAILED_FORCE_CRASH = True to automatically crash clients after failed window moves
-#         Failed clients will be relaunched on next cycle if they should be running (similar to inactivity timer)
-#         Extracts PID from window title and force crashes using kill_process_by_pid()
-#         Prevents script freeze when game clients become unresponsive during window arrangement
-# v1.21 - Disabled force-close monitoring when all submarines are voyaging (idle state)
-#         Force-close monitoring now only runs when ready_subs > 0 or account is in (WAITING) state
-#         When all subs are voyaging with 0 ready (showing +hours without status), monitoring is disabled
-#         Prevents false-positive crashes for force247uptime accounts idle between voyage completions
-#         Monitoring activates when subs become ready, deactivates when all subs sent out
-#         Ensures force-close only monitors accounts with actual work to process
-# v1.20 - Enhanced force-close timer to extend when accounts are in (WAITING) state
-#         Force-close inactivity timer now resets when game is in (WAITING) status
-#         (WAITING) occurs when game is running with 0 ready subs and hours <= AUTO_CLOSE_THRESHOLD
-#         Timer extension prevents force-close during legitimate wait periods (up to 0.5h default)
-#         Inactivity timer resets on each scan when (WAITING) is active, similar to submarine processing
-#         Ensures force-close only triggers for frozen/stuck clients, not idle waiting states
-# v1.19 - Fixed force-crash monitoring to respect ENABLE_AUTO_CLOSE setting
-#         Force-crash inactivity monitoring now only runs when ENABLE_AUTO_CLOSE = True
-#         When ENABLE_AUTO_CLOSE = False, clients will never be force-closed due to inactivity
-#         Resolves issue where frozen client detection would crash clients even when auto-close was disabled
-#         Ensures user control over client lifecycle when auto-close features are not desired
-# v1.18 - Improved Force-Close timer to start when game launches instead of when subs are processed
-#         Force-Close monitoring now starts AUTO_LAUNCH_THRESHOLD minutes after game opens (matches game launch threshold)
-#         Crash timer begins even if game boots stuck without processing any submarines (resolves stuck-at-boot issue)
-#         After AUTO_LAUNCH_THRESHOLD delay, FORCE_CRASH_INACTIVITY_MINUTES timer activates (default: 10 minutes)
-#         Timer still resets whenever submarines are processed (preserves existing behavior during active play)
-#         Game launch timestamp tracked per account to determine when monitoring should activate
-#         Eliminates issue where frozen games at boot would never trigger force-close because no subs were processed
-# v1.17 - Added DalamudCrashHandler.exe detection and automatic closing
-#         Monitors for active DalamudCrashHandler.exe windows (indicates game crash) every WINDOW_REFRESH_INTERVAL
-#         Distinguishes between active crash handler windows (problem state) and background processes (normal state)
-#         Automatically closes crash handler windows when detected to prevent user intervention requirement
-#         Uses same detection methodology as XIVLauncher.exe check (has_visible_windows function)
-#         Logs crash handler detection and closure status for visibility
-# v1.16 - Added launcher detection with automatic retry and system bootup delay features
-#         FORCE_LAUNCHER_RETRY = 3 attempts when XIVLauncher.exe opens as ACTIVE APP instead of game client
-#         Detects XIVLauncher with visible windows (stuck at login screen) during game startup monitoring
-#         Ignores XIVLauncher as background process (normal state when game running) to prevent false positives
-#         Uses win32gui window enumeration to distinguish active launcher UI from background process
-#         Kills launcher and retries game launch up to FORCE_LAUNCHER_RETRY times before marking account as [LAUNCHER]
-#         Single client mode: stops monitoring account after max retries (script continues but won't launch)
-#         Multi-client mode: marks failed account as [LAUNCHER] and continues processing other accounts
-#         SYSTEM_BOOTUP_DELAY (configurable delay before script starts monitoring)
-#         Shows countdown "ARR Processing Delay {x}s Set. Please Wait..." when delay is configured
-#         Useful for auto-starting script on system boot (e.g., set to 20 for 20 second delay)
-#         Enhanced wait_for_window_title_update() to detect launcher during both single and multi-client modes
-# v1.15 - Enhanced submarine processing detection and added FORCE_CRASH_TIMER for frozen client detection
-#         Submarine processing now accurately tracks subs sent per scan by counting decrease in ready submarines
-#         Processing count = (previous ready count - current ready count) - eliminates false positives from total-ready calculations
-#         Added detailed debug output showing ready subs, voyaging subs, and newly sent subs per scan
-#         FORCE_CRASH_INACTIVITY_MINUTES = 30 minutes (configurable) - crashes client if DefaultConfig.json not modified
-#         Monitoring activates CRASH_MONITOR_DELAY hours after submarines become ready (ensures game has fully loaded)
-#         Automatically stops monitoring during (WAITING) status and restarts timer when subs become ready again
-#         Checks every cycle if AR file hasn't been updated in 30+ minutes → crashes client
-#         Deactivates monitoring when force247uptime=True and all subs processed (no ready subs)
-#         Resets timer and starts new countdown when subs become ready again
-#         Handles frozen clients, lost connections, stuck in character select, and other stuck scenarios
-# v1.14 - Updated Daily Supply Cost Basis calculation and added to the display
-#         Calculates total supply costs per day based on submarine consumption rates
-#         Displays "Total Supply Cost Per Day" in terminal output (Ceruleum Tank = 350 gil, Repair Kit = 2000 gil)
-#         Added version number display to terminal header for better tracking
-#         Supply costs calculated using build_consumption_rates with default fallback (9 tanks/day, 1.33 kits/day)
-# v1.13 - Added window title update checking after game launch for reliable window detection
-#         After OPEN_DELAY_THRESHOLD wait, checks if default "FINAL FANTASY XIV" window title exists
-#         Waits indefinitely for plugin to update window title from default to "ProcessID - nickname" format
-#         Uses WINDOW_TITLE_RESCAN (5s) to poll for title updates until custom title appears
-#         Ensures plugins have loaded and window can be identified before moving windows/launching next game
-#         Only applies in multi-client mode (skipped when USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME=True)
-#         Removed timeout - will keep waiting until window title updates (never skips)
-# v1.12 - Enhanced auto-launch visual feedback with real-time client status display
-#         After launching each client and waiting OPEN_DELAY_THRESHOLD, redisplays the submarine timer table
-#         Shows newly opened client status before proceeding to launch next client
-#         Provides clearer feedback during multi-client launches and reduces console message spam
-#         Improves visibility of which clients are currently running during sequential launch process
-# v1.11 - Added MAX_CLIENTS configuration for hardware-limited setups
-#         MAX_CLIENTS = 0 (default): Unlimited clients, opens all ready clients simultaneously
-#         MAX_CLIENTS = N: Limits to N concurrent running clients at a time
-#         Prioritizes force247uptime clients first, then submarine-ready clients
-#         Opens clients sequentially with OPEN_DELAY_THRESHOLD wait and window arrangement between each
-#         Each [RUNNING] client counts toward the MAX_CLIENTS limit
-#         Ensures proper processing order for 24/7 uptime requirements before submarine timers
-# v1.10 - Added restocking calculation with "Total Days Until Restocking Required" display
-#         Tracks Ceruleum tanks and Repair Kits inventory from DefaultConfig.json per character
-#         Calculates consumption rates based on submarine builds (9-14 tanks/day, 1.33-4 kits/day depending on route)
-#         Added default consumption rates (9 tanks/day, 1.33 kits/day) for unlisted builds (leveling submarines)
-#         Displays minimum days until restocking across all characters to prevent running dry
-#         Formula: min(tanks/consumption, kits/consumption) rounded down per character, showing account minimum
-# v1.09 - Fixed submarine build collection for custom-named submarines and enhanced console display
-#         Fixed submarine build detection to properly count custom-named submarines (e.g., "You Don't Pay My Sub")
-#         Build collection now matches submarines by name from OfflineSubmarineData instead of filtering by "Submersible-" prefix
-#         Added "Total Subs Leveling" display line showing count of submarines still being leveled
-#         Added "Total Subs Farming" display line showing count of submarines on farming routes (build_gil_rates matches)
-#         Gil calculation now includes all submarines regardless of custom names for accurate daily earnings
-# v1.08 - Enhanced configuration flag handling and status display improvements
-#         Fixed handling of include_submarines and force247uptime flag combinations
-#         Display now shows game status even when include_submarines=False
-#         Auto-close logic properly closes clients when include_submarines=False AND force247uptime=False
-#         Status display shows [Up 24/7] when force247uptime=True instead of [Running]/[Closed]
-#         Added informative wait time messages after all auto-launch and auto-close actions
-#         Changed "Subs off" display text to "Disabled" for cleaner indication
-#         Supports four distinct configuration behaviors for complete flexibility
-# v1.07 - Added (WAITING) status display for running games with 0 ready subs
-#         Shows "(WAITING)" when game is running with positive hours <= AUTO_CLOSE_THRESHOLD
-#         Provides clear feedback when game is idle waiting for submarines to be ready
-# v1.06 - Renamed 'rotatingretainers' parameter to 'force247uptime' for better clarity
-#         Updated all references in code, comments, and documentation
-#         Functionality remains identical - parameter name now better reflects its purpose
-# v1.05 - Fixed PID and UPTIME display in single client mode
-#         When USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME=True, display now correctly shows PID and UPTIME
-#         Gets actual PID from running ffxiv_dx11.exe process for display purposes
-#         Uses 'ffxiv_single' key to retrieve start time and calculate uptime
-#         Resolves issue where PID/UPTIME were missing despite running process
-# v1.04 - Enhanced single client mode with MAX_RUNTIME enforcement
-#         Added get_ffxiv_process_start_time() to track ffxiv_dx11.exe uptime via psutil
-#         Single client mode now supports 71h MAX_RUNTIME protection against 72h disconnect
-#         Tracks uptime using 'ffxiv_single' key without requiring process ID
-#         Proper cleanup of single client tracking when game closes or relaunches
-# v1.03 - Added USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME configuration parameter
-#         When True: Uses default "FINAL FANTASY XIV" window title (single account only, kills by process name)
-#         When False: Uses "ProcessID - nickname" format (multiple accounts, kills by PID)
-#         Added validation to prevent multiple accounts when single client mode is enabled
-#         Added kill_ffxiv_process() function for single client mode (kills ffxiv_dx11.exe)
-# v1.02 - Fixed auto-launch not checking submarine timers for non-rotating accounts
-#         Added submarine timer checking logic to launch games when subs nearly ready (AUTO_LAUNCH_THRESHOLD)
-# v1.01 - Added force247uptime per-account flag to keep clients running for AutoRetainer retainers
-#         Added MAX_RUNTIME (71h) per-client uptime limit with forced restart to avoid 72h FFXIV uptime issue
-# v1.00 - Initial release with comprehensive submarine automation
-#         • Real-time submarine timer monitoring with dual refresh rates
-#         • Auto-launch games when submarines nearly ready (configurable threshold)
-#         • Auto-close games when submarines not ready soon (prevents idle instances)
-#         • Automatic window arrangement with customizable layouts
-#         • Process tracking and management for reliable game control
-#         • Gil earnings calculation from submarine builds
-#         • Rate limiting and intelligent launch/close logic
+# v1.34 - Daily wealth snapshots now read XA Database's xa_characters layout
+#         sublord.db now tracks farmer_snapshots per character
+#         Each farmer row stores CID, account, ETA JSON, sent, and returned state
+#         Force-crash monitoring is now based on per-sub transitions
+#         Legacy XA databases still work through the fallback path
+# v1.33 - XA Database implementation, replacement for Altoholic.
+#         Fixed auto-launch triggering for submarines AR won't process
+#         A submarine is only counted toward launch decisions if BOTH conditions are met:
+#           1. Character has WorkshopEnabled=true (workshop processing enabled)
+#           2. The specific submarine's name is in the character's EnabledSubs list
+#         Prevents game launching when only non-processable subs are ready
+#         Added WARNING display showing characters with unprocessable ready subs
+#         Excluded accounts (enabled=false in config.json) are not included in warning
+#         Financial calculations (gil/day, supply costs, restocking) still include all submarines
+# v1.32 - Added sublord.db financial tracking database for historical earnings/spending data
+#         Tracks daily: total subs, gil/day, supply cost/day, tanks, kits, restocking days
+#         Gil balance tracking: character Gil (from DefaultConfig), retainer Gil, combined totals
+#         Treasure value tracking: scans Altoholic DB for submarine loot (salvaged jewelry)
+#         Combined wealth metric: character Gil + retainer Gil + treasure value
+#         Cumulative totals: total gil overall, total supply cost overall, days tracked
+#         Configurable update interval (SUBLORD_DB_UPDATE_INTERVAL, default 30min)
+#         Custom DB path support (SUBLORD_DB_PATH) for shared access with Dashboard
+#         Database auto-initializes on script startup with immediate first snapshot
+#         SQLite WAL mode for concurrent read access by Dashboard
 #
 ########################################################################################################################
 
@@ -261,6 +72,7 @@ import datetime
 import sys
 import getpass
 import time
+import sqlite3
 from pathlib import Path
 import win32gui
 import win32process
@@ -294,7 +106,7 @@ except ImportError:
 # ===============================================
 # Configuration Parameters
 # ===============================================
-VERSION = "v1.31"     # Current script version
+VERSION = "v1.34"     # Current script version
 VERSION_SUFFIX = ""     # Custom text appended to version display (set via config.json, e.g., " - Main")
 
 # Display settings
@@ -371,6 +183,37 @@ CONFIG_FILE = "config.json"
 # ===============================================
 CERULEUM_TANK_COST = 350   # Gil cost per Ceruleum Tank
 REPAIR_KIT_COST = 2000     # Gil cost per Repair Kit
+
+# ===============================================
+# Treasure Values (for sublord.db financial tracking)
+# ===============================================
+TREASURE_VALUES = {
+    22500: 8000,   # Salvaged Ring
+    22501: 9000,   # Salvaged Bracelet
+    22502: 10000,  # Salvaged Earring
+    22503: 13000,  # Salvaged Necklace
+    22504: 27000,  # Extravagant Salvaged Ring
+    22505: 28500,  # Extravagant Salvaged Bracelet
+    22506: 30000,  # Extravagant Salvaged Earring
+    22507: 34500,  # Extravagant Salvaged Necklace
+}
+TREASURE_IDS = set(TREASURE_VALUES.keys())
+XA_TREASURE_CONTAINER_NAMES = (
+    "Inventory 1",
+    "Inventory 2",
+    "Inventory 3",
+    "Inventory 4",
+    "Saddlebag 1",
+    "Saddlebag 2",
+)
+
+# ===============================================
+# Sublord Database Settings (configurable via config.json)
+# ===============================================
+ENABLE_SUBLORD_DB = True                    # Enable sublord.db financial tracking database
+SUBLORD_DB_UPDATE_INTERVAL = 30             # Minutes between database updates (1-60, default 30)
+SUBLORD_DB_PATH = ""                        # Custom path to sublord.db (empty = script directory)
+_sublord_all_accounts = []                  # Built from ALL account_locations (incl disabled) for Gil/treasure scanning
 
 # ===============================================
 # Submarine Plan Configuration (configurable via config.json)
@@ -521,6 +364,7 @@ def load_external_config():
     global account_locations, GAME_LAUNCHERS
     global build_gil_rates, build_consumption_rates, submarine_plans
     global CERULEUM_TANK_COST, REPAIR_KIT_COST
+    global ENABLE_SUBLORD_DB, SUBLORD_DB_UPDATE_INTERVAL, SUBLORD_DB_PATH, _sublord_all_accounts
 
     config_path = Path(__file__).parent / CONFIG_FILE
     if not config_path.exists():
@@ -586,6 +430,27 @@ def load_external_config():
     CERULEUM_TANK_COST = cfg("ceruleum_tank_cost", CERULEUM_TANK_COST)
     REPAIR_KIT_COST = cfg("repair_kit_cost", REPAIR_KIT_COST)
     
+    # Override sublord DB settings if present
+    ENABLE_SUBLORD_DB = cfg("ENABLE_SUBLORD_DB", ENABLE_SUBLORD_DB)
+    SUBLORD_DB_UPDATE_INTERVAL = cfg("SUBLORD_DB_UPDATE_INTERVAL", SUBLORD_DB_UPDATE_INTERVAL)
+    SUBLORD_DB_PATH = cfg("SUBLORD_DB_PATH", SUBLORD_DB_PATH)
+    if SUBLORD_DB_PATH:
+        SUBLORD_DB_PATH = os.path.expandvars(SUBLORD_DB_PATH)
+        SUBLORD_DB_PATH = SUBLORD_DB_PATH.replace("{user}", user)
+    
+    # Build sublord scan list from ALL account_locations (including disabled) for Gil/treasure scanning
+    if "account_locations" in config:
+        _sublord_all_accounts = []
+        for acc_config in config["account_locations"]:
+            nickname = acc_config.get("nickname", "Unknown")
+            pp = acc_config.get("pluginconfigs_path", "")
+            pp = os.path.expandvars(pp)
+            pp = pp.replace("{user}", user)
+            ap = os.path.join(pp, "AutoRetainer", "DefaultConfig.json")
+            _sublord_all_accounts.append({"nickname": nickname, "auto_path": ap, "pluginconfigs_path": pp})
+        if ENABLE_SUBLORD_DB:
+            print(f"[SUBLORD-DB] Will scan {len(_sublord_all_accounts)} accounts for Gil/treasure tracking")
+    
     # Override submarine_plans if present (merge with defaults)
     if "submarine_plans" in config:
         config_plans = config["submarine_plans"]
@@ -641,6 +506,676 @@ def load_external_config():
 
 # Load external config if it exists
 load_external_config()
+
+# ===============================================
+# Sublord Database Module
+# ===============================================
+def get_sublord_db_path():
+    """Get the path to sublord.db (custom path or script directory)."""
+    if SUBLORD_DB_PATH:
+        return Path(SUBLORD_DB_PATH)
+    return Path(__file__).parent / "sublord.db"
+
+def init_sublord_db():
+    """Initialize sublord.db with required tables. Returns True on success."""
+    if not ENABLE_SUBLORD_DB:
+        return False
+    try:
+        db_path = get_sublord_db_path()
+        conn = sqlite3.connect(str(db_path))
+        conn.execute("PRAGMA journal_mode=WAL")
+        c = conn.cursor()
+        
+        # Daily snapshots table - one row per day, updated throughout the day
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS daily_snapshots (
+                date TEXT PRIMARY KEY,
+                total_subs INTEGER DEFAULT 0,
+                total_subs_farming INTEGER DEFAULT 0,
+                total_subs_leveling INTEGER DEFAULT 0,
+                total_gil_per_day INTEGER DEFAULT 0,
+                total_supply_cost_per_day INTEGER DEFAULT 0,
+                total_ceruleum_tanks INTEGER DEFAULT 0,
+                total_repair_kits INTEGER DEFAULT 0,
+                total_tanks_per_day REAL DEFAULT 0,
+                total_kits_per_day REAL DEFAULT 0,
+                days_until_restocking INTEGER,
+                lowest_inventory_sub_only INTEGER,
+                lowest_inventory_retainer INTEGER,
+                total_character_gil INTEGER DEFAULT 0,
+                total_retainer_gil INTEGER DEFAULT 0,
+                total_treasure_value INTEGER DEFAULT 0,
+                total_gil_plus_treasure INTEGER DEFAULT 0,
+                last_updated TEXT NOT NULL
+            )
+        """)
+        
+        # Add new columns to existing databases (safe to call even if columns exist)
+        for col_def in [
+            ("total_character_gil", "INTEGER DEFAULT 0"),
+            ("total_retainer_gil", "INTEGER DEFAULT 0"),
+            ("total_treasure_value", "INTEGER DEFAULT 0"),
+            ("total_gil_plus_treasure", "INTEGER DEFAULT 0"),
+        ]:
+            try:
+                c.execute(f"ALTER TABLE daily_snapshots ADD COLUMN {col_def[0]} {col_def[1]}")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+        
+        # Cumulative totals table - running totals across all time
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS cumulative_totals (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                total_gil_overall INTEGER DEFAULT 0,
+                total_supply_cost_overall INTEGER DEFAULT 0,
+                total_days_tracked INTEGER DEFAULT 0,
+                first_tracked TEXT,
+                last_updated TEXT NOT NULL
+            )
+        """)
+        
+        # Initialize cumulative row if not exists
+        c.execute("""
+            INSERT OR IGNORE INTO cumulative_totals (id, total_gil_overall, total_supply_cost_overall, total_days_tracked, first_tracked, last_updated)
+            VALUES (1, 0, 0, 0, ?, ?)
+        """, (datetime.datetime.now().strftime('%Y-%m-%d'), datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS farmer_snapshots (
+                account_nickname TEXT NOT NULL,
+                content_id INTEGER NOT NULL,
+                character_name TEXT NOT NULL,
+                world TEXT DEFAULT '',
+                workshop_enabled INTEGER DEFAULT 1,
+                enabled_subs_json TEXT DEFAULT '[]',
+                sub_eta_timers_json TEXT DEFAULT '[]',
+                total_subs INTEGER DEFAULT 0,
+                processable_subs INTEGER DEFAULT 0,
+                ready_subs INTEGER DEFAULT 0,
+                soonest_sub_hours REAL,
+                last_sub_sent TEXT,
+                last_sub_returned TEXT,
+                updated_utc TEXT NOT NULL,
+                PRIMARY KEY (account_nickname, content_id, character_name)
+            )
+        """)
+
+        conn.commit()
+        conn.close()
+        print(f"[SUBLORD-DB] Database initialized: {db_path}")
+        return True
+    except Exception as e:
+        print(f"[SUBLORD-DB] Error initializing database: {e}")
+        return False
+
+def update_sublord_db(snapshot_data):
+    """
+    Update sublord.db with current submarine financial data.
+    snapshot_data dict keys:
+        total_subs, total_subs_farming, total_subs_leveling,
+        total_gil_per_day, total_supply_cost_per_day,
+        total_ceruleum_tanks, total_repair_kits,
+        total_tanks_per_day, total_kits_per_day,
+        days_until_restocking, lowest_inventory_sub_only, lowest_inventory_retainer,
+        total_character_gil, total_retainer_gil, total_treasure_value, total_gil_plus_treasure
+    """
+    if not ENABLE_SUBLORD_DB:
+        return False
+    try:
+        db_path = get_sublord_db_path()
+        now = datetime.datetime.now()
+        today = now.strftime('%Y-%m-%d')
+        timestamp = now.strftime('%Y-%m-%d %H:%M:%S')
+        
+        conn = sqlite3.connect(str(db_path))
+        conn.execute("PRAGMA journal_mode=WAL")
+        c = conn.cursor()
+        
+        # Check if today's row already exists
+        c.execute("SELECT date FROM daily_snapshots WHERE date = ?", (today,))
+        existing = c.fetchone()
+        
+        if existing:
+            # Update today's row with latest data
+            c.execute("""
+                UPDATE daily_snapshots SET
+                    total_subs = ?,
+                    total_subs_farming = ?,
+                    total_subs_leveling = ?,
+                    total_gil_per_day = ?,
+                    total_supply_cost_per_day = ?,
+                    total_ceruleum_tanks = ?,
+                    total_repair_kits = ?,
+                    total_tanks_per_day = ?,
+                    total_kits_per_day = ?,
+                    days_until_restocking = ?,
+                    lowest_inventory_sub_only = ?,
+                    lowest_inventory_retainer = ?,
+                    total_character_gil = ?,
+                    total_retainer_gil = ?,
+                    total_treasure_value = ?,
+                    total_gil_plus_treasure = ?,
+                    last_updated = ?
+                WHERE date = ?
+            """, (
+                snapshot_data.get("total_subs", 0),
+                snapshot_data.get("total_subs_farming", 0),
+                snapshot_data.get("total_subs_leveling", 0),
+                snapshot_data.get("total_gil_per_day", 0),
+                snapshot_data.get("total_supply_cost_per_day", 0),
+                snapshot_data.get("total_ceruleum_tanks", 0),
+                snapshot_data.get("total_repair_kits", 0),
+                snapshot_data.get("total_tanks_per_day", 0.0),
+                snapshot_data.get("total_kits_per_day", 0.0),
+                snapshot_data.get("days_until_restocking"),
+                snapshot_data.get("lowest_inventory_sub_only"),
+                snapshot_data.get("lowest_inventory_retainer"),
+                snapshot_data.get("total_character_gil", 0),
+                snapshot_data.get("total_retainer_gil", 0),
+                snapshot_data.get("total_treasure_value", 0),
+                snapshot_data.get("total_gil_plus_treasure", 0),
+                timestamp,
+                today
+            ))
+        else:
+            # Insert new row for today
+            c.execute("""
+                INSERT INTO daily_snapshots (
+                    date, total_subs, total_subs_farming, total_subs_leveling,
+                    total_gil_per_day, total_supply_cost_per_day,
+                    total_ceruleum_tanks, total_repair_kits,
+                    total_tanks_per_day, total_kits_per_day,
+                    days_until_restocking, lowest_inventory_sub_only, lowest_inventory_retainer,
+                    total_character_gil, total_retainer_gil, total_treasure_value, total_gil_plus_treasure,
+                    last_updated
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                today,
+                snapshot_data.get("total_subs", 0),
+                snapshot_data.get("total_subs_farming", 0),
+                snapshot_data.get("total_subs_leveling", 0),
+                snapshot_data.get("total_gil_per_day", 0),
+                snapshot_data.get("total_supply_cost_per_day", 0),
+                snapshot_data.get("total_ceruleum_tanks", 0),
+                snapshot_data.get("total_repair_kits", 0),
+                snapshot_data.get("total_tanks_per_day", 0.0),
+                snapshot_data.get("total_kits_per_day", 0.0),
+                snapshot_data.get("days_until_restocking"),
+                snapshot_data.get("lowest_inventory_sub_only"),
+                snapshot_data.get("lowest_inventory_retainer"),
+                snapshot_data.get("total_character_gil", 0),
+                snapshot_data.get("total_retainer_gil", 0),
+                snapshot_data.get("total_treasure_value", 0),
+                snapshot_data.get("total_gil_plus_treasure", 0),
+                timestamp
+            ))
+            
+            # Update cumulative totals - increment days tracked for new day
+            c.execute("""
+                UPDATE cumulative_totals SET
+                    total_days_tracked = total_days_tracked + 1,
+                    last_updated = ?
+                WHERE id = 1
+            """, (timestamp,))
+        
+        # Always update cumulative gil and cost totals based on all daily snapshots
+        c.execute("SELECT COALESCE(SUM(total_gil_per_day), 0), COALESCE(SUM(total_supply_cost_per_day), 0), COUNT(*) FROM daily_snapshots")
+        row = c.fetchone()
+        total_gil_overall = row[0] if row else 0
+        total_cost_overall = row[1] if row else 0
+        total_days = row[2] if row else 0
+        
+        c.execute("""
+            UPDATE cumulative_totals SET
+                total_gil_overall = ?,
+                total_supply_cost_overall = ?,
+                total_days_tracked = ?,
+                last_updated = ?
+            WHERE id = 1
+        """, (total_gil_overall, total_cost_overall, total_days, timestamp))
+        
+        conn.commit()
+        conn.close()
+        
+        if DEBUG:
+            print(f"[SUBLORD-DB] Updated {today}: Gil/day={snapshot_data.get('total_gil_per_day', 0):,} | Cost/day={snapshot_data.get('total_supply_cost_per_day', 0):,} | CharGil={snapshot_data.get('total_character_gil', 0):,} | RetGil={snapshot_data.get('total_retainer_gil', 0):,} | Treasure={snapshot_data.get('total_treasure_value', 0):,} | Total={snapshot_data.get('total_gil_plus_treasure', 0):,}")
+        return True
+    except Exception as e:
+        print(f"[SUBLORD-DB] Error updating database: {e}")
+        return False
+
+def _safe_json_load(s):
+    """Safely parse JSON string, handling null/empty values."""
+    if not s or s == "null":
+        return None
+    try:
+        return json.loads(s)
+    except Exception:
+        return None
+
+def _safe_json_list(s):
+    parsed = _safe_json_load(s)
+    return parsed if isinstance(parsed, list) else []
+
+def _read_entry_int(entry, *keys):
+    for key in keys:
+        if key in entry and entry[key] is not None:
+            try:
+                return int(entry[key])
+            except Exception:
+                continue
+    return 0
+
+def get_xa_gil_totals(db_path):
+    if not db_path or not os.path.isfile(db_path):
+        return None
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cur = conn.cursor()
+            tables = {row[0] for row in cur.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+            if "xa_characters" in tables:
+                row = cur.execute("SELECT COALESCE(SUM(gil), 0), COALESCE(SUM(retainer_gil), 0) FROM xa_characters").fetchone()
+                return int(row[0] or 0), int(row[1] or 0)
+
+            total_character_gil = 0
+            total_retainer_gil = 0
+            if "currency_balances" in tables:
+                row = cur.execute("SELECT COALESCE(SUM(amount), 0) FROM currency_balances WHERE currency_name = 'Gil'").fetchone()
+                total_character_gil = int(row[0] or 0)
+            if "retainers" in tables:
+                row = cur.execute("SELECT COALESCE(SUM(gil), 0) FROM retainers").fetchone()
+                total_retainer_gil = int(row[0] or 0)
+            return total_character_gil, total_retainer_gil
+    except Exception as e:
+        if DEBUG:
+            print(f"[SUBLORD-DB] Error reading XA gil totals: {e}")
+        return None
+
+def _load_farmer_snapshot_state(account_nickname):
+    state = {}
+    if not ENABLE_SUBLORD_DB:
+        return state
+    try:
+        db_path = get_sublord_db_path()
+        with sqlite3.connect(str(db_path)) as conn:
+            cur = conn.cursor()
+            rows = cur.execute(
+                "SELECT content_id, character_name, sub_eta_timers_json, last_sub_sent, last_sub_returned FROM farmer_snapshots WHERE account_nickname = ?",
+                (account_nickname,)
+            ).fetchall()
+        for row in rows:
+            key = (int(row[0] or 0), str(row[1] or ""))
+            state[key] = {
+                "sub_eta_timers": _safe_json_list(row[2]),
+                "last_sub_sent": row[3],
+                "last_sub_returned": row[4],
+            }
+    except Exception as e:
+        if DEBUG:
+            print(f"[SUBLORD-DB] Error loading farmer snapshots for {account_nickname}: {e}")
+    return state
+
+def sync_farmer_snapshots(account_entry, submarine_state_cache, current_time):
+    nickname = account_entry["nickname"]
+    auto_path = account_entry.get("auto_path", "")
+    timestamp = datetime.datetime.fromtimestamp(current_time).strftime('%Y-%m-%d %H:%M:%S')
+    previous_state = submarine_state_cache.get(nickname)
+    if previous_state is None:
+        previous_state = _load_farmer_snapshot_state(nickname)
+
+    if not auto_path or not os.path.isfile(auto_path):
+        submarine_state_cache[nickname] = {}
+        if ENABLE_SUBLORD_DB:
+            try:
+                db_path = get_sublord_db_path()
+                with sqlite3.connect(str(db_path)) as conn:
+                    conn.execute("DELETE FROM farmer_snapshots WHERE account_nickname = ?", (nickname,))
+                    conn.commit()
+            except Exception as e:
+                if DEBUG:
+                    print(f"[SUBLORD-DB] Error clearing farmer snapshots for {nickname}: {e}")
+        return 0
+
+    try:
+        with open(auto_path, "r", encoding="utf-8-sig") as f:
+            data = json.load(f)
+    except Exception as e:
+        if DEBUG:
+            print(f"[SUBLORD-DB] Error reading farmer snapshot data for {nickname}: {e}")
+        return 0
+
+    chars = collect_characters(data, account_nickname=nickname)
+    next_state = {}
+    rows_to_write = []
+    processed_count = 0
+
+    for char in chars:
+        content_id = int(char.get("CID", 0) or 0)
+        character_name = str(char.get("Name", "Unknown"))
+        world = str(char.get("World", ""))
+        workshop_enabled = bool(char.get("WorkshopEnabled", True))
+        enabled_subs = char.get("EnabledSubs", [])
+        if not isinstance(enabled_subs, list):
+            enabled_subs = []
+        offline_sub_data = char.get("OfflineSubmarineData", [])
+        if not isinstance(offline_sub_data, list):
+            offline_sub_data = []
+
+        key = (content_id, character_name)
+        sub_eta_timers = []
+        total_subs = 0
+        processable_subs = 0
+        ready_subs = 0
+        soonest_sub_hours = None
+
+        for sub_dict in offline_sub_data:
+            if not isinstance(sub_dict, dict):
+                continue
+            sub_name = str(sub_dict.get("Name", ""))
+            return_time = int(sub_dict.get("ReturnTime", 0) or 0)
+            if not sub_name and return_time <= 0:
+                continue
+            total_subs += 1
+            processable = workshop_enabled and sub_name in enabled_subs
+            hours_remaining = None
+            is_ready = False
+            if return_time > 0:
+                hours_remaining = round((return_time - current_time) / 3600, 4)
+                is_ready = hours_remaining < 0
+                if processable:
+                    processable_subs += 1
+                    if is_ready:
+                        ready_subs += 1
+                    if soonest_sub_hours is None or hours_remaining < soonest_sub_hours:
+                        soonest_sub_hours = hours_remaining
+            sub_eta_timers.append({
+                "Name": sub_name,
+                "ReturnTime": return_time,
+                "HoursRemaining": hours_remaining,
+                "IsReady": is_ready,
+                "Processable": processable,
+            })
+
+        previous_row = previous_state.get(key, {})
+        previous_map = {
+            entry.get("Name"): entry
+            for entry in previous_row.get("sub_eta_timers", [])
+            if isinstance(entry, dict) and entry.get("Name")
+        }
+        last_sub_sent = previous_row.get("last_sub_sent")
+        last_sub_returned = previous_row.get("last_sub_returned")
+        char_sent = False
+        char_returned = False
+
+        for sub_entry in sub_eta_timers:
+            previous_entry = previous_map.get(sub_entry["Name"])
+            if not previous_entry:
+                continue
+            if not bool(previous_entry.get("Processable")) or not sub_entry["Processable"]:
+                continue
+            previous_ready = bool(previous_entry.get("IsReady"))
+            current_ready = bool(sub_entry["IsReady"])
+            if previous_ready and not current_ready:
+                char_sent = True
+                processed_count += 1
+            elif not previous_ready and current_ready:
+                char_returned = True
+
+        if char_sent:
+            last_sub_sent = timestamp
+        if char_returned:
+            last_sub_returned = timestamp
+
+        next_state[key] = {
+            "sub_eta_timers": sub_eta_timers,
+            "last_sub_sent": last_sub_sent,
+            "last_sub_returned": last_sub_returned,
+        }
+        rows_to_write.append((
+            nickname,
+            content_id,
+            character_name,
+            world,
+            1 if workshop_enabled else 0,
+            json.dumps(enabled_subs, ensure_ascii=False),
+            json.dumps(sub_eta_timers, ensure_ascii=False),
+            total_subs,
+            processable_subs,
+            ready_subs,
+            soonest_sub_hours,
+            last_sub_sent,
+            last_sub_returned,
+            timestamp,
+        ))
+
+    submarine_state_cache[nickname] = next_state
+
+    if ENABLE_SUBLORD_DB:
+        try:
+            db_path = get_sublord_db_path()
+            with sqlite3.connect(str(db_path)) as conn:
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("DELETE FROM farmer_snapshots WHERE account_nickname = ?", (nickname,))
+                if rows_to_write:
+                    conn.executemany(
+                        "INSERT INTO farmer_snapshots (account_nickname, content_id, character_name, world, workshop_enabled, enabled_subs_json, sub_eta_timers_json, total_subs, processable_subs, ready_subs, soonest_sub_hours, last_sub_sent, last_sub_returned, updated_utc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        rows_to_write,
+                    )
+                conn.commit()
+        except Exception as e:
+            if DEBUG:
+                print(f"[SUBLORD-DB] Error writing farmer snapshots for {nickname}: {e}")
+
+    return processed_count
+
+def get_xa_db_path(account_entry):
+    """Derive the XA Database path from an account's auto_path."""
+    auto_path = account_entry.get("auto_path", "")
+    if not auto_path:
+        return None
+    # auto_path = .../pluginConfigs/AutoRetainer/DefaultConfig.json
+    pluginconfigs_dir = Path(auto_path).parent.parent  # up to pluginConfigs
+    xa_path = pluginconfigs_dir / "XADatabase" / "xa.db"
+    if xa_path.exists():
+        return str(xa_path)
+    return None
+
+def scan_xa_treasure(db_path):
+    """
+    Scan XA Database and return treasure values per character.
+    Returns: { content_id: treasure_value }
+    """
+    result = {}
+    if not db_path or not os.path.isfile(db_path):
+        return result
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cur = conn.cursor()
+            tables = {row[0] for row in cur.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+            if "xa_characters" in tables:
+                rows = cur.execute("SELECT content_id, items_json, listings_json, retainer_items_json FROM xa_characters").fetchall()
+                for content_id, items_json, listings_json, retainer_items_json in rows:
+                    cid = int(content_id or 0)
+                    total_value = 0
+                    for section in (_safe_json_list(items_json), _safe_json_list(listings_json), _safe_json_list(retainer_items_json)):
+                        for item in section:
+                            if not isinstance(item, dict):
+                                continue
+                            item_id = _read_entry_int(item, "ItemId", "item_id")
+                            quantity = _read_entry_int(item, "Quantity", "quantity")
+                            if item_id not in TREASURE_VALUES or quantity <= 0:
+                                continue
+                            total_value += quantity * TREASURE_VALUES[item_id]
+                    if total_value > 0:
+                        result[cid] = total_value
+                return result
+
+            retainer_map = {}
+            if "retainers" in tables:
+                for retainer_id, content_id in cur.execute("SELECT retainer_id, content_id FROM retainers").fetchall():
+                    retainer_map[int(retainer_id)] = int(content_id)
+
+            treasure_ids = sorted(TREASURE_IDS)
+            treasure_placeholders = ", ".join("?" for _ in treasure_ids)
+
+            if "container_items" in tables:
+                query = f"SELECT content_id, item_id, quantity FROM container_items WHERE item_id IN ({treasure_placeholders})"
+                for content_id, item_id, quantity in cur.execute(query, treasure_ids).fetchall():
+                    cid = int(content_id or 0)
+                    item_id = int(item_id or 0)
+                    quantity = int(quantity or 0)
+                    if item_id in TREASURE_VALUES and quantity > 0:
+                        result[cid] = result.get(cid, 0) + (quantity * TREASURE_VALUES[item_id])
+
+            if "retainer_items" in tables:
+                query = f"SELECT retainer_id, item_id, quantity FROM retainer_items WHERE item_id IN ({treasure_placeholders})"
+                for retainer_id, item_id, quantity in cur.execute(query, treasure_ids).fetchall():
+                    cid = retainer_map.get(int(retainer_id or 0))
+                    item_id = int(item_id or 0)
+                    quantity = int(quantity or 0)
+                    if cid and item_id in TREASURE_VALUES and quantity > 0:
+                        result[cid] = result.get(cid, 0) + (quantity * TREASURE_VALUES[item_id])
+
+            if "retainer_listings" in tables:
+                query = f"SELECT retainer_id, item_id, quantity FROM retainer_listings WHERE item_id IN ({treasure_placeholders})"
+                for retainer_id, item_id, quantity in cur.execute(query, treasure_ids).fetchall():
+                    cid = retainer_map.get(int(retainer_id or 0))
+                    item_id = int(item_id or 0)
+                    quantity = int(quantity or 0)
+                    if cid and item_id in TREASURE_VALUES and quantity > 0:
+                        result[cid] = result.get(cid, 0) + (quantity * TREASURE_VALUES[item_id])
+    except Exception as e:
+        if DEBUG:
+            print(f"[SUBLORD-DB] Error scanning XA Database: {e}")
+    return result
+
+def collect_sublord_snapshot():
+    """
+    Collect current submarine financial data from all accounts for sublord.db.
+    Includes character Gil, retainer Gil, and treasure values from XA Database.
+    Returns dict with all required snapshot fields.
+    """
+    total_all_subs = 0
+    all_builds = []
+    all_plans = []
+    all_days_remaining = []
+    all_inventory_spaces = []
+    all_retainer_inventory_spaces = []
+    total_ceruleum = 0
+    total_repair_kits_count = 0
+    total_character_gil = 0
+    total_retainer_gil = 0
+    total_treasure_value = 0
+    
+    # Submarine operational data from AAR-managed accounts only
+    for account_entry in account_locations:
+        timer_data = get_submarine_timers_for_account(account_entry)
+        total_all_subs += timer_data["total_subs"]
+        all_builds.extend(timer_data["sub_builds"])
+        all_plans.extend(timer_data.get("sub_plans", []))
+        total_ceruleum += timer_data.get("total_ceruleum", 0)
+        total_repair_kits_count += timer_data.get("total_repair_kits", 0)
+        if timer_data.get("days_until_restocking") is not None:
+            all_days_remaining.append(timer_data["days_until_restocking"])
+        if timer_data.get("lowest_inventory_space") is not None:
+            all_inventory_spaces.append(timer_data["lowest_inventory_space"])
+        if timer_data.get("lowest_retainer_inventory_space") is not None:
+            all_retainer_inventory_spaces.append(timer_data["lowest_retainer_inventory_space"])
+    
+    # Gil/treasure scanning: use _sublord_all_accounts (ALL accounts from config, incl disabled)
+    # This ensures ALL accounts contribute to Gil/treasure totals, not just AAR-managed ones
+    scan_entries = _sublord_all_accounts if _sublord_all_accounts else account_locations
+    scanned_paths = set()
+    
+    for entry in scan_entries:
+        auto_path = entry.get("auto_path", "")
+        if not auto_path or auto_path in scanned_paths:
+            continue
+        scanned_paths.add(auto_path)
+
+        xa_path = get_xa_db_path(entry)
+        xa_gil_totals = get_xa_gil_totals(xa_path) if xa_path else None
+        if xa_gil_totals is not None:
+            total_character_gil += xa_gil_totals[0]
+            total_retainer_gil += xa_gil_totals[1]
+            total_treasure_value += sum(scan_xa_treasure(xa_path).values())
+        elif os.path.isfile(auto_path):
+            try:
+                with open(auto_path, "r", encoding="utf-8-sig") as f:
+                    data = json.load(f)
+                nickname = entry.get("nickname", "Unknown")
+                chars = collect_characters(data, account_nickname=nickname)
+                for char in chars:
+                    total_character_gil += char.get("Gil", 0)
+                    for ret in char.get("RetainerData", []):
+                        total_retainer_gil += ret.get("Gil", 0)
+            except Exception as e:
+                if DEBUG:
+                    print(f"[SUBLORD-DB] Error reading Gil for {entry.get('nickname', '?')}: {e}")
+        
+        # Collect treasure values from XA Database
+        xa_path = get_xa_db_path(entry)
+        if xa_path:
+            treasure_map = scan_xa_treasure(xa_path)
+            total_treasure_value += sum(treasure_map.values())
+    
+    # Calculate gil per day (same logic as display_submarine_timers)
+    total_daily_gil = 0
+    farming_subs_count = 0
+    leveling_plans_list = submarine_plans.get("leveling", [])
+    farming_plans_dict = submarine_plans.get("farming", {})
+    
+    for i, build in enumerate(all_builds):
+        plan_name = all_plans[i] if i < len(all_plans) else ""
+        if plan_name and plan_name in leveling_plans_list:
+            continue
+        if plan_name and plan_name in farming_plans_dict:
+            total_daily_gil += farming_plans_dict[plan_name]
+            farming_subs_count += 1
+            continue
+        if build in build_gil_rates:
+            total_daily_gil += build_gil_rates[build]
+            farming_subs_count += 1
+    
+    leveling_subs_count = total_all_subs - farming_subs_count
+    
+    # Calculate supply costs
+    total_tanks_per_day = 0.0
+    total_kits_per_day = 0.0
+    for build in all_builds:
+        if build in build_consumption_rates:
+            total_tanks_per_day += build_consumption_rates[build]["tanks_per_day"]
+            total_kits_per_day += build_consumption_rates[build]["kits_per_day"]
+        else:
+            total_tanks_per_day += 9.0
+            total_kits_per_day += 1.33
+    
+    total_supply_cost = int((total_tanks_per_day * CERULEUM_TANK_COST) + (total_kits_per_day * REPAIR_KIT_COST))
+    min_days = min(all_days_remaining) if all_days_remaining else None
+    min_inv = min(all_inventory_spaces) if all_inventory_spaces else None
+    min_ret_inv = min(all_retainer_inventory_spaces) if all_retainer_inventory_spaces else None
+    
+    # Combined total: character gil + retainer gil + treasure value
+    total_gil_plus_treasure = total_character_gil + total_retainer_gil + total_treasure_value
+    
+    return {
+        "total_subs": total_all_subs,
+        "total_subs_farming": farming_subs_count,
+        "total_subs_leveling": leveling_subs_count,
+        "total_gil_per_day": total_daily_gil,
+        "total_supply_cost_per_day": total_supply_cost,
+        "total_ceruleum_tanks": total_ceruleum,
+        "total_repair_kits": total_repair_kits_count,
+        "total_tanks_per_day": total_tanks_per_day,
+        "total_kits_per_day": total_kits_per_day,
+        "days_until_restocking": min_days,
+        "lowest_inventory_sub_only": min_inv,
+        "lowest_inventory_retainer": min_ret_inv,
+        "total_character_gil": total_character_gil,
+        "total_retainer_gil": total_retainer_gil,
+        "total_treasure_value": total_treasure_value,
+        "total_gil_plus_treasure": total_gil_plus_treasure,
+    }
 
 # ===============================================
 # Notification Credential Validation
@@ -2012,7 +2547,9 @@ def get_submarine_timers_for_account(account_entry):
         "lowest_retainer_inventory_space": None,  # Lowest inventory space among retainer farmer characters
         "ready_retainers": 0,  # Count of retainers with completed ventures
         "total_retainers": 0,  # Total retainers on ventures
-        "soonest_retainer_hours": None  # Soonest retainer venture completion time
+        "soonest_retainer_hours": None,  # Soonest retainer venture completion time
+        "disabled_ready_subs": 0,  # Ready subs that AR won't process (Workshop off or sub not in EnabledSubs)
+        "disabled_chars_with_ready_subs": []  # Character names with non-processable ready subs
     }
     
     if not include_subs:
@@ -2040,6 +2577,11 @@ def get_submarine_timers_for_account(account_entry):
         all_retainer_times = []  # Track retainer venture completion times
         
         for char in chars:
+            # Check if character has workshop (submarine) processing enabled in AutoRetainer
+            # WorkshopEnabled controls whether AR processes submarines for this character
+            # Enabled controls retainer Multi rotation (separate from submarine processing)
+            char_enabled = char.get("WorkshopEnabled", True)
+            
             # Collect inventory from character
             ceruleum = char.get("Ceruleum", 0)
             repair_kits = char.get("RepairKits", 0)
@@ -2116,6 +2658,9 @@ def get_submarine_timers_for_account(account_entry):
                         result["ready_retainers"] += 1
             
             # Second pass: Get submarine return times
+            # AR only processes subs where: WorkshopEnabled=true AND sub name is in EnabledSubs
+            enabled_subs_list = char.get("EnabledSubs", [])
+            char_disabled_ready = 0
             for sub_dict in offline_sub_data:
                 sub_name = sub_dict.get("Name", "")
                 return_timestamp = sub_dict.get("ReturnTime", 0)
@@ -2123,12 +2668,28 @@ def get_submarine_timers_for_account(account_entry):
                 if return_timestamp > 0:
                     # Convert to hours remaining (can be negative if already returned)
                     hours_remaining = (return_timestamp - current_time) / 3600
-                    all_return_times.append(hours_remaining)
                     result["total_subs"] += 1
                     
-                    # Count ready submarines (negative hours means already returned)
-                    if hours_remaining < 0:
-                        result["ready_subs"] += 1
+                    # Sub is processable only if Workshop is enabled AND this specific sub is enabled
+                    sub_processable = char_enabled and sub_name in enabled_subs_list
+                    
+                    if sub_processable:
+                        # Only count processable subs toward launch decisions
+                        all_return_times.append(hours_remaining)
+                        
+                        # Count ready submarines (negative hours means already returned)
+                        if hours_remaining < 0:
+                            result["ready_subs"] += 1
+                    else:
+                        # Track non-processable subs with ready status for warning
+                        if hours_remaining < 0:
+                            char_disabled_ready += 1
+            
+            # Record disabled character/sub info for warning display
+            if char_disabled_ready > 0:
+                char_name = char.get("Name", "Unknown")
+                result["disabled_ready_subs"] += char_disabled_ready
+                result["disabled_chars_with_ready_subs"].append(char_name)
         
         # Find the soonest submarine (minimum time)
         if all_return_times:
@@ -2277,79 +2838,10 @@ def detect_submarine_processing(account_entry, submarine_state_cache, current_ti
         int: Number of submarines processed (negative -> positive transitions)
     """
     nickname = account_entry["nickname"]
-    auto_path = account_entry["auto_path"]
-    
-    if not os.path.isfile(auto_path):
-        return 0
-    
-    try:
-        with open(auto_path, "r", encoding="utf-8-sig") as f:
-            data = json.load(f)
-        
-        chars = collect_characters(data, account_nickname=nickname)
-        current_return_times = []  # List of (sub_name, hours_remaining) tuples
-        
-        for char in chars:
-            offline_sub_data = char.get("OfflineSubmarineData", [])
-            
-            for sub_dict in offline_sub_data:
-                sub_name = sub_dict.get("Name", "")
-                return_timestamp = sub_dict.get("ReturnTime", 0)
-                
-                if return_timestamp > 0:
-                    # Convert to hours remaining (can be negative if already returned)
-                    hours_remaining = (return_timestamp - current_time) / 3600
-                    current_return_times.append((sub_name, hours_remaining))
-        
-        # Count current submarine states
-        ready_subs = sum(1 for _, hours in current_return_times if hours < 0)
-        voyaging_subs = sum(1 for _, hours in current_return_times if hours > 0)
-        
-        # Get cached ready count for this account
-        cached_state = submarine_state_cache.get(nickname, {})
-        
-        # If cache is empty, initialize it but don't count anything as processed
-        if not cached_state:
-            submarine_state_cache[nickname] = {
-                'ready_count': ready_subs,
-                'voyaging_count': voyaging_subs
-            }
-            if DEBUG:
-                print(f"[DEBUG] {nickname}: Initializing cache - {ready_subs} ready, {voyaging_subs} voyaging, 0 newly sent")
-            return 0
-        
-        # Calculate processed count using BOTH metrics:
-        # 1. Decrease in ready submarines (subs sent without new returns)
-        # 2. Increase in voyaging submarines (subs sent even if others returned)
-        # This catches cases where subs return at same rate they're being sent
-        previous_ready = cached_state.get('ready_count', ready_subs)
-        previous_voyaging = cached_state.get('voyaging_count', voyaging_subs)
-        
-        ready_decreased = max(0, previous_ready - ready_subs)
-        voyaging_increased = max(0, voyaging_subs - previous_voyaging)
-        
-        # Use the LARGER of the two metrics to detect activity
-        # This handles both scenarios:
-        # - Subs sent without returns: ready decreases
-        # - Subs sent with simultaneous returns: voyaging increases
-        processed_count = max(ready_decreased, voyaging_increased)
-        
-        # Update cache with current counts
-        submarine_state_cache[nickname] = {
-            'ready_count': ready_subs,
-            'voyaging_count': voyaging_subs
-        }
-        
-        # Enhanced debug output
-        if DEBUG and processed_count > 0:
-            print(f"[DEBUG] {nickname}: {ready_subs} ready, {voyaging_subs} voyaging, {processed_count} newly sent this scan")
-        
-        return processed_count
-    
-    except Exception as e:
-        if DEBUG:
-            print(f"[DEBUG] Error detecting submarine processing for {nickname}: {e}")
-        return 0
+    activity_cache = submarine_state_cache.get("__activity__", {})
+    if nickname in activity_cache:
+        return activity_cache[nickname]
+    return sync_farmer_snapshots(account_entry, submarine_state_cache, current_time)
 
 def format_hours(hours, ready_count=0, is_running=False, force247uptime=False, ready_retainers=0, soonest_retainer_hours=None):
     """Format hours with + prefix for positive values and ready count.
@@ -2672,6 +3164,15 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
     min_retainer_inventory_space = min(all_retainer_inventory_spaces) if all_retainer_inventory_spaces else None
     if min_retainer_inventory_space is not None:
         print(f"Lowest Inventory Space (Retainer Farmers): {min_retainer_inventory_space}")
+    # Warning for characters with submarines ready but not enabled for Multi processing
+    total_disabled_ready = sum(data.get("disabled_ready_subs", 0) for data in account_data)
+    if total_disabled_ready > 0:
+        all_disabled_chars = []
+        for data in account_data:
+            for char_name in data.get("disabled_chars_with_ready_subs", []):
+                all_disabled_chars.append(f"{char_name} ({data['nickname']})")
+        char_list = ", ".join(all_disabled_chars)
+        print(f"WARNING: {total_disabled_ready} sub(s) ready on characters without Workshop enabled: {char_list}")
     if MAX_CLIENTS > 0:
         print(f"Max Clients: {MAX_CLIENTS}")
     
@@ -2720,11 +3221,24 @@ def main():
         initial_arrangement_done = False  # Track if we've done initial window arrangement
         game_launch_timestamp = {}  # Track when game was launched for each account (for force crash monitoring)
         last_sub_processed = {}  # Track last time submarine was processed for each account (for force crash monitoring) (negative → positive transitions)
-        submarine_state_cache = {}  # Cache submarine return times by nickname to detect processing (negative → positive transitions)
+        submarine_state_cache = {"__activity__": {}}  # Cache submarine return times by nickname to detect processing (negative → positive transitions)
         retainer_state_cache = {}  # Cache retainer venture times by nickname to detect processing (for force247uptime accounts)
         retainer_mode_active = {}  # Track when retainer timer mode was active per account (prevents premature timer switch when subs become ready)
         launcher_retry_count = {}  # Track launcher retry attempts per account
         launcher_failed_accounts = set()  # Track accounts that have exceeded launcher retry limit
+        last_sublord_update = 0  # Track last sublord DB update time
+        
+        # Initialize sublord.db on startup
+        if ENABLE_SUBLORD_DB:
+            if init_sublord_db():
+                # Collect and store initial snapshot immediately
+                try:
+                    snapshot = collect_sublord_snapshot()
+                    update_sublord_db(snapshot)
+                    last_sublord_update = time.time()
+                    print(f"[SUBLORD-DB] Initial snapshot recorded (updates every {SUBLORD_DB_UPDATE_INTERVAL}min)")
+                except Exception as e:
+                    print(f"[SUBLORD-DB] Error collecting initial snapshot: {e}")
         
         # Initialize client_start_times with actual process start times for already-running games
         if PSUTIL_AVAILABLE:
@@ -2749,6 +3263,14 @@ def main():
         
         while True:
             current_time = time.time()
+
+            farmer_entries = _sublord_all_accounts if _sublord_all_accounts else account_locations
+            submarine_state_cache["__activity__"] = {}
+            for farmer_entry in farmer_entries:
+                nickname = farmer_entry.get("nickname")
+                if not nickname:
+                    continue
+                submarine_state_cache["__activity__"][nickname] = sync_farmer_snapshots(farmer_entry, submarine_state_cache, current_time)
             
             # Check if we need to refresh window status (every WINDOW_REFRESH_INTERVAL seconds)
             if current_time - last_window_check >= WINDOW_REFRESH_INTERVAL:
@@ -3344,6 +3866,18 @@ def main():
                             retainer_mode_active=retainer_mode_active
                         )
             
+            # Periodic sublord.db update
+            if ENABLE_SUBLORD_DB and last_sublord_update > 0:
+                sublord_elapsed = (current_time - last_sublord_update) / 60  # minutes
+                if sublord_elapsed >= SUBLORD_DB_UPDATE_INTERVAL:
+                    try:
+                        snapshot = collect_sublord_snapshot()
+                        if update_sublord_db(snapshot):
+                            last_sublord_update = current_time
+                    except Exception as e:
+                        if DEBUG:
+                            print(f"[SUBLORD-DB] Periodic update error: {e}")
+            
             # Wait for TIMER_REFRESH_INTERVAL seconds before next timer update
             time.sleep(TIMER_REFRESH_INTERVAL)
     except KeyboardInterrupt:
@@ -3355,12 +3889,26 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         import traceback
+        from datetime import datetime
+        from pathlib import Path
+        
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         error_msg = f"\n{'='*80}\n[CRITICAL ERROR] Script crashed with unhandled exception:\n{'='*80}\n"
         error_msg += f"Exception Type: {type(e).__name__}\n"
         error_msg += f"Exception Message: {e}\n"
         error_msg += f"\nFull Traceback:\n{traceback.format_exc()}"
         error_msg += f"{'='*80}\n"
         print(error_msg)
+        
+        # Save crash log to file
+        crash_log_path = Path(__file__).parent / f"crash_log_{timestamp}.log"
+        try:
+            with open(crash_log_path, 'w', encoding='utf-8') as f:
+                f.write(f"Crash Log - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(error_msg)
+            print(f"[CRASH LOG SAVED] {crash_log_path}")
+        except:
+            print("[CRASH LOG] Failed to save crash log to file")
         
         # Try to log and send notification about the crash
         try:
