@@ -31,13 +31,17 @@
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.29
+# Landing Page v1.30
 # AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-02-27 07:38:00
+# Last Updated: 2026-03-08 22:00:00
 #
 # ## Release Notes This Update ##
 #
+# v1.30 - Dashboard reads now support xa_characters from recent updates.
+#         Treasure, dyes, currencies, jobs, and MSQ now parse from XA Database
+#         Chart wealth totals now use XA snapshot gil columns when available
+#         Legacy xa.db table fallback is still preserved
 # v1.29 - Added support for redeploy and finalize planners
 #         *IN BETA* - Added /charts/ page: Financial Charts powered by XA Database
 #         Historical timeline charts for daily gil earnings, supply costs, net profit
@@ -68,7 +72,7 @@ DEBUG = False           # Flask debug mode (set True for development)
 AUTO_REFRESH = 60       # Auto-refresh interval in seconds (0 to disable)
 
 # Display options
-VERSION = "v1.29"       # Version number shown in footer and startup
+VERSION = "v1.30"       # Version number shown in footer and startup
 SHOW_CLASSES = False     # Show DoW/DoM and DoH/DoL job sections, disable to speed up page load
 SHOW_CURRENCIES = False  # Show currencies section, disable to speed up page load
 SHOW_MSQ_PROGRESSION = True  # Show MSQ progression tracking
@@ -864,10 +868,16 @@ def _get_xa_gil_totals():
         try:
             conn = sqlite3.connect(str(db_path))
             c = conn.cursor()
-            for row in c.execute("SELECT amount FROM currency_balances WHERE currency_name = 'Gil'").fetchall():
+            tables = {row[0] for row in c.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+            if "xa_characters" in tables:
+                row = c.execute("SELECT COALESCE(SUM(gil), 0), COALESCE(SUM(retainer_gil), 0) FROM xa_characters").fetchone()
                 total_char_gil += row[0] or 0
-            for row in c.execute("SELECT gil FROM retainers").fetchall():
-                total_ret_gil += row[0] or 0
+                total_ret_gil += row[1] or 0
+            else:
+                for row in c.execute("SELECT amount FROM currency_balances WHERE currency_name = 'Gil'").fetchall():
+                    total_char_gil += row[0] or 0
+                for row in c.execute("SELECT gil FROM retainers").fetchall():
+                    total_ret_gil += row[0] or 0
             conn.close()
         except Exception:
             pass
@@ -1033,14 +1043,13 @@ def get_submarine_plan_info(sub_data, build=""):
     """
     vessel_behavior = sub_data.get("VesselBehavior", 0)
     
-    # VesselBehavior 1 = Redeploy: re-uses last route, no named plan stored
+    # VesselBehavior 0 = Finalize: collect sub, do not redeploy — takes priority
+    if vessel_behavior == VESSEL_BEHAVIOR_FINALIZE:
+        return False, False, "Finalize", 0
+    
+    # VesselBehavior 1 = Redeploy: re-uses last route, no named plan — takes priority
     if vessel_behavior == VESSEL_BEHAVIOR_REDEPLOY:
         return False, True, "Redeploy", 0
-    
-    # VesselBehavior 0 = Finalize: check if build is in the finalize config list
-    finalize_builds = submarine_plans.get("finalize", [])
-    if vessel_behavior == VESSEL_BEHAVIOR_FINALIZE and build and build in finalize_builds:
-        return False, False, "Finalize", 0
     
     # Get the plan GUID being used
     selected_point_plan = sub_data.get("SelectedPointPlan", "")
@@ -1277,6 +1286,37 @@ def scan_xa_db(db_path):
     result = {}
     if not os.path.isfile(db_path):
         return result
+
+    def _load_json_list(raw_value):
+        if not raw_value or raw_value == "null":
+            return []
+        try:
+            parsed = json.loads(raw_value)
+        except Exception:
+            return []
+        return parsed if isinstance(parsed, list) else []
+
+    def _read_int(entry, *keys):
+        for key in keys:
+            if key in entry and entry[key] is not None:
+                try:
+                    return int(entry[key])
+                except Exception:
+                    continue
+        return 0
+
+    def _read_bool(entry, *keys):
+        for key in keys:
+            if key in entry:
+                return bool(entry[key])
+        return False
+
+    def _read_text(entry, *keys):
+        for key in keys:
+            value = entry.get(key)
+            if value is not None:
+                return str(value)
+        return ""
     
     def _tally_item(r, item_id, qty, is_marketboard=False):
         """Process a single item for treasure/coffer/dye tracking."""
@@ -1310,6 +1350,78 @@ def scan_xa_db(db_path):
     try:
         conn = sqlite3.connect(db_path)
         c = conn.cursor()
+        tables = {row[0] for row in c.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+
+        if "xa_characters" in tables:
+            rows = c.execute("SELECT content_id, currencies_json, jobs_json, items_json, listings_json, retainer_items_json, msq_milestones_json FROM xa_characters").fetchall()
+            for row in rows:
+                cid = row[0]
+                result[cid] = {
+                    "treasure_value": 0, "coffer_dye_value": 0, "coffer_count": 0,
+                    "dye_count": 0, "dye_pure_white": 0, "dye_jet_black": 0,
+                    "dye_pastel_pink": 0, "mb_dye_count": 0, "venture_coins": 0,
+                    "current_job": "", "current_level": 0,
+                    "highest_job": "", "highest_level": 0,
+                    "lowest_job": "", "lowest_level": 0,
+                    "all_jobs": {}, "all_currencies": {}, "completed_quests": [],
+                }
+
+                for item in _load_json_list(row[3]):
+                    item_id = _read_int(item, "ItemId", "item_id")
+                    qty = _read_int(item, "Quantity", "quantity")
+                    if item_id > 0 and qty > 0:
+                        _tally_item(result[cid], item_id, qty)
+
+                for item in _load_json_list(row[5]):
+                    item_id = _read_int(item, "ItemId", "item_id")
+                    qty = _read_int(item, "Quantity", "quantity")
+                    if item_id > 0 and qty > 0:
+                        _tally_item(result[cid], item_id, qty)
+
+                for item in _load_json_list(row[4]):
+                    item_id = _read_int(item, "ItemId", "item_id")
+                    qty = _read_int(item, "Quantity", "quantity")
+                    if item_id > 0 and qty > 0:
+                        _tally_item(result[cid], item_id, qty, is_marketboard=True)
+
+                for currency in _load_json_list(row[1]):
+                    name = _read_text(currency, "Name", "currency_name")
+                    amount = _read_int(currency, "Amount", "amount")
+                    if not name or amount <= 0:
+                        continue
+                    result[cid]["all_currencies"][name] = amount
+                    if name == "Venture Coins":
+                        result[cid]["venture_coins"] = amount
+
+                for job in _load_json_list(row[2]):
+                    level = _read_int(job, "Level", "level")
+                    if level <= 0:
+                        continue
+                    abbr = _read_text(job, "Abbreviation", "abbreviation")
+                    name = _read_text(job, "Name", "name")
+                    r = result[cid]
+                    job_key = XA_JOB_NAME_TO_KEY.get(name, name)
+                    r["all_jobs"][job_key] = level
+                    if level > r["highest_level"]:
+                        r["highest_level"] = level
+                        r["highest_job"] = abbr
+                    if r["lowest_level"] == 0 or level < r["lowest_level"]:
+                        r["lowest_level"] = level
+                        r["lowest_job"] = abbr
+
+                if result[cid]["highest_job"]:
+                    result[cid]["current_job"] = result[cid]["highest_job"]
+                    result[cid]["current_level"] = result[cid]["highest_level"]
+
+                for milestone in _load_json_list(row[6]):
+                    if not _read_bool(milestone, "IsComplete", "is_complete"):
+                        continue
+                    quest_id = _read_int(milestone, "QuestRowId", "quest_row_id")
+                    if quest_id > 0:
+                        result[cid]["completed_quests"].append(quest_id)
+
+            conn.close()
+            return result
         
         # Get all character content_ids
         char_rows = c.execute("SELECT content_id FROM characters").fetchall()
@@ -3532,7 +3644,7 @@ HTML_TEMPLATE = '''
                                     <td>{{ sub.name }}</td>
                                     <td>{{ sub.level }}</td>
                                     <td>{{ sub.build }}</td>
-                                    <td class="{% if not sub.plan_name and not sub.is_farming and not sub.is_leveling %}status-none{% endif %}" style="{% if sub.plan_name or sub.is_farming %}color: var(--success);{% elif sub.is_leveling %}color: var(--warning);{% endif %}">
+                                    <td class="{% if not sub.plan_name and not sub.is_farming and not sub.is_leveling %}status-none{% endif %}" style="{% if sub.plan_name == 'Finalize' %}color: #f85149;{% elif sub.plan_name == 'Redeploy' %}color: cyan;{% elif sub.is_farming %}color: var(--success);{% elif sub.is_leveling %}color: var(--warning);{% endif %}">
                                         {% if sub.plan_name %}{{ sub.plan_name }}{% elif sub.is_farming %}Farm{% elif sub.is_leveling %}Lvl{% else %}None{% endif %}
                                     </td>
                                     <td class="{% if sub.return_formatted == 'Ready!' %}status-ready{% else %}status-voyaging{% endif %}">
@@ -6022,6 +6134,8 @@ MAP_TEMPLATE = '''
         }
         .sp-sub-lvl.farming { color: var(--success); }
         .sp-sub-lvl.leveling { color: var(--warning); }
+        .sp-sub-lvl.finalize { color: #f85149; }
+        .sp-sub-lvl.redeploy { color: cyan; }
         .sp-sub-build {
             color: var(--text-secondary);
             min-width: 34px;
@@ -6325,10 +6439,10 @@ MAP_TEMPLATE = '''
                     </div>
                     {% for sub in ch.subs %}
                     <div class="sp-sub-row">
-                        <span class="sp-sub-lvl {{ 'farming' if sub.is_farming else 'leveling' }}">{{ sub.level }}</span>
+                        <span class="sp-sub-lvl {% if sub.plan_name == 'Finalize' %}finalize{% elif sub.plan_name == 'Redeploy' %}redeploy{% elif sub.is_farming %}farming{% else %}leveling{% endif %}">{{ sub.level }}</span>
                         <span class="sp-sub-build">{{ sub.build }}</span>
                         <span class="sp-sub-eta{% if sub.eta == 'R' %} ready{% endif %}">{{ sub.eta }}</span>
-                        <span class="sp-sub-plan" title="{{ sub.plan_name if sub.plan_name else 'No plan' }}">{{ sub.plan_name if sub.plan_name else '—' }}</span>
+                        <span class="sp-sub-plan" style="{% if sub.plan_name == 'Finalize' %}color: #f85149;{% elif sub.plan_name == 'Redeploy' %}color: cyan;{% elif sub.is_farming %}color: var(--success);{% elif sub.is_leveling %}color: var(--warning);{% endif %}" title="{{ sub.plan_name if sub.plan_name else 'No plan' }}">{{ sub.plan_name if sub.plan_name else '—' }}</span>
                     </div>
                     {% endfor %}
                     <div class="sp-inv-row">
@@ -7023,6 +7137,7 @@ SUBS_TEMPLATE = r'''
         .text-danger { color: var(--danger); }
         .text-gold { color: var(--gold); }
         .text-muted { color: var(--text-secondary); }
+        .text-cyan { color: cyan; }
         .text-accent { color: var(--accent-light); }
 
         .cell-ready { color: var(--success); font-weight: 700; }
@@ -7256,7 +7371,7 @@ SUBS_TEMPLATE = r'''
                         {% if row.subs[i] %}
                         <td class="{% if row.subs[i].is_ready %}cell-ready{% endif %}">{{ row.subs[i].level }}</td>
                         <td>{{ row.subs[i].build }}</td>
-                        <td class="{% if row.subs[i].is_farming %}text-success{% elif row.subs[i].is_leveling %}text-warning{% else %}text-muted{% endif %}">{{ row.subs[i].plan_name }}</td>
+                        <td class="{% if row.subs[i].plan_name == 'Finalize' %}text-danger{% elif row.subs[i].plan_name == 'Redeploy' %}text-cyan{% elif row.subs[i].is_farming %}text-success{% elif row.subs[i].is_leveling %}text-warning{% else %}text-muted{% endif %}">{{ row.subs[i].plan_name }}</td>
                         <td class="{% if row.subs[i].is_ready %}cell-ready{% else %}cell-returning{% endif %}">{{ row.subs[i].return_formatted }}</td>
                         {% else %}
                         <td class="cell-empty">-</td>
