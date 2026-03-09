@@ -1,14 +1,23 @@
-# Auto-AutoRetainer v1.31 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.34 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
 A comprehensive automation script that monitors submarine return times across multiple FFXIV accounts and intelligently manages game instances for hands-off submarine and retainer farming. Automatically launches games when submarines are ready, handles 2FA login, recovers from crashes and frozen clients, enforces stability restarts, tracks daily gil earnings and supply levels, and closes games when idle, all without manual intervention.
 
-This readme is extensive, but don't be intimidated. Getting this up and running is actually quite straightforward and only requires a handful of steps. I've included thorough documentation so you can understand what everything does if you're curious, but the actual setup takes less than 5 minutes. Install python and the requirements, then in game install Splatoon, add the custom window renaming script from this readme, configure 2FA if your accounts use it, add any alt accounts to your config file, and you're good to go.
+This readme is extensive, but don't be intimidated. Getting this up and running is actually quite straightforward and only requires a handful of steps. I've included thorough documentation so you can understand what everything does if you're curious, but the actual setup takes less than 5 minutes. Install python and the requirements, then in game install XA Slave and enable the Window Renamer with your account nickname, configure 2FA if your accounts use it, add any alt accounts to your config file, and you're good to go.
 
 <p align="center">
-  <img width="707" height="491" alt="image" src="https://github.com/user-attachments/assets/5d0ab532-1ff5-4490-8d05-7da085df0c55" />
+  <img width="590" height="423" alt="image" src="https://github.com/user-attachments/assets/aea6599d-42ac-44df-bcb7-ccf07416aaed" />
 </p>
+
+## Support
+- Discord server: <https://discord.gg/g2NmYxPQCa>
+
+---
+
+<details>
+
+<summary>How It Works</summary>
 
 ## How It Works
 
@@ -23,6 +32,14 @@ This readme is extensive, but don't be intimidated. Getting this up and running 
 - **Crash recovery**: If game crashes when subs are ready or 24/7 uptime is enabled, game automatically relaunches
 - **Timers refresh** every 30 seconds
 - **Client checkers refresh** every 60 seconds
+
+</details>
+
+---
+
+<details>
+
+<summary>Why Do I Want This?</summary>
 
 ## Why Do I Want This
 
@@ -39,6 +56,14 @@ This readme is extensive, but don't be intimidated. Getting this up and running 
 - **Manages multiple accounts seamlessly** with independent configurations, launchers, and plugin setups per account.
 - **Arranges game windows automatically** so multi-client setups stay organized without manual intervention.
 
+</details>
+
+---
+
+<details>
+
+<summary>Core Automation</summary>
+
 ## Core Automation Features
 
 - **Intelligent Game Launching**: Automatically opens game instances when submarines are nearly ready (9 minutes by default, configurable)
@@ -46,7 +71,18 @@ This readme is extensive, but don't be intimidated. Getting this up and running 
 - **Smart Idle Management**: Closes games when submarines won't be ready for an extended period (30 minutes by default, configurable)
 - **Crash Recovery**: Automatically detects and relaunches crashed game instances
 - **Frozen Client Detection**: Monitors submarine processing activity and force-crashes stuck clients after configurable inactivity period
+- **Per-Character Farmer Tracking**: `sublord.db` now maintains `farmer_snapshots` rows with account nickname, character, CID, submarine ETA state, and last sent/returned timestamps
+- **XA Snapshot Financial Reads**: Daily wealth snapshots now read XA Database's `xa_characters` layout for character gil, retainer gil, and treasure values with legacy fallback
+- **Safer Processing Detection**: Submarine activity detection now uses per-character/per-sub transitions so active submarine sending does not look stalled when account-level ready counts stay flat
 - **72-Hour Stability Restart**: Automatically restarts clients at 71 hours uptime to avoid FFXIV's 72-hour stability issues
+
+</details>
+
+---
+
+<details>
+
+<summary>Features</summary>
 
 ## Features
 
@@ -77,6 +113,11 @@ This readme is extensive, but don't be intimidated. Getting this up and running 
 - **Window Arrangement**: Automatically arranges game windows using customizable layouts
 - **Notifications**: Optional Pushover and Discord webhook alerts for errors and issues
 
+### AR Configuration Awareness
+- **WorkshopEnabled Check**: Only submarines on characters with `WorkshopEnabled=true` in AutoRetainer's DefaultConfig are counted toward launch decisions
+- **EnabledSubs Check**: Only submarines whose name appears in the character's `EnabledSubs` list are counted as processable — if a specific sub is disabled in AR, it won't trigger a game launch
+- **Non-Processable Sub Warning**: Displays a warning line showing characters with ready submarines that AR won't process, along with character name and account nickname
+
 ### Submarine Build Analysis
 - **Build Detection**: Identifies submarine parts (WSUC, SSUC, YSYC, etc.)
 - **Route Recognition**: Matches builds to known voyage routes (OJ, MOJ, ROJ, JOZ, JORZ, etc.)
@@ -87,9 +128,13 @@ This readme is extensive, but don't be intimidated. Getting this up and running 
 - **Proactive Alerts**: Shows minimum days remaining across all characters to prevent submarines from running dry
 - **Universal Build Support**: All submarine builds tracked, including leveling builds not listed in consumption rate dictionary
 
+</details>
+
 ---
 
-## Quick Start
+<details>
+
+<summary>Quick Start</summary>
 
 ### 1. Prerequisites
 
@@ -106,9 +151,13 @@ This readme is extensive, but don't be intimidated. Getting this up and running 
 - **2FA Supported**: Two-factor authentication is now supported via keyring integration (see 2FA Setup section)
 - **Autologging Enabled**: XIVLauncher must have autologin configured for each account
 
+</details>
+
 ---
 
-## Setup Instructions
+<details>
+
+<summary>Setup Instructions</summary>
 
 ### Step 1: Configure Account Locations
 
@@ -156,9 +205,13 @@ GAME_LAUNCHERS = {
 }
 ```
 
+</details>
+
 ---
 
-## Creating Alternative Dalamud Launchers for Alt Accounts
+<details>
+
+<summary>Creating Alternative Dalamud Launchers for Alt Accounts</summary>
 
 ### Why Use Alternative Launchers?
 
@@ -298,96 +351,49 @@ ProcessID - nickname
 - `58696 - Acc1`
 - `12345 - Acc2`
 
-**📝 Quick Note:** The Process ID is **automatically generated** by the Splatoon script - you only need to enter your account nickname (Main, Acc1, etc.). The script handles everything else!
+**📝 Quick Note:** The Process ID is **automatically generated** by the XA Slave plugin - you only need to enter your account nickname (Main, Acc1, etc.). The plugin handles everything else!
 
 ---
 
 **How to Rename Game Windows:**
 
-#### Recommended Method: Splatoon Plugin Script
+#### Recommended Method: XA Slave Plugin
 
-**Splatoon** is a Dalamud plugin that allows custom scripting, including automatic window title renaming with process ID and nickname.
+**XA Slave** is a Dalamud plugin that includes a built-in Window Renamer feature, along with other automation utilities. It automatically renames the game window title with the process ID and your account nickname.
 
-**Step 1: Install Splatoon**
+**Step 1: Install XA Slave**
 1. Open Dalamud plugin installer in FFXIV (`/xlplugins`)
 2. Go to "Settings" → "Experimental"
 3. Add custom repository: `https://love.puni.sh/ment.json`
-4. Search for "Splatoon" and install it
+4. Search for **"XA Slave"** and install it
 
-**Step 2: Install Window Rename Script**
-1. Open Splatoon settings in-game
-2. Click on the **"Scripts"** tab
-3. Copy the following script code to your clipboard:
-
-```csharp
-using ECommons.Interop;
-using ECommons.Logging;
-using ECommons.Schedulers;
-using Splatoon.SplatoonScripting;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace SplatoonScriptsOfficial.Generic;
-public unsafe sealed class RenameWindow : SplatoonScript
-{
-    public override Metadata Metadata { get; } = new(1, "NightmareXIV");
-    public override HashSet<uint>? ValidTerritories { get; } = null;
-
-    public override void OnEnable()
-    {
-        Rename($"{Environment.ProcessId} - Main");
-    }
-
-    public override void OnDisable()
-    {
-        Rename("FINAL FANTASY XIV");
-    }
-
-    void Rename(string name)
-    {
-        if(WindowFunctions.TryFindGameWindow(out var hwnd))
-        {
-            fixed(char* ptr = name)
-            {
-                TerraFX.Interop.Windows.Windows.SetWindowText(hwnd, ptr);
-            }
-        }
-        else
-        {
-            PluginLog.Error($"Couldn't find game window!"); //retry it again
-            new TickScheduler(() => Rename(name));
-        }
-    }
-}
-```
-
-4. In Splatoon Scripts tab, click **"Install from Clipboard"**
-5. **IMPORTANT - Edit the Nickname Only:**
-   - In the script line: `Rename($"{Environment.ProcessId} - Main");`
-   - **Replace ONLY the word after the dash** with your account nickname
-   - The `Environment.ProcessId` part is **automatic** - DO NOT change it
-   - **Keep the space-dash-space formatting:** ` - `
-   
-   **Examples:**
-   - For "Main" account: `Rename($"{Environment.ProcessId} - Main");`
-   - For "Acc1" account: `Rename($"{Environment.ProcessId} - Acc1");`
-   - For "Acc2" account: `Rename($"{Environment.ProcessId} - Acc2");`
-
-6. Enable the script by checking the box next to "RenameWindow"
-7. The window title will automatically update to format: `ProcessID - nickname`
+**Step 2: Configure Window Renamer**
+1. Open the XA Slave settings window in-game by typing `/xa`
+2. Click on the **"Window Renamer"** task in the left panel
+3. Configure the following settings:
+   - **Check "Enable Window Renamer"** to activate the feature
+   - **Check "Use Process ID prefix"** — this prepends the process ID to the window title automatically
+   - **Window Title**: Enter your account nickname (e.g., `Main`, `Acc1`, `Acc2`)
+4. Click **"Apply Now"** to rename the window immediately
+5. The window title will automatically update to format: `ProcessID - nickname`
    - Example: `12345 - Main` (where 12345 is the auto-generated process ID)
 
-**Benefits of Splatoon Method:**
+**Examples of Window Title configuration per account:**
+- For "Main" account: Window Title = `Main` → Result: `12345 - Main`
+- For "Acc1" account: Window Title = `Acc1` → Result: `58696 - Acc1`
+- For "Acc2" account: Window Title = `Acc2` → Result: `30561 - Acc2`
+
+**Benefits of XA Slave Method:**
 - ✓ **Process ID is automatically generated** - you never need to manually enter it
-- ✓ Persists across game restarts
+- ✓ Simple checkbox and text box configuration — no scripting required
+- ✓ Persists across game restarts (applies on plugin load when enabled)
 - ✓ Works with XIVLauncher multi-account setups
 - ✓ Automatically reverts to default title when disabled
+- ✓ Live preview shows the exact window title before applying
 
 **Step 3: Verify Each Account**
-- Create a **separate Splatoon script** for EACH account with its unique nickname
+- Configure the Window Renamer on **EACH account** with its unique nickname
+- Each account's XA Slave configuration is stored in its own pluginConfigs directory, so nicknames are per-account
 - Launch each game instance and verify the window title shows correct format
   - Example: `3056 - Main` or `58696 - Acc1`
 - The nickname MUST match exactly what you configured in `account_locations` in the Python script
@@ -446,9 +452,13 @@ public unsafe sealed class RenameWindow : SplatoonScript
 - Consider using dedicated submarine farming accounts
 - Never share your launcher files or credential data
 
+</details>
+
 ---
 
-## 2FA Setup (Optional)
+<details>
+
+<summary>2FA Setup (Optional)</summary>
 
 This section explains how to set up Two-Factor Authentication (2FA) for use with Auto-AutoRetainer. The script can automatically generate and send OTP codes when launching the game.
 
@@ -589,9 +599,13 @@ Or in `config.json`:
 - If you navigated away during registration, the key was regenerated
 - Disable 2FA on your account and start the process over from Step 2
 
+</details>
+
 ---
 
-## External Configuration File (Optional)
+<details>
+
+<summary>External Configuration File (Optional)</summary>
 
 Instead of editing the Python script directly, you can use an external `config.json` file to override settings.
 
@@ -710,9 +724,13 @@ Override the default supply costs used for daily cost calculations:
 | `ceruleum_tank_cost` | 350 | Gil cost per Ceruleum Tank |
 | `repair_kit_cost` | 2000 | Gil cost per Repair Kit |
 
+</details>
+
 ---
 
-## Notification Settings (Optional)
+<details>
+
+<summary>Notification Settings (Optional)</summary>
 
 Auto-AutoRetainer can send notifications when errors occur.
 
@@ -778,9 +796,13 @@ For automatic window arrangement, create layout JSON files:
 - **activate**: Focus this window after arrangement (true/false)
 - **order**: Arrangement order (lower numbers arranged first)
 
+</details>
+
 ---
 
-## Configuration Parameters
+<details>
+
+<summary>Configuration Parameters</summary>
 
 ### Display Settings
 
@@ -971,9 +993,13 @@ USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = False  # Window detection mode
 - Script will exit with error if multiple accounts are configured
 - Requires `psutil` package for uptime tracking (install with: `pip install psutil`)
 
+</details>
+
 ---
 
-## Usage
+<details>
+
+<summary>Usage</summary>
 
 ### Running the Script
 
@@ -985,7 +1011,7 @@ python Auto-AutoRetainer.py
 
 ```
 =====================================================================================
-Auto-Autoretainer v1.31
+Auto-Autoretainer v1.34
 FFXIV Game Instance Manager
 =====================================================================================
 Updated: 2026-02-03 09:00:00
@@ -1004,6 +1030,7 @@ Total Supply Cost Per Day: 28,500
 Total Days Until Restocking Required: 45
 Lowest Inventory Space (Sub-Only Farmers): 85
 Lowest Inventory Space (Retainer Farmers): 62
+WARNING: 2 sub(s) ready on characters without Workshop enabled: Just-an Alt (Alt2)
 =====================================================================================
 Press Ctrl+C to exit
 =====================================================================================
@@ -1051,9 +1078,13 @@ Press Ctrl+C to exit
 [AUTO-CLOSE] Successfully closed Acc1 after 71.2h, waiting 30 seconds before checking clients again.
 ```
 
+</details>
+
 ---
 
-## Requirements
+<details>
+
+<summary>Requirements</summary>
 
 ### Python Packages
 ```bash
@@ -1072,14 +1103,18 @@ pip install requests
 
 ### Plugin Requirements
 - **AutoRetainer**: For submarine data and automation
-- **Splatoon** (Recommended): For automatic window title renaming with process ID
-  - Repository: `https://love.puni.sh/ment.json`
+- **XA Slave** (Recommended): For automatic window title renaming with process ID
+  - Repository: `https://raw.githubusercontent.com/xa-io/MyDalamudPlugins/master/pluginmaster.json`
+  - Built-in Window Renamer feature — simple checkbox and text box configuration
   - Enables automatic window detection and management
-- **Window Title Plugin**: (Alternative) For manual window title customization
+
+</details>
 
 ---
 
-## Data Sources
+<details>
+
+<summary>Data Sources</summary>
 
 ### AutoRetainer Configuration Files
 - **Location**: `{account_path}/AutoRetainer/DefaultConfig.json`
@@ -1106,9 +1141,13 @@ Based on known voyage routes:
 - **MROJZ Route (48h)**: 116,206 gil/day
 - And more...
 
+</details>
+
 ---
 
-## Troubleshooting
+<details>
+
+<summary>Troubleshooting</summary>
 
 ### Game Not Launching
 1. Verify launcher path in `GAME_LAUNCHERS` is correct
@@ -1142,9 +1181,13 @@ Based on known voyage routes:
 4. Check that no login prompts appear during launch (unless it's a 2FA code prompt if expected)
 5. For automated 2FA: verify keyring_name matches exactly and OTP_LAUNCH_DELAY is sufficient
 
+</details>
+
 ---
 
-## Advanced Configuration
+<details>
+
+<summary>Advanced Configuration</summary>
 
 ### Multiple Monitor Setups
 
@@ -1252,7 +1295,13 @@ For positioning windows on a **secondary monitor positioned to the LEFT** of you
 
 The script will automatically load `window_layout_{name}.json` based on the `WINDOW_LAYOUT` variable.
 
+</details>
+
 ---
+
+<details>
+
+<summary>Safety Notes</summary>
 
 ## Safety Notes
 
@@ -1262,7 +1311,13 @@ The script will automatically load `window_layout_{name}.json` based on the `WIN
 4. **Rate Limiting**: Built-in delays prevent rapid launches but monitor CPU/disk usage
 5. **Testing**: Always test with one account before enabling full automation
 
+</details>
+
 ---
+
+<details>
+
+<summary>Credits</summary>
 
 ## Credits
 
@@ -1272,75 +1327,365 @@ The script will automatically load `window_layout_{name}.json` based on the `WIN
 - **Dalamud**: For plugin ecosystem
 - **AsunaPahlo**: For paving the way with 2FA and external configuration implementations
 
+</details>
+
 ---
 
 ## Disclaimer
 
-This script is provided as-is for personal use. Use at your own risk. The author is not responsible for any account issues, bans, or data loss resulting from the use of this software.
+This script is not officially associated with or endorsed by the AutoRetainer development team. It was developed as a personal project to enhance the functionality of AutoRetainer by providing a comprehensive automation system for monitoring and managing FFXIV submarine fleets and retainer activities across multiple accounts.
 
-**Important:** Using automation tools may violate the FFXIV Terms of Service. Use responsibly and understand the risks.
-
-## Example Terminal Output
-
-```
-=====================================================================================
-Auto-Autoretainer v1.31
-FFXIV Game Instance Manager
-=====================================================================================
-Updated: 2026-01-31 10:32:22
-=====================================================================================
-
-Main  (4 subs)   : +8.4 hours                 [Closed]
-Acc1  (16 subs)  : -0.6 hours (12 READY)      [Up 24/7]  PID: 46612  UPTIME: 2.3 hrs  X:8
-Acc2  (16 subs)  : -1.2 hours (14 READY)      [Running]  PID: 57700  UPTIME: 2.9 hrs  X:9
-
-=====================================================================================
-Total Subs: 26 / 36
-Total Gil Per Day: 4,250,000
-Total Subs Leveling: 2
-Total Subs Farming: 34
-Total Supply Cost Per Day: 425,000
-Total Days Until Restocking Required: 45
-Lowest Inventory Space (Sub-Only Farmers): 75
-Lowest Inventory Space (Retainer Farmers): 46
-Max Clients: 3
-=====================================================================================
-Press Ctrl+C to exit
-=====================================================================================
-```
+**Important:** This script is provided as-is for personal use. Use at your own risk. Use responsibly and understand the risks. The author is not responsible for any account issues, bans, or data loss resulting from the use of this software. Using automation tools may violate the FFXIV Terms of Service. 
 
 ---
 
-## Version History
+## License
 
-**v1.31** (2026-01-31) - Added config.json support for custom submarine plans, build rates, and supply costs. NEW CONFIG OPTIONS: submarine_plans (configure leveling plan names and farming plans with daily earnings), build_gil_rates (add custom submarine builds not in the default list with gil/day), build_consumption_rates (add custom builds with tanks_per_day and kits_per_day), ceruleum_tank_cost (override default 350 gil), repair_kit_cost (override default 2000 gil). Custom rates merge with built-in rates. Useful for users with custom submarine builds/routes not in the default script list.  
-**v1.30** (2026-01-31) - Added force-crash timer display in status output (X:xx format after UPTIME). Shows minutes remaining before force-crash will trigger for each running client. Timer adapts to retainer mode (20min) or submarine mode (10min) threshold. Added script-crash reporting and notifications.  
-**v1.29** (2026-01-30) - Fixed premature force-crash timer switch from retainer (20min) to submarine (10min) mode. Timer now stays at 20min when subs become ready while retainer processing is active. Added retainer_mode_active tracking dictionary.  
-**v1.28** (2026-01-27) - Added "Lowest Inventory Space (Sub-Only Farmers)" display line in terminal output. Tracks remaining inventory slots for submarine-only farmers, excluding characters with retainers (retainer rotation causes inventory fluctuation). Displays the minimum inventory space available among submarine-only farmer characters. Total inventory capacity is 140 slots, so a value of 67 means 73 slots are in use.
-**v1.27** (2026-01-25) - Fixed batch file launcher leaving cmd.exe processes running after game launch. Changed batch file launch from `start /B` with shell=True to direct `cmd.exe /c` execution with DETACHED_PROCESS flag. Added cleanup_batch_launcher_processes() function that runs 30 seconds after launch in a daemon thread to terminate any lingering cmd.exe processes matching the batch file path. Prevents accumulation of idle "Windows Command Processor" processes in Task Manager.  
-**v1.26** (2026-01-19) - Added initial startup launcher check to close any stuck XIVLauncher on bootup. Code consolidation: Created generic helper functions (kill_process_by_image_name, is_process_running_with_visible_windows, kill_game_client_and_cleanup, get_process_start_time_by_name) to reduce redundant code. Refactored 11 process functions to use generic helpers for consistency.  
-**v1.25** (2026-01-19) - Added pre-launch config validation for AutologinEnabled and OtpServerEnabled. Checks launcherConfigV3.json BEFORE launching game (not just after failures). Automatically fixes AutologinEnabled to "true" if not set correctly. Automatically fixes OtpServerEnabled to "true" when account has enable_2fa=True. Prevents launcher from opening with login prompt instead of auto-logging in. Added validate_launcher_config_before_launch() function for pre-launch checks.  
-**v1.24** (2026-01-14) - Added 2FA/OTP support for accounts with Two-Factor Authentication enabled. Script automatically generates and sends OTP codes via XIVLauncher API when launching games. OTP secrets stored securely in Windows Credential Manager using keyring library. New account parameters: enable_2fa, keyring_name. Added OtpServerEnabled auto-fix in launcherConfigV3.json when 2FA accounts fail to launch. Added external configuration file support (config.json) - settings can now be overridden without editing the Python script. Added Discord webhook notifications for errors alongside existing Pushover support. Added credential validation that halts script if notifications are enabled but credentials missing. Added "enabled" field to account_locations for easy account toggling. VERSION is always read from script, never from config.json.  
-**v1.23** (2026-01-11) - Critical bug fix: Window title failure no longer kills all running game clients in multi-client mode. Added ENABLE_AUTOLOGIN_UPDATER feature that automatically checks and updates AutologinEnabled in launcherConfigV3.json when launcher opens instead of game. After launcher fail 1/3 or 2/3, checks if AutologinEnabled is "false" and updates to "true" before retry - fixes rare cases where launcher opens because autologin was disabled. Added comprehensive error logging system with ENABLE_LOGGING parameter and arr.log file for tracking major issues (WINDOW_TITLE_FAILED, LAUNCHER_FAILED, AUTOLOGIN_UPDATED events). Multi-client mode now continues normal rotation when window title check fails instead of killing all processes. Logging defaults: False for Auto-AutoRetainer, True for SubTimers scripts.  
-**v1.22** (2026-01-08) - Added robust window movement with retry logic and responsiveness checking. Implemented is_window_responding() to detect frozen windows before move attempts using Windows SendMessageTimeout API. Added MAX_WINDOW_MOVE_ATTEMPTS = 3 configuration for retry logic per window. Window position verification now only checks x,y coordinates since FFXIV controls own window size via in-game graphics settings. Up to 3 move attempts per window with 1-second verification delay between attempts (WINDOW_MOVE_VERIFICATION_DELAY reduced from 3 to 1). Script skips unresponsive windows instead of freezing, continues processing remaining windows. Failed windows tracked separately with detailed failure reasons in debug output. Enhanced move_window_to_position() with MoveWindow API and window style modifications for reliable positioning. Added MAX_FAILED_FORCE_CRASH = True to automatically crash clients after MAX_WINDOW_MOVE_ATTEMPTS failures. Failed clients will be relaunched on next cycle if they should be running (similar to inactivity timer). Extracts PID from window title and force crashes using kill_process_by_pid(). Prevents script freeze when game clients become unresponsive during window arrangement. Window movement now succeeds on first attempt in most cases with proper responsiveness and position verification.  
-**v1.21** (2026-01-02) - Disabled force-close monitoring when all submarines are voyaging (idle state). Force-close monitoring now only runs when ready_subs > 0 or account is in (WAITING) state. When all subs are voyaging with 0 ready (showing +hours without status), monitoring is disabled. Prevents false-positive crashes for force247uptime accounts idle between voyage completions. Monitoring activates when subs become ready, deactivates when all subs sent out. Ensures force-close only monitors accounts with actual work to process.  
-**v1.20** (2026-01-02) - Enhanced force-close timer to extend when accounts are in (WAITING) state. Force-close inactivity timer now resets when game is in (WAITING) status - occurs when game is running with 0 ready subs and soonest return time ≤ AUTO_CLOSE_THRESHOLD (30 minutes). Timer continuously resets on each scan during (WAITING) to prevent force-close during legitimate wait periods. Ensures force-close only triggers for frozen/stuck clients, not idle waiting states. When subs transition from (WAITING) to ready, timer is reset with full FORCE_CRASH_INACTIVITY_MINUTES buffer (10 minutes default). Prevents premature crashes when submarines are nearly ready but not yet processed.  
-**v1.19** (2025-12-28) - Fixed force-crash monitoring to respect ENABLE_AUTO_CLOSE setting. Force-crash inactivity monitoring now only runs when ENABLE_AUTO_CLOSE = True. When ENABLE_AUTO_CLOSE = False, clients will never be force-closed due to inactivity. Resolves issue where frozen client detection would crash clients even when auto-close was disabled. Ensures user control over client lifecycle when auto-close features are not desired. Critical bug fix for users running with ENABLE_AUTO_CLOSE = False who were experiencing unexpected force-closes.  
-**v1.18** (2025-12-26) - Improved Force-Close timer to start when game launches instead of when subs are processed. Force-Close monitoring now starts AUTO_LAUNCH_THRESHOLD hours after game opens (typically 9 minutes). Crash timer begins even if game boots stuck without processing any submarines - resolves stuck-at-boot issue. Changed from subs-ready-based monitoring to game-launch-based monitoring for earlier detection. After AUTO_LAUNCH_THRESHOLD delay, FORCE_CRASH_INACTIVITY_MINUTES timer activates (default: 10 minutes). Timer still resets whenever submarines are processed (preserves existing behavior during active play). Tracks game_launch_timestamp per account instead of subs_ready_timestamp. Eliminates issue where frozen games at boot would never trigger force-close because no subs were processed. Removed CRASH_MONITOR_DELAY parameter (now uses AUTO_LAUNCH_THRESHOLD instead for consistency).  
-**v1.17** (2025-12-24) - Added DalamudCrashHandler.exe detection and automatic closing for game crash scenarios. New function is_dalamud_crash_handler_running() detects active crash handler windows and returns PID. New function kill_dalamud_crash_handler_process(pid) closes specific crash handler process by PID using taskkill /F /PID. Monitors for active DalamudCrashHandler.exe windows every WINDOW_REFRESH_INTERVAL (60 seconds). Distinguishes between active crash handler windows (problem state - visible UI open) and background processes (normal state). Background DalamudCrashHandler.exe processes are normal and ignored (one per client) - only kills the specific process with visible window. Uses same has_visible_windows() methodology as XIVLauncher.exe detection. Automatically closes crash handler windows when detected to prevent manual intervention requirement. Works for both single-client and multi-client modes. Prevents crash handler popup windows from blocking automation workflow.  
-**v1.16** (2025-12-19) - Added launcher detection with automatic retry and system bootup delay features. FORCE_LAUNCHER_RETRY = 3 attempts when XIVLauncher.exe opens as ACTIVE APP instead of game client. Detects XIVLauncher with visible windows (stuck at login screen) during game startup monitoring. Ignores XIVLauncher as background process (normal state when game running) to prevent false positives. Uses win32gui window enumeration to distinguish active launcher UI from background process. Kills launcher and retries game launch up to FORCE_LAUNCHER_RETRY times before marking account as [LAUNCHER]. Single client mode: stops monitoring account after max retries. Multi-client mode: marks failed account as [LAUNCHER] and continues processing other accounts. SYSTEM_BOOTUP_DELAY (configurable delay before script starts monitoring). Shows countdown "ARR Processing Delay {x}s Set. Please Wait..." when delay is configured. Useful for auto-starting script on system boot (e.g., set to 20 for 20 second delay). Enhanced wait_for_window_title_update() to detect launcher during both single and multi-client modes.  
-**v1.15** (2025-12-15) - Enhanced submarine processing detection and added FORCE_CRASH_INACTIVITY_MINUTES for frozen client detection. Submarine processing now accurately tracks subs sent per scan by counting decrease in ready submarines. Processing count = (previous ready count - current ready count) - eliminates false positives from total-ready calculations. Added detailed debug output showing ready subs, voyaging subs, and newly sent subs per scan. FORCE_CRASH_INACTIVITY_MINUTES (default: 10 minutes, configurable) crashes client if no submarine processing detected. Monitoring activates CRASH_MONITOR_DELAY hours after submarines become ready (ensures game has fully loaded). Automatically stops monitoring during (WAITING) status and restarts timer when subs become ready again. Deactivates monitoring when force247uptime=True and all subs processed (no ready subs). Resets timer and starts new countdown when subs become ready again. Handles frozen clients, lost connections, stuck in character select, and other stuck scenarios. **Important:** FORCE_CRASH_INACTIVITY_MINUTES and CRASH_MONITOR_DELAY are now conditional on ENABLE_AUTO_CLOSE = True. When ENABLE_AUTO_CLOSE = False, crash monitoring is completely disabled.  
-**v1.14** (2025-12-11) - Updated Daily Supply Cost Basis calculation and added to the display. Calculates total supply costs per day based on submarine consumption rates. Displays "Total Supply Cost Per Day" in terminal output (Ceruleum Tank = 350 gil, Repair Kit = 2,000 gil). Added version number display to terminal header for better tracking. Supply costs calculated using build_consumption_rates with default fallback (9 tanks/day, 1.33 kits/day).  
-**v1.13** (2025-12-08) - Added window title update checking after game launch to ensure plugins have loaded before proceeding. After OPEN_DELAY_THRESHOLD, checks if window still has default "FINAL FANTASY XIV" title and waits indefinitely for plugin to update to "ProcessID - nickname" format. Uses WINDOW_TITLE_RESCAN (5s) polling interval. Only applies in multi-client mode. Removed timeout - will keep waiting until window title updates (never skips). Ensures reliable window detection before moving windows or launching next game.  
-**v1.12** (2025-12-05) - Enhanced auto-launch visual feedback with real-time client status display after each game launch, reducing console spam and improving visibility during sequential launches  
-**v1.11** (2025-11-26) - Added MAX_CLIENTS configuration for hardware-limited setups with sequential client processing, force247uptime prioritization, and terminal display  
-**v1.10** (2025-11-26) - Added restocking calculation with "Total Days Until Restocking Required" display  
-**v1.09** (2025-11-15) - Fixed submarine build collection for custom-named submarines and enhanced console display  
-**v1.08** (2025-11-15) - Enhanced configuration flag handling and status display improvements  
-**v1.07** (2025-11-14) - Added (WAITING) status display for running games with 0 ready subs  
-**v1.06** (2025-11-14) - Renamed 'rotatingretainers' parameter to 'force247uptime' for clarity  
-**v1.05** (2025-11-14) - Fixed PID and UPTIME display in single client mode  
-**v1.03** (2025-11-14) - Simplified for single account use with default window title  
-**v1.02** (2025-11-13) - Fixed auto-launch not checking submarine timers for non-rotating accounts  
-**v1.01** (2025-11-13) - Added per-account force247uptime flag and MAX_RUNTIME limits  
-**v1.00** (2025-11-12) - Initial release with comprehensive submarine automation
+`AGPL-3.0-or-later`
+
+Created by: https://github.com/xa-io
+
+---
+
+<details>
+
+<summary>Version History</summary>
+
+### v1.34 (2026-03-08) - XA Snapshot Reads + Farmer Snapshot Tracking
+
+- **XA Snapshot Financial Reads**: Daily wealth snapshots now read XA Database's `xa_characters` layout
+- **Per-Character Farmer Tracking**: `sublord.db` now tracks `farmer_snapshots` per character instead of relying only on account-level state
+- **Stored Farmer State**: Each farmer row stores CID, account nickname, ETA JSON, and sent/returned processing state
+- **Safer Force-Crash Monitoring**: Force-crash detection now monitors per-sub transitions so active submarine processing does not look stalled
+- **Legacy XA Fallback Preserved**: Older XA Database files still work through the legacy fallback path
+
+### v1.33 (2026-03-07) - AR Configuration Awareness
+
+**Fixed Auto-Launch for Non-Processable Submarines:**
+
+- **Dual Check System**: A submarine is only counted toward launch decisions if BOTH conditions are met:
+  - Character has `WorkshopEnabled=true` (workshop processing enabled in AutoRetainer)
+  - The specific submarine's name is in the character's `EnabledSubs` list
+- **Prevents False Launches**: Game no longer launches when only non-processable subs are ready
+- **WARNING Display**: Shows characters with unprocessable ready subs after inventory space lines
+  - Format: `WARNING: X sub(s) ready on characters without Workshop enabled: CharName (AccNickname)`
+  - Excluded accounts (enabled=false in config.json) are not included in warning
+- **Financial Data Preserved**: Gil/day, supply costs, restocking calculations still include all submarines
+
+### XA Database Treasure  
+
+**Updated `sublord.db` Treasure Source:**
+
+- **XA Database Integration**: Treasure-value scanning now reads from `pluginConfigs/XADatabase/xa.db` instead of Altoholic
+- **Query Source**: Reads `container_items` rows from XA Database rather than Altoholic JSON blobs
+- **Parity Preserved**: Treasure scan is limited to `Inventory 1-4` and `Saddlebag 1-2` to match the old Altoholic inventory/saddle behavior
+- **Same Value Mapping**: Existing `TREASURE_VALUES` constants still drive salvaged jewelry valuation
+- **Graceful Fallback**: Accounts without `xa.db` simply contribute `0` treasure value instead of breaking sublord snapshots
+
+---
+
+### v1.32 (2026-03-07) - Financial Tracking Database
+
+**sublord.db Integration:**
+
+- **Historical Tracking**: Daily snapshots of total subs, gil/day, supply cost/day, tanks, kits, restocking days
+- **Gil Balance Tracking**: Character Gil (from DefaultConfig), retainer Gil, combined totals
+- **Treasure Value Tracking**: Scans Altoholic DB for submarine loot (salvaged jewelry)
+- **Combined Wealth Metric**: Character Gil + retainer Gil + treasure value
+- **Cumulative Totals**: Total gil overall, total supply cost overall, days tracked
+- **Configurable Updates**: SUBLORD_DB_UPDATE_INTERVAL (default 30min)
+- **Custom DB Path**: SUBLORD_DB_PATH for shared access with Dashboard
+- **Auto-Initialize**: Database created on script startup with immediate first snapshot
+- **SQLite WAL Mode**: Concurrent read access by Dashboard
+
+---
+
+### v1.31 (2026-01-31) - Custom Configuration Support
+
+**New Config Options:**
+
+- **submarine_plans**: Configure leveling plan names and farming plans with daily earnings
+- **build_gil_rates**: Add custom submarine builds not in default list with gil/day
+- **build_consumption_rates**: Add custom builds with tanks_per_day and kits_per_day
+- **ceruleum_tank_cost**: Override default 350 gil cost
+- **repair_kit_cost**: Override default 2000 gil cost
+- Custom rates merge with built-in rates
+- Useful for custom submarine builds/routes not in default script list
+
+---
+
+### v1.30 (2026-01-31) - Force-Crash Timer Display
+
+- **Timer Display**: Shows minutes remaining before force-crash (X:xx format after UPTIME)
+- **Adaptive Thresholds**: Timer adapts to retainer mode (20min) or submarine mode (10min)
+- **Script-Crash Reporting**: Added crash reporting and notifications
+
+---
+
+### v1.29 (2026-01-30) - Force-Crash Timer Fix
+
+- **Fixed Timer Switch**: Timer stays at 20min when subs become ready during retainer processing
+- **Retainer Mode Tracking**: Added retainer_mode_active tracking dictionary
+- **Prevents Premature Crashes**: No longer switches to 10min submarine mode prematurely
+
+---
+
+### v1.28 (2026-01-27) - Inventory Space Tracking
+
+- **Sub-Only Farmers**: Added "Lowest Inventory Space (Sub-Only Farmers)" display line
+- **Excludes Retainer Farmers**: Characters with retainers excluded (inventory fluctuates with rotation)
+- **Capacity Reference**: Total inventory capacity is 140 slots
+
+---
+
+### v1.27 (2026-01-25) - Batch Launcher Process Cleanup
+
+- **Fixed cmd.exe Leak**: Batch file launcher no longer leaves cmd.exe processes running
+- **Direct Execution**: Changed from `start /B` to direct `cmd.exe /c` with DETACHED_PROCESS flag
+- **Cleanup Thread**: Added cleanup_batch_launcher_processes() running 30s after launch
+- **Prevents Accumulation**: No more idle "Windows Command Processor" processes in Task Manager
+
+---
+
+### v1.26 (2026-01-19) - Code Consolidation & Launcher Check
+
+- **Startup Launcher Check**: Closes any stuck XIVLauncher on bootup
+- **Generic Helper Functions**: Created kill_process_by_image_name, is_process_running_with_visible_windows, kill_game_client_and_cleanup, get_process_start_time_by_name
+- **Refactored Code**: 11 process functions now use generic helpers for consistency
+
+---
+
+### v1.25 (2026-01-19) - Pre-Launch Config Validation
+
+- **Pre-Launch Checks**: Validates launcherConfigV3.json BEFORE launching game
+- **Auto-Fix AutologinEnabled**: Automatically sets to "true" if incorrect
+- **Auto-Fix OtpServerEnabled**: Sets to "true" when account has enable_2fa=True
+- **Prevents Login Prompt**: Ensures launcher doesn't open with login screen
+
+---
+
+### v1.24 (2026-01-14) - 2FA Support & External Config
+
+**2FA/OTP Support:**
+
+- **Automatic OTP Generation**: Generates and sends OTP codes via XIVLauncher API
+- **Secure Storage**: OTP secrets stored in Windows Credential Manager using keyring
+- **New Parameters**: enable_2fa, keyring_name
+- **OtpServerEnabled Auto-Fix**: Fixes launcherConfigV3.json when 2FA accounts fail
+
+**External Configuration:**
+
+- **config.json Support**: Settings can be overridden without editing Python script
+- **Discord Notifications**: Added webhook support alongside Pushover
+- **Credential Validation**: Halts script if notifications enabled but credentials missing
+- **Account Toggling**: Added "enabled" field to account_locations
+
+---
+
+### v1.23 (2026-01-11) - Multi-Client Bug Fix & Logging
+
+**Critical Bug Fix:**
+
+- **Window Title Failure**: No longer kills all running game clients in multi-client mode
+- **Continues Rotation**: Multi-client mode continues when window title check fails
+
+**Autologin Updater:**
+
+- **ENABLE_AUTOLOGIN_UPDATER**: Checks and updates AutologinEnabled in launcherConfigV3.json
+- **Retry Logic**: Checks after launcher fail 1/3 and 2/3, updates if "false"
+
+**Error Logging:**
+
+- **ENABLE_LOGGING**: Added comprehensive error logging with arr.log file
+- **Tracked Events**: WINDOW_TITLE_FAILED, LAUNCHER_FAILED, AUTOLOGIN_UPDATED
+
+---
+
+### v1.22 (2026-01-08) - Robust Window Movement
+
+- **Responsiveness Checking**: is_window_responding() detects frozen windows before move attempts
+- **Retry Logic**: MAX_WINDOW_MOVE_ATTEMPTS = 3 with 1-second verification delay
+- **Position Verification**: Only checks x,y coordinates (FFXIV controls own size)
+- **Skips Unresponsive**: Continues processing remaining windows instead of freezing
+- **Auto Force-Crash**: MAX_FAILED_FORCE_CRASH crashes clients after failed move attempts
+- **Enhanced API**: move_window_to_position() with MoveWindow API and window style modifications
+
+---
+
+### v1.21 (2026-01-02) - Smart Force-Close Monitoring
+
+- **Idle State Detection**: Disabled force-close monitoring when all subs voyaging
+- **Conditional Monitoring**: Only runs when ready_subs > 0 or account in (WAITING) state
+- **Prevents False Crashes**: No crashes for force247uptime accounts idle between voyages
+- **Dynamic Activation**: Monitoring activates when subs ready, deactivates when all sent out
+
+---
+
+### v1.20 (2026-01-02) - Enhanced Force-Close Timer
+
+- **WAITING State Extension**: Timer resets when game in (WAITING) status
+- **Legitimate Wait Periods**: Prevents force-close during valid wait times (≤30min threshold)
+- **Continuous Reset**: Timer resets on each scan during (WAITING)
+- **Full Buffer on Ready**: Timer reset with full FORCE_CRASH_INACTIVITY_MINUTES when subs ready
+
+---
+
+### v1.19 (2025-12-28) - Force-Crash Respects Auto-Close Setting
+
+- **ENABLE_AUTO_CLOSE Respect**: Force-crash only runs when ENABLE_AUTO_CLOSE = True
+- **User Control**: When False, clients never force-closed due to inactivity
+- **Critical Bug Fix**: Resolves unexpected force-closes for users with auto-close disabled
+
+---
+
+### v1.18 (2025-12-26) - Improved Force-Close Timer
+
+- **Launch-Based Monitoring**: Timer starts when game launches (not when subs processed)
+- **Earlier Detection**: Monitoring starts AUTO_LAUNCH_THRESHOLD hours after game opens
+- **Stuck-at-Boot Fix**: Crash timer begins even if game boots stuck
+- **Timestamp Tracking**: Uses game_launch_timestamp instead of subs_ready_timestamp
+- **Removed Parameter**: CRASH_MONITOR_DELAY removed (uses AUTO_LAUNCH_THRESHOLD)
+
+---
+
+### v1.17 (2025-12-24) - Dalamud Crash Handler Detection
+
+- **Automatic Detection**: Monitors for DalamudCrashHandler.exe windows every 60 seconds
+- **Distinguishes States**: Active crash handler windows vs background processes
+- **Selective Killing**: Only kills process with visible window (one per client is normal)
+- **Prevents Blocking**: Automatically closes crash handler to prevent manual intervention
+- **Both Modes**: Works for single-client and multi-client modes
+
+---
+
+### v1.16 (2025-12-19) - Launcher Detection & Bootup Delay
+
+**Launcher Detection:**
+
+- **FORCE_LAUNCHER_RETRY**: 3 attempts when XIVLauncher opens instead of game
+- **Visible Window Detection**: Distinguishes active launcher UI from background process
+- **Retry Logic**: Kills launcher and retries up to 3 times before marking [LAUNCHER]
+- **Mode-Specific**: Single-client stops monitoring, multi-client continues with other accounts
+
+**Bootup Delay:**
+
+- **SYSTEM_BOOTUP_DELAY**: Configurable delay before script starts monitoring
+- **Countdown Display**: Shows "ARR Processing Delay {x}s Set. Please Wait..."
+- **Auto-Start Support**: Useful for auto-starting script on system boot
+
+---
+
+### v1.15 (2025-12-15) - Enhanced Processing Detection & Force-Crash
+
+- **Accurate Tracking**: Counts decrease in ready submarines (previous - current)
+- **Eliminates False Positives**: No longer uses total-ready calculations
+- **Debug Output**: Shows ready subs, voyaging subs, newly sent subs per scan
+- **FORCE_CRASH_INACTIVITY_MINUTES**: Crashes client if no processing detected (default 10min)
+- **Conditional Monitoring**: Only when ENABLE_AUTO_CLOSE = True
+- **Handles Stuck States**: Frozen clients, lost connections, stuck in character select
+
+---
+
+### v1.14 (2025-12-11) - Supply Cost Calculations
+
+- **Daily Supply Cost**: Calculates based on submarine consumption rates
+- **Display Added**: Shows "Total Supply Cost Per Day" in terminal
+- **Default Rates**: 9 tanks/day, 1.33 kits/day fallback
+- **Version Display**: Added version number to terminal header
+
+---
+
+### v1.13 (2025-12-08) - Window Title Update Checking
+
+- **Plugin Load Verification**: Waits for window title update from "FINAL FANTASY XIV" to "ProcessID - nickname"
+- **Indefinite Wait**: Removed timeout, keeps waiting until title updates
+- **WINDOW_TITLE_RESCAN**: 5-second polling interval
+- **Multi-Client Only**: Only applies in multi-client mode
+
+---
+
+### v1.12 (2025-12-05) - Enhanced Visual Feedback
+
+- Real-time client status display after each game launch
+- Reduces console spam during sequential launches
+- Improves visibility of which clients are running
+
+---
+
+### v1.11 (2025-11-26) - MAX_CLIENTS Configuration
+
+- Hardware-limited setup support
+- Sequential client processing with force247uptime prioritization
+- Terminal display shows client limits
+
+---
+
+### v1.10 (2025-11-26) - Restocking Calculation
+
+- Added "Total Days Until Restocking Required" display
+- Tracks ceruleum tanks and repair kits inventory
+- Calculates consumption rates based on submarine builds
+
+---
+
+### v1.09 (2025-11-15) - Custom Submarine Names
+
+- Fixed submarine build collection for custom-named submarines
+- Enhanced console display with leveling/farming counts
+
+---
+
+### v1.08 (2025-11-15) - Configuration Flag Handling
+
+- Enhanced include_submarines and force247uptime flag combinations
+- Improved status display for various configuration states
+
+---
+
+### v1.07 (2025-11-14) - WAITING Status Display
+
+- Added (WAITING) status for running games with 0 ready subs
+- Shows when game idle waiting for submarines
+
+---
+
+### v1.06 (2025-11-14) - Parameter Rename
+
+- Renamed 'rotatingretainers' to 'force247uptime' for clarity
+
+---
+
+### v1.05 (2025-11-14) - Single Client Display Fix
+
+- Fixed PID and UPTIME display in single client mode
+
+---
+
+### v1.03 (2025-11-14) - Single Account Simplification
+
+- Simplified for single account use with default window title
+
+---
+
+### v1.02 (2025-11-13) - Auto-Launch Timer Fix
+
+- Fixed auto-launch not checking submarine timers for non-rotating accounts
+
+---
+
+### v1.01 (2025-11-13) - Force247uptime & MAX_RUNTIME
+
+- Added per-account force247uptime flag
+- Added MAX_RUNTIME limits (71h) to prevent 72h disconnect
+
+---
+
+### v1.00 (2025-11-12) - Initial Release
+
+- Real-time submarine timer monitoring
+- Auto-launch/auto-close game clients
+- Automatic window arrangement
+- Gil earnings calculation
+- Process tracking and management
+
+</details>
