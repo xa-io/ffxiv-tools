@@ -1,4 +1,4 @@
-# AutoRetainer Dashboard v1.29
+# AutoRetainer Dashboard v1.30
 
 A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, XA Database, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels, currencies, income/cost calculations, comprehensive supply tracking, an FC Data page with Plot Map & FC Capacity Planner, and a Data Master List page for managing all submarines across all accounts with Excel export.
 
@@ -7,17 +7,23 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 </p>
 
 <p align="center">
-  <img width="1164" height="816" alt="image" src="https://github.com/user-attachments/assets/a1001bd7-56dc-4188-ab03-f3c511a4c274" />
+  <img width="1092" height="889" alt="image" src="https://github.com/user-attachments/assets/f57e04f8-5a89-4686-91b0-472a41646496" />
 </p>
 
 ## Support
 - Discord server: <https://discord.gg/g2NmYxPQCa>
 
+---
+
+<details>
+
+<summary>Features</summary>
+
 ## Features
 
 - **Self-Hosted Web Server**: Flask-based server with configurable host/port (default: `127.0.0.1:1234`)
 - **Real-Time Data**: Parses AutoRetainer, XA Database, and Lifestream configs on each page load
-- **XA Database Integration**: Reads treasure values, venture coins, coffers, dyes, and job levels from XA Database's xa.db
+- **XA Database Integration**: Reads treasure values, venture coins, coffers, dyes, job levels, and MSQ data from XA Database's `xa_characters` snapshot layout, with legacy table fallback for older `xa.db` files
 - **Lifestream Integration**: Reads housing data (Personal House and FC House locations)
 - **Submarine Plan Detection**: Automatically detects leveling vs farming submarines based on AutoRetainer plan names
 - **Configurable Plan Earnings**: Set custom average earnings per submarine plan route
@@ -52,6 +58,14 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 - **Financial Charts** (`/charts/`): Historical timeline charts powered by xa.db from XA Database plugin
 - **Charts Include**: Daily gil earnings vs supply costs, net profit, submarine fleet composition, supply inventory, consumption rates, days until restocking
 - **Cross-Page Navigation**: Dashboard, FC Data, Data, and Charts links accessible from every page
+
+</details>
+
+---
+
+<details>
+
+<summary>Data Displayed</summary>
 
 ### Data Displayed
 
@@ -119,6 +133,14 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 - **Societies**: Tribal currencies, Skybuilders' Scrips
 - Shortened verbose names for readability
 
+</details>
+
+---
+
+<details>
+
+<summary>Installation</summary>
+
 ## Installation
 
 1. Install Python 3.8 or higher
@@ -126,6 +148,14 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
    ```bash
    pip install flask
    ```
+
+</details>
+
+---
+
+<details>
+
+<summary>Configuration</summary>
 
 ## Configuration
 
@@ -307,6 +337,14 @@ Override the default supply costs used for monthly cost calculations:
 | `ceruleum_tank_cost` | 350 | Gil cost per Ceruleum Tank |
 | `repair_kit_cost` | 2000 | Gil cost per Repair Kit |
 
+</details>
+
+---
+
+<details>
+
+<summary>Usage</summary>
+
 ## Usage
 
 ### Start the Server
@@ -333,6 +371,14 @@ http://127.0.0.1:1234
 - `GET /api/subs-data` - Submarine master list JSON data
 - `GET /api/refresh` - Force data refresh and return status
 
+</details>
+
+---
+
+<details>
+
+<summary>Configuration Parameters</summary>
+
 ## Configuration Parameters
 
 | Parameter | Default | Description |
@@ -354,6 +400,14 @@ http://127.0.0.1:1234
 | `HONOR_AR_EXCLUSIONS` | `false` | Honor AutoRetainer's ExcludeRetainer/ExcludeWorkshop settings per character |
 | `USE_AAR_DB` | `false` | Enable `/charts/` page with xa.db data from XA Database plugin (reads from each account's `pluginConfigs/XADatabase/xa.db`) |
 
+</details>
+
+---
+
+<details>
+
+<summary>Income/Cost Calculations</summary>
+
 ## Income/Cost Calculations
 
 The dashboard calculates income and costs based on submarine builds:
@@ -372,6 +426,14 @@ The dashboard calculates income and costs based on submarine builds:
 
 Consumption rates vary by submarine build and route.
 
+</details>
+
+---
+
+<details>
+
+<summary>Network Access</summary>
+
 ## Network Access
 
 To access the dashboard from other devices on your network:
@@ -379,6 +441,14 @@ To access the dashboard from other devices on your network:
 1. Set `HOST` to `0.0.0.0`
 2. Ensure your firewall allows connections on the configured port
 3. Access via `http://<your-ip>:1234`
+
+</details>
+
+---
+
+<details>
+
+<summary>Troubleshooting</summary>
 
 ## Troubleshooting
 
@@ -397,6 +467,14 @@ To access the dashboard from other devices on your network:
 - Verify Flask is installed: `pip install flask`
 - Check that the port is not in use by another application
 
+</details>
+
+---
+
+<details>
+
+<summary>File Structure</summary>
+
 ## File Structure
 
 ```
@@ -406,13 +484,30 @@ AutoRetainer-Dashboard/
 └── README.md               # This file
 ```
 
+</details>
+
+## Disclaimer
+
+This dashboard is not officially associated with or endorsed by the AutoRetainer development team. It was developed as a personal project to enhance the functionality of AutoRetainer by providing a comprehensive web-based interface for monitoring and managing FFXIV character data, submarine fleets, and retainer activities across multiple accounts.
+
 ## License
 
+`AGPL-3.0-or-later`
+
 Created by: https://github.com/xa-io
+
+---
 
 <details>
 
 <summary>Version History</summary>
+
+### v1.30 (2026-03-08) - XA Snapshot Layout Support
+
+- **XA Snapshot Support**: Dashboard reads now support `xa_characters` from recent XA Database updates
+- **Expanded XA Reads**: Treasure, dyes, currencies, jobs, and MSQ now parse from XA Database snapshot data
+- **Charts Snapshot Wealth**: Financial chart wealth totals now use XA snapshot gil columns when available
+- **Legacy Fallback Preserved**: Older `xa.db` table layouts still work through the legacy fallback path
 
 ### v1.29 (2026-03-06) - Redeploy & Finalize Planner Support + Financial Charts
 
