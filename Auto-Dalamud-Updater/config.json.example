@@ -1,0 +1,37 @@
+{
+    "DEBUG": false,
+    "OTP_LAUNCH_DELAY": 10,
+    "OTP_RETRY_INTERVAL": 5,
+    "POLL_INTERVAL": 2,
+    "GAME_START_TIMEOUT": 3600,
+    "GAME_WINDOW_TIMEOUT": 300,
+    "CLOSE_GRACE_PERIOD": 15,
+    "account_locations": [
+        {
+            "enabled": true,
+            "nickname": "Main",
+            "pluginconfigs_path": "C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs",
+            "enable_2fa": true,
+            "keyring_name": "ffxiv_main_2fa"
+        },
+        {
+            "enabled": false,
+            "nickname": "Acc1",
+            "pluginconfigs_path": "C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs",
+            "enable_2fa": false,
+            "keyring_name": null
+        },
+        {
+            "enabled": false,
+            "nickname": "Acc2",
+            "pluginconfigs_path": "C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs",
+            "enable_2fa": true,
+            "keyring_name": "ffxiv_acc2_2fa"
+        }
+    ],
+    "game_launchers": {
+        "Main": "C:\\Users\\{user}\\AppData\\Local\\XIVLauncher\\XIVLauncher.exe",
+        "Acc1": "C:\\Users\\{user}\\AltData\\Acc1.bat",
+        "Acc2": "C:\\Users\\{user}\\AltData\\Acc2.bat"
+    }
+}
