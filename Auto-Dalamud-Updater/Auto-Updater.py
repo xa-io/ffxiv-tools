@@ -56,7 +56,7 @@ account_locations = [
     acc(
         "Main",
         rf"C:\Users\{user}\AppData\Roaming\XIVLauncher\pluginConfigs",
-        enable_2fa=True,
+        enable_2fa=False,
         keyring_name="ffxiv_main_2fa",
     ),
 ]
