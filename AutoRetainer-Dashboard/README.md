@@ -1,4 +1,4 @@
-# AutoRetainer Dashboard v1.30
+# AutoRetainer Dashboard v1.31
 
 A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, XA Database, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels, currencies, income/cost calculations, comprehensive supply tracking, an FC Data page with Plot Map & FC Capacity Planner, and a Data Master List page for managing all submarines across all accounts with Excel export.
 
@@ -45,9 +45,9 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 - **Auto-Refresh**: Configurable auto-refresh interval (default: 60 seconds)
 - **Modern UI**: Dark-themed responsive design with collapsible sections
 - **Ready Status Indicators**: Visual highlighting when retainers/submarines are ready
-- **FC Data Page** (`/fcdata/`): Visual housing plot overview with district grid, bar chart views, FC Capacity Planner, and Sub Planners with bidirectional sorting
+- **FC Data Page** (`/fcdata/`): Visual housing plot overview with district grid, bar chart views, FC Capacity Planner, Sub Planners, and a privacy toggle to censor player names for screenshots
 - **FC Capacity Planner**: Account/region selector showing FC membership, character limits (NA/EU/JP=40, OCE=39), per-world breakdowns (8 max), and earning potential calculations
-- **Sub Planners**: Per-account submarine overview with Name@World display, ETA countdown, inventory stats, and bidirectional sorting by level, tanks, kits, restock days, and inventory
+- **Sub Planners**: Per-account submarine overview with Name@World display, ETA countdown, compact `🚢`/inventory stats, and bidirectional sorting by submarine count, level, tanks, kits, restock days, and inventory
 - **Characters Not in FC Table**: List of all characters without FC membership, with level and housing status (hidden by default, toggle to show)
 - **Data Master List** (`/data/`): Full-viewport sortable table of all submarines across all accounts
 - **Excel Export**: Export visible/filtered table rows to Excel with headers, auto-filters, frozen header row, and auto-fit column widths
@@ -501,6 +501,12 @@ Created by: https://github.com/xa-io
 <details>
 
 <summary>Version History</summary>
+
+### v1.31 (2026-03-17) - Submarine Unlock Counters
+
+- **Unlocked Counters**: Added counters for unlocked submarines, levels, and plans in mass Sub Planners list
+
+---
 
 ### v1.30 (2026-03-08) - XA Snapshot Layout Support
 
