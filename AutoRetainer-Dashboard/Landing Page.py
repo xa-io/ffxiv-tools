@@ -31,23 +31,14 @@
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.30
+# Landing Page v1.31
 # AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
 # Last Updated: 2026-03-08 22:00:00
 #
 # ## Release Notes This Update ##
 #
-# v1.30 - Dashboard reads now support xa_characters from recent updates.
-#         Treasure, dyes, currencies, jobs, and MSQ now parse from XA Database
-#         Chart wealth totals now use XA snapshot gil columns when available
-#         Legacy xa.db table fallback is still preserved
-# v1.29 - Added support for redeploy and finalize planners
-#         *IN BETA* - Added /charts/ page: Financial Charts powered by XA Database
-#         Historical timeline charts for daily gil earnings, supply costs, net profit
-#         Total Wealth chart: character Gil + retainer Gil + treasure value over time
-#         Submarine fleet composition (farming vs leveling) stacked bar chart
-#         Supply inventory tracking (ceruleum tanks, repair kits) over time
+# v1.31 - Added unlocked counters to FC Data page in mass Sub Planners list
 #
 ############################################################################################################################
 
@@ -72,7 +63,7 @@ DEBUG = False           # Flask debug mode (set True for development)
 AUTO_REFRESH = 60       # Auto-refresh interval in seconds (0 to disable)
 
 # Display options
-VERSION = "v1.30"       # Version number shown in footer and startup
+VERSION = "v1.31"       # Version number shown in footer and startup
 SHOW_CLASSES = False     # Show DoW/DoM and DoH/DoL job sections, disable to speed up page load
 SHOW_CURRENCIES = False  # Show currencies section, disable to speed up page load
 SHOW_MSQ_PROGRESSION = True  # Show MSQ progression tracking
@@ -6189,6 +6180,31 @@ MAP_TEMPLATE = '''
         .sp-sort-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
         .sp-char.excluded { opacity: 0.35; }
         .sp-char.sleeping { opacity: 0.5; }
+        .fcdata-top-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .privacy-toggle-btn {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            padding: 5px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .privacy-toggle-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: var(--text-primary);
+        }
+        .privacy-toggle-btn.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
 
         /* No FC character table */
         .char-table {
@@ -6244,8 +6260,9 @@ MAP_TEMPLATE = '''
 <body>
     <div class="top-bar">
         <h1>🗺️ Plot Map & FC Planner <span>{{ version }}</span></h1>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div class="fcdata-top-actions">
             <span style="font-size:0.75rem;color:var(--text-secondary);">Updated: {{ data.last_updated }}</span>
+            <button id="fcdata-privacy-btn" class="privacy-toggle-btn" onclick="toggleFcDataPrivacy()" title="Censor player names on this page">🔒 Privacy</button>
             <a href="/">📊 Dashboard</a>
             <a href="/fcdata/" class="active">🏨 FC Data</a>
             <a href="/data/">📝 Data</a>
@@ -6334,7 +6351,7 @@ MAP_TEMPLATE = '''
                                 <div class="plot-dot {{ plot.type }}" title="P{{ plot.plot }}" data-region="{{ plot.region }}" data-account="{{ plot.account }}">
                                     {{ plot.plot }}
                                     <div class="tooltip">
-                                        <b>{{ plot.character }}</b><br>
+                                        <b class="fcdata-player-name" data-real-name="{{ plot.character }}">{{ plot.character }}</b><br>
                                         {{ dist_name }} W{{ ward_data.ward }} P{{ plot.plot }}<br>
                                         {{ "FC" if plot.type == "fc" else "Personal" }}{% if plot.fc_name %} - {{ plot.fc_name }}{% endif %}<br>
                                         <span style="color:var(--text-secondary)">{{ plot.world }} ({{ plot.account }})</span>
@@ -6419,6 +6436,7 @@ MAP_TEMPLATE = '''
         <div class="sp-sort-bar">
             <span style="color:var(--text-secondary);font-size:0.7rem;margin-right:4px;">Sort:</span>
             <button class="sp-sort-btn active" onclick="sortSubPlanners('default',this)" title="Default order">Default</button>
+            <button class="sp-sort-btn" onclick="sortSubPlanners('subs',this)" data-key="subs" data-dir="desc" title="Sort by submarines unlocked">🚢 Subs ▼</button>
             <button class="sp-sort-btn" onclick="sortSubPlanners('maxlvl',this)" data-key="maxlvl" data-dir="desc" title="Sort by sub level">🔱 Level ▼</button>
             <button class="sp-sort-btn" onclick="sortSubPlanners('tanks',this)" data-key="tanks" data-dir="desc" title="Sort by ceruleum tanks">⛽ Tanks ▼</button>
             <button class="sp-sort-btn" onclick="sortSubPlanners('kits',this)" data-key="kits" data-dir="desc" title="Sort by repair kits">🔧 Kits ▼</button>
@@ -6433,9 +6451,9 @@ MAP_TEMPLATE = '''
                     <span class="sp-count">{{ spa.total_subs }} subs / {{ spa.total_chars }} chars</span>
                 </div>
                 {% for ch in spa.characters %}
-                <div class="sp-char{% if ch.excluded %} excluded{% endif %}{% if ch.sleeping %} sleeping{% endif %}" data-maxlvl="{{ ch.subs|map(attribute='level')|max }}" data-tanks="{{ ch.tanks }}" data-kits="{{ ch.kits }}" data-restock="{{ ch.restock_days if ch.restock_days is not none else 9999 }}" data-inv="{{ ch.inventory }}">
-                    <div class="sp-char-name" title="{{ ch.name }}@{{ ch.world }} ({{ ch.region }}){% if ch.fc_name %} — {{ ch.fc_name }}{% endif %}{% if ch.excluded %} [EXCLUDED]{% endif %}{% if ch.sleeping %} [SLEEPING]{% endif %}">
-                        {{ ch.name }}<span class="sp-world">@{{ ch.world }}</span>
+                <div class="sp-char{% if ch.excluded %} excluded{% endif %}{% if ch.sleeping %} sleeping{% endif %}" data-subs="{{ ch.subs|length }}" data-maxlvl="{{ ch.subs|map(attribute='level')|max }}" data-tanks="{{ ch.tanks }}" data-kits="{{ ch.kits }}" data-restock="{{ ch.restock_days if ch.restock_days is not none else 9999 }}" data-inv="{{ ch.inventory }}">
+                    <div class="sp-char-name fcdata-player-name" data-real-name="{{ ch.name }}" data-world="{{ ch.world }}" data-region="{{ ch.region }}" data-fc-name="{{ ch.fc_name }}" data-excluded="{{ 1 if ch.excluded else 0 }}" data-sleeping="{{ 1 if ch.sleeping else 0 }}" title="{{ ch.name }}@{{ ch.world }} ({{ ch.region }}){% if ch.fc_name %} — {{ ch.fc_name }}{% endif %}{% if ch.excluded %} [EXCLUDED]{% endif %}{% if ch.sleeping %} [SLEEPING]{% endif %}">
+                        <span class="fcdata-player-name-text">{{ ch.name }}</span><span class="sp-world">@{{ ch.world }}</span>
                     </div>
                     {% for sub in ch.subs %}
                     <div class="sp-sub-row">
@@ -6446,6 +6464,7 @@ MAP_TEMPLATE = '''
                     </div>
                     {% endfor %}
                     <div class="sp-inv-row">
+                        <span title="Submarines unlocked: {{ ch.subs|length }}">🚢{{ ch.subs|length }}</span>
                         <span title="Ceruleum Tanks: {{ '{:,}'.format(ch.tanks) }}">⛽{{ ch.tanks|sp_compact }}</span>
                         <span title="Repair Kits: {{ '{:,}'.format(ch.kits) }}">🔧{{ ch.kits|sp_compact }}</span>
                         <span title="Days until restock">♻️{{ ch.restock_days if ch.restock_days is not none else '?' }}</span>
@@ -6492,7 +6511,7 @@ MAP_TEMPLATE = '''
                 <tbody>
                     {% for ch in data.no_fc_chars|sort(attribute='highest_level', reverse=true) %}
                     <tr{% if ch.get('is_excluded') %} data-excluded="1" style="opacity:0.4"{% endif %}>
-                        <td style="color:{{ 'rgba(255,255,255,0.4)' if ch.get('is_excluded') else 'var(--warning)' }}">{{ ch.name }}{% if ch.get('is_excluded') %} 🚫{% endif %}</td>
+                        <td style="color:{{ 'rgba(255,255,255,0.4)' if ch.get('is_excluded') else 'var(--warning)' }}"><span class="fcdata-player-name" data-real-name="{{ ch.name }}">{{ ch.name }}</span>{% if ch.get('is_excluded') %} 🚫{% endif %}</td>
                         <td>{{ ch.world }}</td>
                         <td><span class="region-tag">{{ ch.region }}</span></td>
                         <td class="{{ 'lv-high' if ch.highest_level >= 25 else ('lv-mid' if ch.highest_level >= 10 else 'lv-low') }}">
@@ -6519,6 +6538,79 @@ MAP_TEMPLATE = '''
     </div>
 
     <script>
+        let isFcDataPrivate = false;
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getFcDataAlias(index) {
+            return 'Player ' + (index + 1);
+        }
+
+        function buildFcDataPrivacyTitle(el, alias) {
+            const world = el.dataset.world || '';
+            const region = el.dataset.region || '';
+            const fcName = el.dataset.fcName || '';
+            const excluded = el.dataset.excluded === '1';
+            const sleeping = el.dataset.sleeping === '1';
+            let title = world ? `${alias}@${world}` : alias;
+            if (region) title += ` (${region})`;
+            if (fcName) title += ` — ${fcName}`;
+            if (excluded) title += ' [EXCLUDED]';
+            if (sleeping) title += ' [SLEEPING]';
+            return title;
+        }
+
+        function applyFcDataPrivacy() {
+            const button = document.getElementById('fcdata-privacy-btn');
+            if (button) {
+                button.classList.toggle('active', isFcDataPrivate);
+                button.textContent = isFcDataPrivate ? '🔓 Privacy' : '🔒 Privacy';
+            }
+
+            document.querySelectorAll('.fcdata-player-name').forEach((el, index) => {
+                const realName = el.dataset.realName || el.textContent.trim();
+                if (!el.dataset.realName) {
+                    el.dataset.realName = realName;
+                }
+
+                const alias = getFcDataAlias(index);
+
+                if (el.classList.contains('sp-char-name')) {
+                    if (!el.dataset.originalTitle && el.hasAttribute('title')) {
+                        el.dataset.originalTitle = el.getAttribute('title');
+                    }
+                    const nameSpan = el.querySelector('.fcdata-player-name-text');
+                    if (nameSpan) {
+                        nameSpan.textContent = isFcDataPrivate ? alias : el.dataset.realName;
+                    } else {
+                        el.textContent = isFcDataPrivate ? alias : el.dataset.realName;
+                    }
+                    el.title = isFcDataPrivate ? buildFcDataPrivacyTitle(el, alias) : (el.dataset.originalTitle || el.title);
+                    return;
+                }
+
+                if (!el.dataset.originalTitle && el.hasAttribute('title')) {
+                    el.dataset.originalTitle = el.getAttribute('title');
+                }
+                el.textContent = isFcDataPrivate ? alias : el.dataset.realName;
+                if (el.dataset.originalTitle) {
+                    el.setAttribute('title', isFcDataPrivate ? alias : el.dataset.originalTitle);
+                }
+            });
+        }
+
+        function toggleFcDataPrivacy() {
+            isFcDataPrivate = !isFcDataPrivate;
+            applyFcDataPrivacy();
+        }
+
         function toggleExcluded() {
             const hide = document.getElementById('hide-excluded').checked;
             document.querySelectorAll('tr[data-excluded]').forEach(r => r.style.display = hide ? 'none' : '');
@@ -6740,8 +6832,8 @@ MAP_TEMPLATE = '''
                                 const chars = w.chars || [];
                                 const charHtml = chars.map(c => {
                                     const fcTag = c.fc_name ? `<span class="ch-fc">[${c.fc_name}]</span>` : '';
-                                    const mgrTag = (c.status === 'fc_managed' && c.managed_by) ? `<span class="ch-fc"> &mdash; subs managed by ${c.managed_by} (${c.managed_by_account})</span>` : '';
-                                    return `<span class="ch-name st-${c.status}">${c.name}</span>${fcTag}${mgrTag}`;
+                                    const mgrTag = (c.status === 'fc_managed' && c.managed_by) ? `<span class="ch-fc"> &mdash; subs managed by <span class="fcdata-player-name" data-real-name="${escapeHtml(c.managed_by)}">${escapeHtml(c.managed_by)}</span> (${c.managed_by_account})</span>` : '';
+                                    return `<span class="ch-name st-${c.status} fcdata-player-name" data-real-name="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>${fcTag}${mgrTag}`;
                                 }).join('<br>');
                                 return `
                             <div class="world-row" onclick="document.getElementById('${wId}').classList.toggle('open')">
@@ -6774,10 +6866,14 @@ MAP_TEMPLATE = '''
             }
 
             container.innerHTML = html;
+            applyFcDataPrivacy();
         }
 
         // Initialize on load
-        document.addEventListener('DOMContentLoaded', updatePlanner);
+        document.addEventListener('DOMContentLoaded', () => {
+            applyFcDataPrivacy();
+            updatePlanner();
+        });
     </script>
 </body>
 </html>
