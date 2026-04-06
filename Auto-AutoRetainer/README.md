@@ -1,13 +1,13 @@
-# Auto-AutoRetainer v1.34 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.36 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
 A comprehensive automation script that monitors submarine return times across multiple FFXIV accounts and intelligently manages game instances for hands-off submarine and retainer farming. Automatically launches games when submarines are ready, handles 2FA login, recovers from crashes and frozen clients, enforces stability restarts, tracks daily gil earnings and supply levels, and closes games when idle, all without manual intervention.
 
-This readme is extensive, but don't be intimidated. Getting this up and running is actually quite straightforward and only requires a handful of steps. I've included thorough documentation so you can understand what everything does if you're curious, but the actual setup takes less than 5 minutes. Install python and the requirements, then in game install XA Slave and enable the Window Renamer with your account nickname, configure 2FA if your accounts use it, add any alt accounts to your config file, and you're good to go.
+This readme is extensive, but don't be intimidated. Getting this up and running is actually quite straightforward and only requires a handful of steps. I've included thorough documentation so you can understand what everything does if you're curious, but the actual setup takes less than 5 minutes. Install python and the requirements, then in game install XA Slave and enable the Window Renamer with your account nickname, optionally add your live character name as a suffix if you want it visible in the title bar, configure 2FA if your accounts use it, add any alt accounts to your config file, and you're good to go.
 
 <p align="center">
-  <img width="590" height="423" alt="image" src="https://github.com/user-attachments/assets/aea6599d-42ac-44df-bcb7-ccf07416aaed" />
+  <img width="793" height="560" alt="image" src="https://github.com/user-attachments/assets/04de8cf1-d27c-488e-b517-e59d40d1b09b" />
 </p>
 
 ## Support
@@ -105,7 +105,7 @@ This readme is extensive, but don't be intimidated. Getting this up and running 
 - **Launcher Detection & Retry**: Detects when XIVLauncher gets stuck at login screen and automatically retries up to 3 times
 - **Config Auto-Fix**: Validates and repairs launcher settings (AutologinEnabled, OtpServerEnabled) before launch attempts
 - **Crash Handler Detection**: Automatically detects and closes DalamudCrashHandler.exe windows when game crashes occur (checks every 60 seconds)
-- **Frozen Client Force-Crash**: Monitors submarine and retainer processing and force-crashes clients with no activity for configurable minutes
+- **Frozen Client Force-Crash**: Monitors submarine and retainer processing, but pauses the inactivity timer during AutoRetainer `DisableRetainerVesselReturn` vessel waits on the most recently processed character
 - **72-Hour Stability Restart**: Automatically restarts clients approaching 72 hours uptime (MAX_RUNTIME default: 71 hours)
 - **Auto-Close Games**: Closes idle games when submarines won't be ready soon (30 minutes by default)
 - **Smart Rate Limiting**: Prevents rapid game launches with configurable delays
@@ -340,16 +340,18 @@ Each launcher maintains its own:
 
 **For Multi-Client Mode (Default):**
 
-For the script to detect and manage game instances, **you must rename the FFXIV game window title** to follow this exact format:
+For the script to detect and manage game instances, **you must rename the FFXIV game window title** to follow one of these accepted formats:
 
 ```
 ProcessID - nickname
+ProcessID - nickname - character
 ```
 
 **Examples of Final Window Titles:**
 - `3056 - Main`
 - `58696 - Acc1`
 - `12345 - Acc2`
+- `12345 - Main - Victor Vossbane`
 
 **📝 Quick Note:** The Process ID is **automatically generated** by the XA Slave plugin - you only need to enter your account nickname (Main, Acc1, etc.). The plugin handles everything else!
 
@@ -359,7 +361,7 @@ ProcessID - nickname
 
 #### Recommended Method: XA Slave Plugin
 
-**XA Slave** is a Dalamud plugin that includes a built-in Window Renamer feature, along with other automation utilities. It automatically renames the game window title with the process ID and your account nickname.
+**XA Slave** is a Dalamud plugin that includes a built-in Window Renamer feature, along with other automation utilities. It automatically renames the game window title with the process ID and your account nickname, and it can also append the currently logged-in character name after that nickname.
 
 **Step 1: Install XA Slave**
 1. Open Dalamud plugin installer in FFXIV (`/xlplugins`)
@@ -374,14 +376,19 @@ ProcessID - nickname
    - **Check "Enable Window Renamer"** to activate the feature
    - **Check "Use Process ID prefix"** — this prepends the process ID to the window title automatically
    - **Window Title**: Enter your account nickname (e.g., `Main`, `Acc1`, `Acc2`)
+   - **Optional**: Check **"Show Current Character"** if you want the live character name appended after the nickname
 4. Click **"Apply Now"** to rename the window immediately
-5. The window title will automatically update to format: `ProcessID - nickname`
-   - Example: `12345 - Main` (where 12345 is the auto-generated process ID)
+5. The window title will automatically update to one of these formats:
+   - `ProcessID - nickname`
+   - `ProcessID - nickname - character`
+   - Example: `12345 - Main` or `12345 - Main - Victor Vossbane` (where 12345 is the auto-generated process ID)
 
 **Examples of Window Title configuration per account:**
 - For "Main" account: Window Title = `Main` → Result: `12345 - Main`
 - For "Acc1" account: Window Title = `Acc1` → Result: `58696 - Acc1`
 - For "Acc2" account: Window Title = `Acc2` → Result: `30561 - Acc2`
+
+- Optional character suffix example: `Main` + Show Current Character -> `12345 - Main - Victor Vossbane`
 
 **Benefits of XA Slave Method:**
 - ✓ **Process ID is automatically generated** - you never need to manually enter it
@@ -395,7 +402,7 @@ ProcessID - nickname
 - Configure the Window Renamer on **EACH account** with its unique nickname
 - Each account's XA Slave configuration is stored in its own pluginConfigs directory, so nicknames are per-account
 - Launch each game instance and verify the window title shows correct format
-  - Example: `3056 - Main` or `58696 - Acc1`
+  - Example: `3056 - Main`, `58696 - Acc1`, or `3056 - Main - Victor Vossbane`
 - The nickname MUST match exactly what you configured in `account_locations` in the Python script
 
 ---
@@ -789,7 +796,7 @@ For automatic window arrangement, create layout JSON files:
 ```
 
 **Configuration Options:**
-- **title_regex**: Pattern to match window titles (use `\\d+ - nickname` format)
+- **title_regex**: Pattern to match window titles (use the base `\\d+ - nickname` format; Auto-AutoRetainer will still normalize optional trailing ` - Character` suffixes for legacy layout rules)
 - **x, y**: Window position coordinates
 - **width, height**: Window dimensions
 - **topmost**: Keep window always on top (true/false)
@@ -828,9 +835,9 @@ ENABLE_AUTO_CLOSE = True        # Enable automatic game closing and crash monito
 AUTO_CLOSE_THRESHOLD = 0.5      # Close game if next sub > 0.5 hours (30 minutes)
 MAX_RUNTIME = 71                # Maximum allowed client uptime in hours before a forced restart
 FORCE_CRASH_INACTIVITY_MINUTES = 10  # Force crash client if no submarine processing detected for this many minutes (after monitoring activates)
-FORCE_CRASH_RETAINER_MINUTES = 15    # Force crash client if no retainer processing detected for this many minutes (longer due to GC turn-ins)
+FORCE_CRASH_RETAINER_MINUTES = 20    # Force crash client if no retainer processing detected for this many minutes (longer due to GC turn-ins)
 # Note: Monitoring activates AUTO_LAUNCH_THRESHOLD hours after game launches (not when subs become ready)
-# Note: Retainer monitoring uses 15-minute timer to account for Grand Company turn-ins after processing retainers
+# Note: Retainer monitoring uses 20-minute timer to account for Grand Company turn-ins after processing retainers
 ```
 
 **FORCE_CRASH_INACTIVITY_MINUTES Behavior:**
@@ -838,21 +845,23 @@ FORCE_CRASH_RETAINER_MINUTES = 15    # Force crash client if no retainer process
 - **Purpose**: Detects and crashes frozen, disconnected, or stuck game clients even if they boot stuck without processing any submarines
 - **Monitoring Activation**: Starts AUTO_LAUNCH_THRESHOLD hours after game launches (matches game launch threshold, typically 9 minutes)
 - **Key Improvement**: Monitoring begins when game opens, not when subs are processed - resolves stuck-at-boot issue
-- **Detection Method**: Tracks submarine processing by counting decrease in ready submarines per scan (ready-count-based detection)
-- **Processing Count**: `processed = (previous ready count - current ready count)` - accurately reflects actual subs sent per scan
+- **Detection Method**: Tracks submarine processing from per-character/per-sub transitions stored in `farmer_snapshots`, so sending one sub no longer looks idle just because account-level ready counts stay flat
+- **Processing Count**: Sub activity is detected from ready-to-voyaging transitions on the specific submarines that AutoRetainer can actually process
 - **Inactivity Check**: After monitoring activates, crashes client if no submarine processing detected for FORCE_CRASH_INACTIVITY_MINUTES
 - **Timer Reset**: Resets inactivity timer to 0 in multiple scenarios:
-  1. When submarine processing detected (ready count decreases)
+  1. When submarine processing detected from processable per-sub ready-to-voyaging transitions
   2. When retainer processing detected for force247uptime accounts (ready count decreases or nearest timer changes)
   3. When account is in (WAITING) state without ready retainers - resets every scan to prevent force-close during legitimate wait periods
+  4. When AutoRetainer is holding on the most recently processed character because that character's next sub is inside `DisableRetainerVesselReturn` - force-close enters a paused vessel-wait phase until that sub actually returns
 - **(WAITING) State Protection**: When game is running with 0 ready subs and soonest return time ≤ AUTO_CLOSE_THRESHOLD (30 min), timer continuously resets each scan, ensuring force-crash never triggers during the wait period
+- **DisableRetainerVesselReturn Protection**: If AutoRetainer just sent a sub and is intentionally waiting on that same character for another submarine due back within the configured vessel-wait window, Auto-AutoRetainer pauses the force-close countdown instead of treating the account as stuck
 - **Retainer Processing Detection**: For force247uptime accounts, also monitors retainer venture completion and processing:
   - Detects retainer processing by monitoring ready count decreases
   - Detects processing via nearest timer changes (handles 20 in/20 out scenarios where counts stay same but timers shift)
   - Keeps monitoring active when force247uptime accounts have ready retainers but no ready subs
   - Shows "(xx Ret.)" status instead of "(WAITING)" when retainers are ready for processing
   - Shows retainer return timer in minutes (e.g., "+17min" or "-5min") when all retainers are on ventures
-  - Uses FORCE_CRASH_RETAINER_MINUTES (15 min) instead of FORCE_CRASH_INACTIVITY_MINUTES (10 min) for retainer monitoring
+  - Uses FORCE_CRASH_RETAINER_MINUTES (20 min) instead of FORCE_CRASH_INACTIVITY_MINUTES (10 min) for retainer monitoring
   - Monitoring activates immediately when retainers are ready (no threshold delay)
 - **Force-Crash Notifications**: Sends Pushover/Discord notifications when a client is force-crashed (if notifications enabled)
 - **Grace Period**: AUTO_LAUNCH_THRESHOLD delay ensures game has time to fully load before monitoring begins
@@ -915,7 +924,7 @@ SYSTEM_BOOTUP_DELAY = 0         # Seconds to delay before starting monitoring (0
 - **Purpose**: Ensures plugins have loaded before moving windows or launching next game
 - **How it works**: After OPEN_DELAY_THRESHOLD, checks if window title is still "FINAL FANTASY XIV" (default)
 - **Multi-Client Mode Only**: Skipped in single client mode since it always uses default title
-- **Polling**: Rechecks every WINDOW_TITLE_RESCAN seconds until title updates to "ProcessID - nickname"
+- **Polling**: Rechecks every WINDOW_TITLE_RESCAN seconds until title updates to an account-matched renamed title such as `ProcessID - nickname` or `ProcessID - nickname - character`
 - **Timeout Protection**: MAX_WINDOW_TITLE_RESCAN prevents infinite waiting if game crashes during startup
 - **Benefit**: Ensures plugins have fully loaded and window can be properly identified before proceeding
 
@@ -974,7 +983,7 @@ USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = False  # Window detection mode
 ```
 
 **When False (Default - Multi-Client Mode):**
-- Uses "ProcessID - nickname" window title format
+- Uses "ProcessID - nickname" or "ProcessID - nickname - character" window title format
 - Supports multiple accounts simultaneously
 - Tracks individual process IDs for uptime monitoring
 - Kills games by specific PID
@@ -1011,7 +1020,7 @@ python Auto-AutoRetainer.py
 
 ```
 =====================================================================================
-Auto-Autoretainer v1.34
+Auto-Autoretainer v1.36
 FFXIV Game Instance Manager
 =====================================================================================
 Updated: 2026-02-03 09:00:00
@@ -1156,9 +1165,9 @@ Based on known voyage routes:
 4. Test launcher manually before running script
 
 ### Window Not Detected
-1. Confirm window title matches `ProcessID - nickname` format exactly
+1. Confirm window title matches either `ProcessID - nickname` or `ProcessID - nickname - character`
 2. Check that nickname matches `account_locations` configuration
-3. Use regex pattern `\d+ - nickname` (digits, space, dash, space, nickname)
+3. Use regex pattern `\d+ - nickname` for layouts and base matching; optional trailing character suffixes are supported automatically
 4. Install a window title plugin if manual renaming is difficult
 
 ### Auto-Launch Not Working
@@ -1350,6 +1359,20 @@ Created by: https://github.com/xa-io
 <details>
 
 <summary>Version History</summary>
+
+### v1.36 (2026-04-06) - Character-Suffix Window Title Support
+
+- **XA Slave Character Suffix Support**: Multi-client window matching now accepts both `ProcessID - nickname` and `ProcessID - nickname - character`
+- **Stable Nickname Routing**: Auto-AutoRetainer still matches accounts on the PID/nickname segment, so adding the live character name does not create conflicts between accounts
+- **Launch Verification Compatibility**: Post-launch title checks now treat either renamed title format as a valid successful plugin rename
+- **Legacy Layout Compatibility**: Existing `title_regex` layout rules written for `PID - nickname` still work because the optional trailing ` - Character` suffix is normalized away during layout matching
+
+### v1.35 (2026-03-25) - Vessel-Wait Force-Crash Pause
+
+- **DisableRetainerVesselReturn Awareness**: Force-close monitoring now reads AutoRetainer's `DisableRetainerVesselReturn` window and detects when AR is intentionally waiting on the most recently processed character for the next submarine
+- **VesselWaiting Pause Phase**: While that per-character wait is active, the force-close countdown pauses instead of continuing to tick down toward a false crash
+- **Ready-Again Resume**: Once the waiting submarine actually returns, the pause ends and normal force-close monitoring resumes from a fresh inactivity window
+- **Countdown Cleanup**: The on-screen `X:xx` inactivity countdown is hidden while vessel waiting is active so the display no longer suggests an active crash timer during a legitimate AR wait
 
 ### v1.34 (2026-03-08) - XA Snapshot Reads + Farmer Snapshot Tracking
 
