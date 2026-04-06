@@ -29,40 +29,23 @@
 # • External configuration via config.json with notification support (Pushover/Discord)
 #
 # Important Note: This script requires properly configured game launchers (XIVLauncher.exe or batch files), game windows
-# labeled with "ProcessID - nickname" format, autologin enabled, and AutoRetainer multi-mode auto-enabled
+# labeled with "ProcessID - nickname" or "ProcessID - nickname - character" format, autologin enabled,
+# and AutoRetainer multi-mode auto-enabled
 # for full automation. 2FA is supported via keyring integration. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.34
+# Auto-AutoRetainer v1.36
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-03-08 22:00:00
+# Last Updated: 2026-04-06 16:00:00
 #
 # ## Release Notes This Update ##
 #
-# v1.34 - Daily wealth snapshots now read XA Database's xa_characters layout
-#         sublord.db now tracks farmer_snapshots per character
-#         Each farmer row stores CID, account, ETA JSON, sent, and returned state
-#         Force-crash monitoring is now based on per-sub transitions
-#         Legacy XA databases still work through the fallback path
-# v1.33 - XA Database implementation, replacement for Altoholic.
-#         Fixed auto-launch triggering for submarines AR won't process
-#         A submarine is only counted toward launch decisions if BOTH conditions are met:
-#           1. Character has WorkshopEnabled=true (workshop processing enabled)
-#           2. The specific submarine's name is in the character's EnabledSubs list
-#         Prevents game launching when only non-processable subs are ready
-#         Added WARNING display showing characters with unprocessable ready subs
-#         Excluded accounts (enabled=false in config.json) are not included in warning
-#         Financial calculations (gil/day, supply costs, restocking) still include all submarines
-# v1.32 - Added sublord.db financial tracking database for historical earnings/spending data
-#         Tracks daily: total subs, gil/day, supply cost/day, tanks, kits, restocking days
-#         Gil balance tracking: character Gil (from DefaultConfig), retainer Gil, combined totals
-#         Treasure value tracking: scans Altoholic DB for submarine loot (salvaged jewelry)
-#         Combined wealth metric: character Gil + retainer Gil + treasure value
-#         Cumulative totals: total gil overall, total supply cost overall, days tracked
-#         Configurable update interval (SUBLORD_DB_UPDATE_INTERVAL, default 30min)
-#         Custom DB path support (SUBLORD_DB_PATH) for shared access with Dashboard
-#         Database auto-initializes on script startup with immediate first snapshot
-#         SQLite WAL mode for concurrent read access by Dashboard
+# v1.36 - Supports XA Slave window titles with optional character-name suffixes
+#         Preserves PID/nickname account matching when the live character name is appended
+#         Legacy window layout regex rules still match the base PID/nickname title
+# v1.35 - Force-close monitoring now pauses during AutoRetainer vessel-wait windows
+#         Respects DisableRetainerVesselReturn on the most recently processed character
+#         Prevents false force-crashes while AR intentionally waits for the next submarine
 #
 ########################################################################################################################
 
@@ -106,7 +89,7 @@ except ImportError:
 # ===============================================
 # Configuration Parameters
 # ===============================================
-VERSION = "v1.34"     # Current script version
+VERSION = "v1.36"     # Current script version
 VERSION_SUFFIX = ""     # Custom text appended to version display (set via config.json, e.g., " - Main")
 
 # Display settings
@@ -172,7 +155,8 @@ DISCORD_WEBHOOK_URL = ""        # Discord webhook URL for notifications
 
 # Single client mode settings
 USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = True    # If True: uses default "FINAL FANTASY XIV" window title (single account mode, no Dalamud renaming needed)
-                                              # If False: expects "ProcessID - nickname" window titles (multi-account mode, requires Dalamud plugin for window renaming)
+                                              # If False: expects "ProcessID - nickname" or "ProcessID - nickname - character" window titles
+                                              # (multi-account mode, requires Dalamud/plugin window renaming with nickname preserved before any optional character suffix)
                                               # Single client mode is intended for single-account setups where the game window title does not need to be customized
 
 # External config file name (not required, leave as is if not using)
@@ -1801,7 +1785,8 @@ def arrange_ffxiv_windows():
     assigned = []
     for rx, rule in rules:
         for hwnd, title in windows:
-            if rx.match(title):
+            normalized_title = normalize_window_title_for_layout_matching(title)
+            if rx.match(title) or (normalized_title != title and rx.match(normalized_title)):
                 assigned.append((rule, hwnd, title))
                 windows = [(h, t) for (h, t) in windows if h != hwnd]
                 break
@@ -2361,6 +2346,33 @@ def get_ffxiv_process_start_time():
     return get_process_start_time_by_name("ffxiv_dx11.exe")
 
 
+def match_account_window_title(title, nickname):
+    """
+    Match a multi-client FFXIV window title for a specific nickname.
+
+    Accepted formats:
+      - "ProcessID - nickname"
+      - "ProcessID - nickname - character firstlastname"
+
+    Returns a regex match with PID in group 1, or None if the title does not belong to the nickname.
+    """
+    return re.match(rf"^(\d+)\s-\s{re.escape(nickname)}(?:\s-\s.+)?$", title.strip(), re.IGNORECASE)
+
+
+def normalize_window_title_for_layout_matching(title):
+    """
+    Normalize a renamed FFXIV window title for legacy layout regex rules.
+
+    Existing layout JSON files typically match "PID - nickname" exactly. When the game title includes an
+    optional trailing character suffix, strip only that final " - character" segment so old title_regex
+    rules can continue matching without needing immediate JSON changes.
+    """
+    normalized_title = title.strip()
+    if re.match(r"^\d+\s-\s.+\s-\s.+$", normalized_title):
+        return normalized_title.rsplit(" - ", 1)[0]
+    return normalized_title
+
+
 def is_ffxiv_running_for_account(nickname):
     """
     Check if FFXIV is running for a specific account.
@@ -2371,6 +2383,7 @@ def is_ffxiv_running_for_account(nickname):
     
     If USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME is False:
         - Looks for windows with titles matching pattern: 'ProcessID - nickname'
+          or 'ProcessID - nickname - character'
         - Returns (is_running, process_id) - process_id extracted from window title
     
     Returns tuple: (is_running, process_id)
@@ -2395,14 +2408,11 @@ def is_ffxiv_running_for_account(nickname):
                     return (True, None)
             return (False, None)
         else:
-            # Multi-client mode: Check if any window title matches the pattern: "ProcessID - nickname"
-            # Example: "3056 - Main", "58696 - Acc1", etc.
-            import re
-            # Pattern: digits, space, dash, space, nickname
-            pattern = re.compile(rf"^(\d+)\s-\s{re.escape(nickname)}$", re.IGNORECASE)
-            
+            # Multi-client mode: Check if any window title matches either:
+            #   "ProcessID - nickname"
+            #   "ProcessID - nickname - character"
             for title in found_windows:
-                match = pattern.match(title)
+                match = match_account_window_title(title, nickname)
                 if match:
                     process_id = match.group(1)  # Extract the process ID
                     return (True, process_id)
@@ -2438,7 +2448,10 @@ def check_for_default_ffxiv_window():
 
 def wait_for_window_title_update(nickname, launcher_retry_count):
     """
-    Wait for a launched game's window title to update from "FINAL FANTASY XIV" to "ProcessID - nickname".
+    Wait for a launched game's window title to update from "FINAL FANTASY XIV" to an account-matched title.
+    Accepted multi-client formats:
+      - "ProcessID - nickname"
+      - "ProcessID - nickname - character"
     This ensures plugins have loaded and the window can be properly identified.
     Also monitors for XIVLauncher.exe opening instead of the game.
     
@@ -2501,7 +2514,7 @@ def wait_for_window_title_update(nickname, launcher_retry_count):
             is_running, process_id = is_ffxiv_running_for_account(nickname)
             if is_running and process_id:
                 if DEBUG:
-                    print(f"[WINDOW-TITLE] {nickname} window title updated to: {process_id} - {nickname}")
+                    print(f"[WINDOW-TITLE] {nickname} window title updated and matched account title (PID {process_id})")
                 return (True, False)
             elif DEBUG:
                 print(f"[WINDOW-TITLE] Check #{check_count + 1}: Default title gone but custom title not found yet for {nickname}")
@@ -2843,6 +2856,108 @@ def detect_submarine_processing(account_entry, submarine_state_cache, current_ti
         return activity_cache[nickname]
     return sync_farmer_snapshots(account_entry, submarine_state_cache, current_time)
 
+def _parse_snapshot_timestamp(timestamp_value):
+    if not timestamp_value:
+        return None
+
+    try:
+        return datetime.datetime.strptime(timestamp_value, '%Y-%m-%d %H:%M:%S').timestamp()
+    except Exception:
+        return None
+
+def get_vessel_waiting_state(account_entry, submarine_state_cache, current_time):
+    state = {
+        "active": False,
+        "disable_window_minutes": 0,
+        "character_name": None,
+        "content_id": None,
+        "sub_name": None,
+        "next_sub_hours": None,
+        "last_sent_timestamp": None,
+    }
+    auto_path = account_entry.get("auto_path", "")
+    if not auto_path or not os.path.isfile(auto_path):
+        return state
+
+    try:
+        with open(auto_path, "r", encoding="utf-8-sig") as f:
+            data = json.load(f)
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Error reading vessel-wait settings for {account_entry['nickname']}: {e}")
+        return state
+
+    try:
+        disable_window_minutes = int(data.get("DisableRetainerVesselReturn", 0) or 0)
+    except Exception:
+        disable_window_minutes = 0
+
+    state["disable_window_minutes"] = disable_window_minutes
+    if disable_window_minutes <= 0:
+        return state
+
+    nickname = account_entry["nickname"]
+    account_state = submarine_state_cache.get(nickname)
+    if account_state is None:
+        account_state = _load_farmer_snapshot_state(nickname)
+
+    latest_key = None
+    latest_state = None
+    latest_sent_timestamp = None
+    for key, char_state in account_state.items():
+        if not isinstance(key, tuple) or not isinstance(char_state, dict):
+            continue
+        sent_timestamp = _parse_snapshot_timestamp(char_state.get("last_sub_sent"))
+        if sent_timestamp is None:
+            continue
+        if latest_sent_timestamp is None or sent_timestamp > latest_sent_timestamp:
+            latest_key = key
+            latest_state = char_state
+            latest_sent_timestamp = sent_timestamp
+
+    state["last_sent_timestamp"] = latest_sent_timestamp
+    if latest_key is None or latest_state is None or latest_sent_timestamp is None:
+        return state
+
+    if current_time - latest_sent_timestamp > (disable_window_minutes * 60) + TIMER_REFRESH_INTERVAL:
+        return state
+
+    ready_on_character = 0
+    next_pending_sub = None
+    for sub_entry in latest_state.get("sub_eta_timers", []):
+        if not isinstance(sub_entry, dict) or not bool(sub_entry.get("Processable")):
+            continue
+        hours_remaining = sub_entry.get("HoursRemaining")
+        if hours_remaining is None:
+            continue
+        try:
+            hours_remaining = float(hours_remaining)
+        except Exception:
+            continue
+        if hours_remaining < 0:
+            ready_on_character += 1
+            continue
+        if hours_remaining > 0 and (next_pending_sub is None or hours_remaining < next_pending_sub["hours"]):
+            next_pending_sub = {
+                "name": str(sub_entry.get("Name", "")),
+                "hours": hours_remaining,
+            }
+
+    if ready_on_character > 0 or next_pending_sub is None:
+        return state
+
+    if next_pending_sub["hours"] > (disable_window_minutes / 60.0):
+        return state
+
+    state.update({
+        "active": True,
+        "character_name": latest_key[1],
+        "content_id": latest_key[0],
+        "sub_name": next_pending_sub["name"],
+        "next_sub_hours": next_pending_sub["hours"],
+    })
+    return state
+
 def format_hours(hours, ready_count=0, is_running=False, force247uptime=False, ready_retainers=0, soonest_retainer_hours=None):
     """Format hours with + prefix for positive values and ready count.
     When force247uptime=True and no subs ready but retainers ready, show (xx Ret.) instead.
@@ -2871,7 +2986,7 @@ def format_hours(hours, ready_count=0, is_running=False, force247uptime=False, r
         # Negative means already returned
         return f"{hours:.1f} hours ({ready_count} READY)"
 
-def display_submarine_timers(game_status_dict=None, client_start_times=None, launcher_failed_accounts=None, last_sub_processed=None, retainer_mode_active=None):
+def display_submarine_timers(game_status_dict=None, client_start_times=None, launcher_failed_accounts=None, last_sub_processed=None, retainer_mode_active=None, vessel_waiting_states=None):
     """Display submarine timers for all accounts"""
     # Clear screen
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -2887,6 +3002,8 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
         last_sub_processed = {}
     if retainer_mode_active is None:
         retainer_mode_active = {}
+    if vessel_waiting_states is None:
+        vessel_waiting_states = {}
     
     print("=" * 85)
     print(f"Auto-Autoretainer {VERSION}{VERSION_SUFFIX}\nFFXIV Game Instance Manager")
@@ -2925,6 +3042,8 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
         ready_subs = data["ready_subs"]
         soonest_hours = data["soonest_hours"]
         ready_retainers = data.get("ready_retainers", 0)
+        vessel_waiting_state = vessel_waiting_states.get(nickname, {})
+        vessel_waiting_active = bool(vessel_waiting_state.get("active"))
         soonest_retainer_hours = data.get("soonest_retainer_hours")
         
         if not data["include_submarines"]:
@@ -3053,7 +3172,7 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
                                             pid_uptime_str = pid_formatted
                                         
                                         # Add force-crash timer display (X:xx minutes remaining)
-                                        if nickname in last_sub_processed:
+                                        if nickname in last_sub_processed and not vessel_waiting_active:
                                             minutes_since = (current_time - last_sub_processed[nickname]) / 60
                                             currently_retainer = (ready_subs == 0 and force247 and ready_retainers > 0)
                                             in_retainer_mode = currently_retainer or (retainer_mode_active.get(nickname, False) and ready_subs > 0)
@@ -3079,7 +3198,7 @@ def display_submarine_timers(game_status_dict=None, client_start_times=None, lau
                             pid_uptime_str = pid_formatted
                         
                         # Add force-crash timer display (X:xx minutes remaining)
-                        if nickname in last_sub_processed:
+                        if nickname in last_sub_processed and not vessel_waiting_active:
                             minutes_since = (current_time - last_sub_processed[nickname]) / 60
                             # Determine threshold: retainer mode (20min) or submarine mode (10min)
                             currently_retainer = (ready_subs == 0 and force247 and ready_retainers > 0)
@@ -3224,6 +3343,7 @@ def main():
         submarine_state_cache = {"__activity__": {}}  # Cache submarine return times by nickname to detect processing (negative → positive transitions)
         retainer_state_cache = {}  # Cache retainer venture times by nickname to detect processing (for force247uptime accounts)
         retainer_mode_active = {}  # Track when retainer timer mode was active per account (prevents premature timer switch when subs become ready)
+        vessel_waiting_states = {}
         launcher_retry_count = {}  # Track launcher retry attempts per account
         launcher_failed_accounts = set()  # Track accounts that have exceeded launcher retry limit
         last_sublord_update = 0  # Track last sublord DB update time
@@ -3271,6 +3391,10 @@ def main():
                 if not nickname:
                     continue
                 submarine_state_cache["__activity__"][nickname] = sync_farmer_snapshots(farmer_entry, submarine_state_cache, current_time)
+            vessel_waiting_states = {}
+            for account_entry in account_locations:
+                nickname = account_entry["nickname"]
+                vessel_waiting_states[nickname] = get_vessel_waiting_state(account_entry, submarine_state_cache, current_time)
             
             # Check if we need to refresh window status (every WINDOW_REFRESH_INTERVAL seconds)
             if current_time - last_window_check >= WINDOW_REFRESH_INTERVAL:
@@ -3332,7 +3456,7 @@ def main():
                 last_window_check = current_time
             
             # Display submarine timers with current game status FIRST
-            display_submarine_timers(game_status_dict, client_start_times, launcher_failed_accounts, last_sub_processed, retainer_mode_active)
+            display_submarine_timers(game_status_dict, client_start_times, launcher_failed_accounts, last_sub_processed, retainer_mode_active, vessel_waiting_states)
             
             # Initial window arrangement check (only on first run)
             if not initial_arrangement_done and ENABLE_WINDOW_LAYOUT:
@@ -3410,17 +3534,29 @@ def main():
                                             # Determine if monitoring retainers or submarines
                                             timer_data = get_submarine_timers_for_account(account_entry)
                                             ready_subs = timer_data.get("ready_subs", 0)
-                                            ready_rets = timer_data.get("ready_retainers", 0)
-                                            # For force247 accounts with no subs ready, we're monitoring retainers
-                                            # Use rotating_retainers flag (not current ready_rets) since ready_rets may be 0 after processing
-                                            is_retainer_monitoring_account = (ready_subs == 0 and rotating_retainers)
-                                            # Use appropriate threshold for retainers vs submarines
-                                            inactivity_threshold = FORCE_CRASH_RETAINER_MINUTES if is_retainer_monitoring_account else FORCE_CRASH_INACTIVITY_MINUTES
-                                            minutes_until_crash = max(0, inactivity_threshold - minutes_since_processing)
-                                            if is_retainer_monitoring_account:
-                                                debug_msg += f" [Force-Close] Last retainer processed {minutes_since_processing:.1f} minutes ago. Force close in {minutes_until_crash:.1f} minutes."
+                                            vessel_waiting_state = vessel_waiting_states.get(nickname, {})
+                                            if vessel_waiting_state.get("active"):
+                                                character_name = vessel_waiting_state.get("character_name") or "Unknown"
+                                                next_sub_hours = vessel_waiting_state.get("next_sub_hours")
+                                                disable_window_minutes = vessel_waiting_state.get("disable_window_minutes", 0)
+                                                if next_sub_hours is not None:
+                                                    debug_msg += f" [Force-Close] VesselWaiting on {character_name} - next sub in {next_sub_hours * 60:.1f} minutes"
+                                                else:
+                                                    debug_msg += f" [Force-Close] VesselWaiting on {character_name}"
+                                                if disable_window_minutes > 0:
+                                                    debug_msg += f" (DisableRetainerVesselReturn {disable_window_minutes}m)"
+                                                debug_msg += ", timer paused."
                                             else:
-                                                debug_msg += f" [Force-Close] Last sub processed {minutes_since_processing:.1f} minutes ago. Force close in {minutes_until_crash:.1f} minutes."
+                                                # For force247 accounts with no subs ready, we're monitoring retainers
+                                                # Use rotating_retainers flag (not current ready_rets) since ready_rets may be 0 after processing
+                                                is_retainer_monitoring_account = (ready_subs == 0 and rotating_retainers)
+                                                # Use appropriate threshold for retainers vs submarines
+                                                inactivity_threshold = FORCE_CRASH_RETAINER_MINUTES if is_retainer_monitoring_account else FORCE_CRASH_INACTIVITY_MINUTES
+                                                minutes_until_crash = max(0, inactivity_threshold - minutes_since_processing)
+                                                if is_retainer_monitoring_account:
+                                                    debug_msg += f" [Force-Close] Last retainer processed {minutes_since_processing:.1f} minutes ago. Force close in {minutes_until_crash:.1f} minutes."
+                                                else:
+                                                    debug_msg += f" [Force-Close] Last sub processed {minutes_since_processing:.1f} minutes ago. Force close in {minutes_until_crash:.1f} minutes."
                                         else:
                                             # No processing detected yet
                                             debug_msg += f" [Force-Close] Monitoring active, no submarine processing detected yet."
@@ -3583,7 +3719,7 @@ def main():
                             
                             # Redisplay submarine timers to show newly opened client status
                             print("")  # Empty line for spacing
-                            display_submarine_timers(game_status_dict, client_start_times, launcher_failed_accounts, last_sub_processed, retainer_mode_active)
+                            display_submarine_timers(game_status_dict, client_start_times, launcher_failed_accounts, last_sub_processed, retainer_mode_active, vessel_waiting_states)
                             print("")  # Empty line for spacing
             
             # Auto-close games if enabled and conditions are met
@@ -3783,6 +3919,18 @@ def main():
                     ready_retainers = timer_data.get("ready_retainers", 0)
                     soonest_hours = timer_data.get("soonest_hours")
                     is_waiting = (ready_subs == 0 and soonest_hours is not None and 0 < soonest_hours <= AUTO_CLOSE_THRESHOLD)
+                    vessel_waiting_state = vessel_waiting_states.get(nickname, {})
+                    if vessel_waiting_state.get("active"):
+                        last_sub_processed[nickname] = current_time
+                        if DEBUG:
+                            character_name = vessel_waiting_state.get("character_name") or "Unknown"
+                            next_sub_hours = vessel_waiting_state.get("next_sub_hours")
+                            disable_window_minutes = vessel_waiting_state.get("disable_window_minutes", 0)
+                            if next_sub_hours is not None:
+                                print(f"[FORCE-CRASH] {nickname}: VesselWaiting on {character_name} - next sub in {next_sub_hours * 60:.1f} minutes within DisableRetainerVesselReturn {disable_window_minutes}m, timer paused")
+                            else:
+                                print(f"[FORCE-CRASH] {nickname}: VesselWaiting active, timer paused")
+                        continue
                     
                     # Skip monitoring if all subs are voyaging (0 ready, not in WAITING)
                     # UNLESS force247uptime=True and retainers are ready (continue monitoring for retainer processing)
