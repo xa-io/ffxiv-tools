@@ -577,6 +577,12 @@ This script is provided as-is for personal use. Use at your own risk. The author
 
 **Important:** Using automation tools may violate the FFXIV Terms of Service. Use responsibly and understand the risks.
 
+---
+
+## License
+
+[AGPL-3.0-or-later](LICENSE)
+
 ## Version History
 
 **v1.01** (2026-01-25) - Fixed batch file launcher leaving cmd.exe processes running after game launch. Changed batch file launch from `start /B` to direct `cmd.exe /c` execution with DETACHED_PROCESS flag.  
