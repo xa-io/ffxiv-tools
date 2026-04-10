@@ -1,4 +1,4 @@
-# AutoRetainer Dashboard v1.31
+# AutoRetainer Dashboard v1.33
 
 A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, XA Database, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels, currencies, income/cost calculations, comprehensive supply tracking, an FC Data page with Plot Map & FC Capacity Planner, and a Data Master List page for managing all submarines across all accounts with Excel export.
 
@@ -45,7 +45,8 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 - **Auto-Refresh**: Configurable auto-refresh interval (default: 60 seconds)
 - **Modern UI**: Dark-themed responsive design with collapsible sections
 - **Ready Status Indicators**: Visual highlighting when retainers/submarines are ready
-- **FC Data Page** (`/fcdata/`): Visual housing plot overview with district grid, bar chart views, FC Capacity Planner, Sub Planners, and a privacy toggle to censor player names for screenshots
+- **FC Data Page** (`/fcdata/`): Visual housing plot overview with district grid, bar chart views, searchable multi-world filtering with clear-selected reset, FC Capacity Planner, Sub Planners, and a privacy toggle to censor player names for screenshots
+- **Housing Size Resolution**: FC Data plot sizes now prefer XA snapshot housing strings, reuse known XA sizes across matching district/plot entries, and fall back to the same plot-size resolution used by XA Slave Export Data when needed
 - **FC Capacity Planner**: Account/region selector showing FC membership, character limits (NA/EU/JP=40, OCE=39), per-world breakdowns (8 max), and earning potential calculations
 - **Sub Planners**: Per-account submarine overview with Name@World display, ETA countdown, compact `🚢`/inventory stats, and bidirectional sorting by submarine count, level, tanks, kits, restock days, and inventory
 - **Characters Not in FC Table**: List of all characters without FC membership, with level and housing status (hidden by default, toggle to show)
@@ -501,6 +502,18 @@ Created by: https://github.com/xa-io
 <details>
 
 <summary>Version History</summary>
+
+### v1.33 (2026-03-26) - Multi-World Housing Plot Filter
+
+- **Multi-World Selection**: Housing Plot Overview world filter now supports selecting multiple worlds at the same time on `/fcdata/`
+- **Clear Selected**: Added a one-click clear action that resets the world filter back to showing all worlds
+- **Filter Compatibility**: Multi-world selection continues to combine with the existing region, account, and size filters
+
+### v1.32 (2026-03-26) - FC Data Housing Filters
+
+- **World Filter**: Added a searchable Housing Plot Overview world dropdown showing world, data center, and region
+- **Size Filters**: Added Small / Medium / Large housing size filters after the account filters on `/fcdata/`
+- **XA Housing Merge**: Housing Plot Overview now merges XA Database housing snapshot size data into the Lifestream-based plot map when locations match
 
 ### v1.31 (2026-03-17) - Submarine Unlock Counters
 
