@@ -31,14 +31,15 @@
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.31
+# Landing Page v1.33
 # AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-03-08 22:00:00
+# Last Updated: 2026-03-26 15:08:43
 #
 # ## Release Notes This Update ##
 #
-# v1.31 - Added unlocked counters to FC Data page in mass Sub Planners list
+# v1.33 - Added multi-world selection and clear/reset support to the /fcdata/ Housing Plot Overview world filter
+# v1.32 - Added world filter with data center metadata, size filters (S/M/L), XA Database housing integration, and combined filter support
 #
 ############################################################################################################################
 
@@ -51,6 +52,7 @@ import os
 import datetime
 import getpass
 import sqlite3
+import re
 from pathlib import Path
 from flask import Flask, render_template_string, jsonify
 
@@ -63,7 +65,7 @@ DEBUG = False           # Flask debug mode (set True for development)
 AUTO_REFRESH = 60       # Auto-refresh interval in seconds (0 to disable)
 
 # Display options
-VERSION = "v1.31"       # Version number shown in footer and startup
+VERSION = "v1.33"       # Version number shown in footer and startup
 SHOW_CLASSES = False     # Show DoW/DoM and DoH/DoL job sections, disable to speed up page load
 SHOW_CURRENCIES = False  # Show currencies section, disable to speed up page load
 SHOW_MSQ_PROGRESSION = True  # Show MSQ progression tracking
@@ -295,34 +297,85 @@ COFFER_DYE_IDS = set(COFFER_DYE_VALUES.keys())
 # ===============================================
 # World Region Mappings (for region filtering)
 # ===============================================
-NA_WORLDS = {
-    "adamantoise","cactuar","faerie","gilgamesh","jenova","midgardsormr","sargatanas","siren",
-    "balmung","brynhildr","coeurl","diabolos","goblin","malboro","mateus","zalera",
-    "behemoth","excalibur","exodus","famfrit","hyperion","lamia","leviathan","ultros",
-    "cuchulainn","golem","halicarnassus","kraken","maduin","marilith","rafflesia","seraph"
+WORLD_REGION_DC_GROUPS = {
+    "NA": {
+        "Aether": ["Adamantoise", "Cactuar", "Faerie", "Gilgamesh", "Jenova", "Midgardsormr", "Sargatanas", "Siren"],
+        "Crystal": ["Balmung", "Brynhildr", "Coeurl", "Diabolos", "Goblin", "Malboro", "Mateus", "Zalera"],
+        "Dynamis": ["Cuchulainn", "Golem", "Halicarnassus", "Kraken", "Maduin", "Marilith", "Rafflesia", "Seraph"],
+        "Primal": ["Behemoth", "Excalibur", "Exodus", "Famfrit", "Hyperion", "Lamia", "Leviathan", "Ultros"],
+    },
+    "EU": {
+        "Chaos": ["Cerberus", "Louisoix", "Moogle", "Omega", "Phantom", "Ragnarok", "Sagittarius", "Spriggan"],
+        "Light": ["Alpha", "Lich", "Odin", "Phoenix", "Raiden", "Shiva", "Twintania", "Zodiark"],
+    },
+    "JP": {
+        "Elemental": ["Aegis", "Atomos", "Carbuncle", "Garuda", "Gungnir", "Kujata", "Tonberry", "Typhon"],
+        "Gaia": ["Alexander", "Bahamut", "Durandal", "Fenrir", "Ifrit", "Ridill", "Tiamat", "Ultima"],
+        "Mana": ["Anima", "Asura", "Chocobo", "Hades", "Ixion", "Masamune", "Pandaemonium", "Titan"],
+        "Meteor": ["Belias", "Mandragora", "Ramuh", "Shinryu", "Unicorn", "Valefor", "Yojimbo", "Zeromus"],
+    },
+    "OCE": {
+        "Materia": ["Bismarck", "Ravana", "Sephirot", "Sophia", "Zurvan"],
+    },
 }
-EU_WORLDS = {
-    "cerberus","louisoix","moogle","omega","phantom","ragnarok","sagittarius","spriggan",
-    "alpha","lich","odin","phoenix","raiden","shiva","twintania","zodiark"
+REGION_ORDER = ["NA", "EU", "JP", "OCE"]
+DATA_CENTER_ORDER = {
+    "NA": ["Aether", "Crystal", "Dynamis", "Primal"],
+    "EU": ["Chaos", "Light"],
+    "JP": ["Elemental", "Gaia", "Mana", "Meteor"],
+    "OCE": ["Materia"],
 }
-OCE_WORLDS = {"bismarck","ravana","sephirot","sophia","zurvan"}
-JP_WORLDS = {
-    "aegis","atomos","carbuncle","garuda","gungnir","kujata","tonberry","typhon",
-    "alexander","bahamut","durandal","fenrir","ifrit","ridill","tiamat","ultima",
-    "anima","asura","chocobo","hades","ixion","masamune","pandaemonium","titan",
-    "belias","mandragora","ramuh","shinryu","unicorn","valefor","yojimbo","zeromus"
+REGION_SORT_INDEX = {region: index for index, region in enumerate(REGION_ORDER)}
+DATA_CENTER_SORT_INDEX = {
+    region: {dc: index for index, dc in enumerate(order)}
+    for region, order in DATA_CENTER_ORDER.items()
 }
+WORLD_METADATA = {}
+REGION_WORLD_ORDER = {region: [] for region in REGION_ORDER}
+for region_code, dc_worlds in WORLD_REGION_DC_GROUPS.items():
+    for data_center_name, world_names in dc_worlds.items():
+        for world_name in world_names:
+            WORLD_METADATA[world_name.lower()] = {
+                "name": world_name,
+                "data_center": data_center_name,
+                "region": region_code,
+            }
+            REGION_WORLD_ORDER[region_code].append(world_name)
+
+NA_WORLDS = {world.lower() for world in REGION_WORLD_ORDER["NA"]}
+EU_WORLDS = {world.lower() for world in REGION_WORLD_ORDER["EU"]}
+OCE_WORLDS = {world.lower() for world in REGION_WORLD_ORDER["OCE"]}
+JP_WORLDS = {world.lower() for world in REGION_WORLD_ORDER["JP"]}
+PLOT_WORLD_OPTIONS = sorted(
+    (
+        {
+            "name": info["name"],
+            "data_center": info["data_center"],
+            "region": info["region"],
+            "label": f"{info['name']} | {info['data_center']} | {info['region']}",
+            "search_text": f"{info['name']} {info['data_center']} {info['region']}".lower(),
+        }
+        for info in WORLD_METADATA.values()
+    ),
+    key=lambda info: (
+        REGION_SORT_INDEX.get(info["region"], 99),
+        DATA_CENTER_SORT_INDEX.get(info["region"], {}).get(info["data_center"], 99),
+        info["name"],
+    )
+)
+
+def get_world_info(world: str) -> dict:
+    if not world:
+        return {}
+    return WORLD_METADATA.get(str(world).strip().lower(), {})
 
 def region_from_world(world: str) -> str:
-    """Return region code (NA/EU/OCE/JP) for a given world name."""
-    if not world:
-        return ""
-    w = str(world).strip().lower()
-    if w in NA_WORLDS: return "NA"
-    if w in EU_WORLDS: return "EU"
-    if w in OCE_WORLDS: return "OCE"
-    if w in JP_WORLDS: return "JP"
-    return ""
+    info = get_world_info(world)
+    return info.get("region", "")
+
+def datacenter_from_world(world: str) -> str:
+    info = get_world_info(world)
+    return info.get("data_center", "")
 
 # ===============================================
 # Job Class Abbreviations (for character class display)
@@ -600,11 +653,114 @@ RESIDENTIAL_DISTRICTS = {
 
 DISTRICT_ABBREV = {
     "Mist": "Mist",
+    "The Mist": "Mist",
     "Goblet": "Goblet",
+    "The Goblet": "Goblet",
     "Lavender Beds": "LB",
+    "The Lavender Beds": "LB",
     "Empyreum": "Empyreum",
     "Shirogane": "Shirogane"
 }
+
+HOUSING_OWNER_SUFFIX_REGEX = re.compile(r"\s*\[[^\]]+\]\s*$")
+HOUSING_SIZE_REGEX = re.compile(r"\((Small|Medium|Large)\)\s*(?:\[[^\]]+\])?\s*$", re.IGNORECASE)
+HOUSING_PLOT_REGEX = re.compile(r"\bPlot\s+(?P<plot>\d+)\b", re.IGNORECASE)
+HOUSING_WARD_REGEX = re.compile(r"\b(?:Ward\s+(?P<ward_after>\d+)|(?P<ward_before>\d+)(?:st|nd|rd|th)\s+Ward)\b", re.IGNORECASE)
+HOUSING_PAREN_REGEX = re.compile(r"\s*\([^)]*\)")
+
+def strip_housing_owner_suffix(value):
+    return HOUSING_OWNER_SUFFIX_REGEX.sub("", str(value or "").strip()).strip()
+
+def extract_housing_plot_size(value):
+    normalized = strip_housing_owner_suffix(value)
+    if not normalized:
+        return ""
+    match = HOUSING_SIZE_REGEX.search(normalized)
+    return match.group(1).title() if match else ""
+
+def parse_xa_housing_location(value):
+    normalized = strip_housing_owner_suffix(value)
+    if not normalized:
+        return None
+    plot_match = HOUSING_PLOT_REGEX.search(normalized)
+    ward_match = HOUSING_WARD_REGEX.search(normalized)
+    if not plot_match or not ward_match:
+        return None
+    ward_value = ward_match.group("ward_after") or ward_match.group("ward_before")
+    if not ward_value:
+        return None
+    segments = [segment.strip() for segment in normalized.split(",") if segment.strip()]
+    if not segments:
+        return None
+    district_name = HOUSING_PAREN_REGEX.sub("", segments[-1]).strip().rstrip(",")
+    return {
+        "ward": int(ward_value),
+        "plot": int(plot_match.group("plot")),
+        "district": DISTRICT_ABBREV.get(district_name, district_name),
+        "size": extract_housing_plot_size(normalized),
+    }
+
+def build_xa_housing_size_lookup(snapshot_map):
+    size_lookup = {}
+    for snapshot in snapshot_map.values():
+        for estate_key in ("personal_estate", "fc_estate"):
+            parsed = parse_xa_housing_location(snapshot.get(estate_key, ""))
+            if not parsed or not parsed.get("size"):
+                continue
+            size_lookup.setdefault((parsed["district"], parsed["plot"]), parsed["size"])
+    return size_lookup
+
+def fallback_housing_plot_size(plot_number):
+    if not plot_number or plot_number <= 0:
+        return ""
+    local_plot = (int(plot_number) - 1) % 30
+    if 0 <= local_plot <= 7:
+        return "Small"
+    if 8 <= local_plot <= 11:
+        return "Medium"
+    if 12 <= local_plot <= 14:
+        return "Large"
+    if 15 <= local_plot <= 22:
+        return "Small"
+    if 23 <= local_plot <= 26:
+        return "Medium"
+    if 27 <= local_plot <= 29:
+        return "Large"
+    return ""
+
+def merge_xa_housing_entry(current_entry, raw_value, size_lookup=None):
+    if not current_entry:
+        return current_entry
+    merged = dict(current_entry)
+    merged.setdefault("size", "")
+    parsed = parse_xa_housing_location(raw_value)
+    if parsed:
+        same_location = (
+            merged.get("ward") == parsed["ward"]
+            and merged.get("plot") == parsed["plot"]
+            and DISTRICT_ABBREV.get(merged.get("district", ""), merged.get("district", "")) == parsed["district"]
+        )
+        if same_location and parsed.get("size"):
+            merged["size"] = parsed["size"]
+    if not merged.get("size") and size_lookup:
+        fallback_key = (
+            DISTRICT_ABBREV.get(merged.get("district", ""), merged.get("district", "")),
+            merged.get("plot"),
+        )
+        fallback_size = size_lookup.get(fallback_key, "")
+        if fallback_size:
+            merged["size"] = fallback_size
+    if not merged.get("size"):
+        merged["size"] = fallback_housing_plot_size(merged.get("plot"))
+    return merged
+
+def apply_xa_housing_sizes(housing_entry, xa_entry, size_lookup=None):
+    if not housing_entry:
+        return housing_entry
+    return {
+        "private": merge_xa_housing_entry(housing_entry.get("private"), xa_entry.get("personal_estate", ""), size_lookup),
+        "fc": merge_xa_housing_entry(housing_entry.get("fc"), xa_entry.get("fc_estate", ""), size_lookup),
+    }
 
 
 def load_lifestream_data(lifestream_path):
@@ -643,9 +799,9 @@ def load_lifestream_data(lifestream_path):
                 is_private = entry.get('IsPrivate', False)
                 
                 if is_private:
-                    housing_map[cid]['private'] = {'ward': ward, 'plot': plot, 'district': district_abbrev}
+                    housing_map[cid]['private'] = {'ward': ward, 'plot': plot, 'district': district_abbrev, 'size': ''}
                 else:
-                    housing_map[cid]['fc'] = {'ward': ward, 'plot': plot, 'district': district_abbrev}
+                    housing_map[cid]['fc'] = {'ward': ward, 'plot': plot, 'district': district_abbrev, 'size': ''}
         
         return housing_map
     except Exception as e:
@@ -1344,7 +1500,19 @@ def scan_xa_db(db_path):
         tables = {row[0] for row in c.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
 
         if "xa_characters" in tables:
-            rows = c.execute("SELECT content_id, currencies_json, jobs_json, items_json, listings_json, retainer_items_json, msq_milestones_json FROM xa_characters").fetchall()
+            xa_character_columns = {row[1] for row in c.execute("PRAGMA table_info(xa_characters)").fetchall()}
+            select_parts = [
+                "content_id",
+                "currencies_json",
+                "jobs_json",
+                "items_json",
+                "listings_json",
+                "retainer_items_json",
+                "msq_milestones_json",
+                "personal_estate" if "personal_estate" in xa_character_columns else "'' AS personal_estate",
+                "fc_estate" if "fc_estate" in xa_character_columns else "'' AS fc_estate",
+            ]
+            rows = c.execute(f"SELECT {', '.join(select_parts)} FROM xa_characters").fetchall()
             for row in rows:
                 cid = row[0]
                 result[cid] = {
@@ -1355,6 +1523,8 @@ def scan_xa_db(db_path):
                     "highest_job": "", "highest_level": 0,
                     "lowest_job": "", "lowest_level": 0,
                     "all_jobs": {}, "all_currencies": {}, "completed_quests": [],
+                    "personal_estate": row[7] or "",
+                    "fc_estate": row[8] or "",
                 }
 
                 for item in _load_json_list(row[3]):
@@ -1425,6 +1595,7 @@ def scan_xa_db(db_path):
                 "highest_job": "", "highest_level": 0,
                 "lowest_job": "", "lowest_level": 0,
                 "all_jobs": {}, "all_currencies": {}, "completed_quests": [],
+                "personal_estate": "", "fc_estate": "",
             }
         
         # Build retainer_id -> content_id map
@@ -5189,9 +5360,11 @@ def get_map_data():
     """
     plot_list = []           # All individual plot entries
     district_ward_map = {}   # district -> ward -> [plot entries]
-    seen_fc_plots = set()    # Deduplicate FC plots by world+district+ward+plot (same as main page)
+    seen_fc_plots = {}       # Deduplicate FC plots by world+district+ward+plot (same as main page)
     no_fc_chars = []         # Characters not in any FC
     account_summaries = []   # Per-account capacity info
+    account_xa_maps = {}
+    xa_housing_size_lookup = {}
 
     # First pass: build global FC manager map across ALL accounts
     # Maps fc_key -> {name, account} for the first char with active subs per FC
@@ -5211,6 +5384,10 @@ def get_map_data():
         lfstrm_path = account.get("lfstrm_path", "")
         if lfstrm_path:
             pre_housing = load_lifestream_data(lfstrm_path)
+        xa_db_path = account.get("xa_db_path", "")
+        pre_alto_map = scan_xa_db(xa_db_path) if xa_db_path else {}
+        account_xa_maps[account["nickname"]] = pre_alto_map
+        xa_housing_size_lookup.update(build_xa_housing_size_lookup(pre_alto_map))
         for char in pre_characters:
             cid = char.get("CID", 0)
             if not bool(char.get("OfflineSubmarineData", [])):
@@ -5248,10 +5425,7 @@ def get_map_data():
         characters = collect_characters(data, account["nickname"])
 
         # Scan XA Database for highest_level
-        alto_map = {}
-        xa_db_path = account.get("xa_db_path", "")
-        if xa_db_path:
-            alto_map = scan_xa_db(xa_db_path)
+        alto_map = account_xa_maps.get(account["nickname"], {})
 
         # Load Lifestream housing
         housing_map = {}
@@ -5285,9 +5459,10 @@ def get_map_data():
             region = region_from_world(world)
 
             # Get highest level from XA Database
-            highest_level = 0
-            if cid in alto_map:
-                highest_level = alto_map[cid].get("highest_level", 0)
+            xa_snapshot = alto_map.get(cid, {})
+            highest_level = xa_snapshot.get("highest_level", 0)
+            if cid in housing_map:
+                housing_map[cid] = apply_xa_housing_sizes(housing_map[cid], xa_snapshot, xa_housing_size_lookup)
 
             # FC membership for capacity planner
             fc_name = ""
@@ -5400,9 +5575,13 @@ def get_map_data():
                         # Deduplicate FC plots by world+district+ward+plot (same as main page unique_fc_plots)
                         plot_key = f"{world}_{pd['district']}_W{pd['ward']}_P{pd['plot']}"
                         if plot_type == 'fc':
-                            if plot_key in seen_fc_plots:
-                                continue  # Skip duplicate FC plot (shared by multiple chars in same FC)
-                            seen_fc_plots.add(plot_key)
+                            existing_fc_entry = seen_fc_plots.get(plot_key)
+                            if existing_fc_entry:
+                                if not existing_fc_entry.get("size") and pd.get("size"):
+                                    existing_fc_entry["size"] = pd["size"]
+                                if not existing_fc_entry.get("fc_name") and fc_name:
+                                    existing_fc_entry["fc_name"] = fc_name
+                                continue
 
                         entry = {
                             "type": plot_type,
@@ -5411,10 +5590,14 @@ def get_map_data():
                             "plot": pd['plot'],
                             "world": world,
                             "region": region,
+                            "data_center": datacenter_from_world(world),
+                            "size": pd.get('size', ''),
                             "character": name,
                             "account": account["nickname"],
                             "fc_name": fc_name if plot_type == 'fc' else "",
                         }
+                        if plot_type == 'fc':
+                            seen_fc_plots[plot_key] = entry
                         plot_list.append(entry)
 
                         # Build district -> ward map
@@ -5494,17 +5677,15 @@ def get_map_data():
             remaining = limit - current
 
             # Per-world breakdown for this region
-            world_set = NA_WORLDS if reg == "NA" else EU_WORLDS if reg == "EU" else JP_WORLDS if reg == "JP" else OCE_WORLDS
             world_breakdown = []
-            for w in sorted(world_set):
-                w_title = w.title()
-                count = acc_world_counts.get(w_title, 0)
+            for world_name in REGION_WORLD_ORDER.get(reg, []):
+                count = acc_world_counts.get(world_name, 0)
                 if count > 0:
-                    w_in_fc = acc_world_fc_counts.get(w_title, 0)
-                    w_in_fc_no_subs = acc_world_fc_nosubs_counts.get(w_title, 0)
-                    w_excluded = acc_world_excluded_counts.get(w_title, 0)
+                    w_in_fc = acc_world_fc_counts.get(world_name, 0)
+                    w_in_fc_no_subs = acc_world_fc_nosubs_counts.get(world_name, 0)
+                    w_excluded = acc_world_excluded_counts.get(world_name, 0)
                     w_not_in_fc = count - w_in_fc - w_in_fc_no_subs - w_excluded
-                    world_breakdown.append({"world": w_title, "count": count, "in_fc": w_in_fc, "in_fc_no_subs": w_in_fc_no_subs, "not_in_fc": w_not_in_fc, "excluded": w_excluded, "max": MAX_CHARS_PER_WORLD, "remaining": MAX_CHARS_PER_WORLD - count, "chars": per_world_chars.get(w_title, [])})
+                    world_breakdown.append({"world": world_name, "count": count, "in_fc": w_in_fc, "in_fc_no_subs": w_in_fc_no_subs, "not_in_fc": w_not_in_fc, "excluded": w_excluded, "max": MAX_CHARS_PER_WORLD, "remaining": MAX_CHARS_PER_WORLD - count, "chars": per_world_chars.get(world_name, [])})
 
             region_capacity.append({
                 "region": reg,
@@ -5591,6 +5772,8 @@ def get_map_data():
             if w["total"] > max_ward_total:
                 max_ward_total = w["total"]
 
+    available_plot_regions = {p["region"] for p in plot_list if p.get("region")}
+
     return {
         "plots": plot_list,
         "district_summary": district_summary,
@@ -5609,7 +5792,8 @@ def get_map_data():
         "fc_coverage_pct": fc_coverage_pct,
         "max_ward_total": max_ward_total,
         "sub_planner_accounts": sub_planner_accounts,
-        "plot_regions": sorted(set(p["region"] for p in plot_list if p.get("region"))),
+        "plot_regions": [region for region in REGION_ORDER if region in available_plot_regions],
+        "plot_world_options": PLOT_WORLD_OPTIONS,
         "plot_account_names": sorted(set(p["account"] for p in plot_list if p.get("account"))),
         "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
@@ -5866,6 +6050,155 @@ MAP_TEMPLATE = '''
         }
         .view-toggle button.active { background: var(--accent); color: #fff; }
         .view-toggle button:hover:not(.active) { color: var(--text-primary); }
+        .plot-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 0.8rem;
+        }
+        .plot-filter-label {
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+        .plot-filter-checkbox {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .plot-filter-checkbox input {
+            cursor: pointer;
+        }
+        .plot-filter-divider {
+            color: var(--text-secondary);
+            opacity: 0.65;
+        }
+        .plot-world-dropdown {
+            position: relative;
+            min-width: 260px;
+        }
+        .plot-world-select-btn {
+            min-width: 260px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 7px 10px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .plot-world-select-btn:hover,
+        .plot-world-dropdown.open .plot-world-select-btn {
+            border-color: var(--accent);
+            background: rgba(255,255,255,0.04);
+        }
+        .plot-world-selected-label {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: left;
+        }
+        .plot-world-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            width: 320px;
+            max-height: 340px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+            z-index: 120;
+        }
+        .plot-world-menu.open {
+            display: block;
+        }
+        .plot-world-search {
+            width: 100%;
+            background: rgba(255,255,255,0.06);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 0.8rem;
+        }
+        .plot-world-search:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .plot-world-menu-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 8px;
+        }
+        .plot-world-action-btn {
+            background: rgba(255,255,255,0.06);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 0.76rem;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s, color 0.15s;
+        }
+        .plot-world-action-btn:hover:not(:disabled) {
+            border-color: var(--accent);
+            color: var(--text-primary);
+            background: rgba(255,255,255,0.09);
+        }
+        .plot-world-action-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        .plot-world-options {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px;
+            max-height: 260px;
+            overflow-y: auto;
+            padding-right: 2px;
+        }
+        .plot-world-option {
+            background: rgba(255,255,255,0.04);
+            color: var(--text-primary);
+            border: 1px solid transparent;
+            border-radius: 8px;
+            padding: 8px 10px;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .plot-world-option:hover {
+            border-color: var(--accent);
+            background: rgba(255,255,255,0.07);
+        }
+        .plot-world-option.active {
+            border-color: var(--accent);
+            background: rgba(58, 122, 170, 0.18);
+        }
+        .plot-world-option-name {
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+        .plot-world-option-meta {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+        }
 
         /* FC Planner section */
         .planner-controls {
@@ -6312,20 +6645,52 @@ MAP_TEMPLATE = '''
         </div>
 
         {% if data.district_summary %}
-        <div class="plot-filters" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px;font-size:0.8rem;">
-            <span style="color:var(--text-secondary);font-weight:600;">Region:</span>
+        <div class="plot-filters">
+            <span class="plot-filter-label">Region:</span>
             <div class="view-toggle" id="region-plot-toggle">
                 <button class="active" onclick="setPlotRegion('all', this)">All</button>
                 {% for reg in data.plot_regions %}
                 <button onclick="setPlotRegion('{{ reg }}', this)">{{ reg }}</button>
                 {% endfor %}
             </div>
-            <span style="color:var(--text-secondary);font-weight:600;margin-left:8px;">Accounts:</span>
+            <span class="plot-filter-label">World:</span>
+            <div class="plot-world-dropdown" id="plot-world-dropdown">
+                <button type="button" class="plot-world-select-btn" onclick="togglePlotWorldMenu(event)">
+                    <span class="plot-world-selected-label" id="plot-world-selected-label">All Worlds</span>
+                    <span>▾</span>
+                </button>
+                <div class="plot-world-menu" id="plot-world-menu" onclick="event.stopPropagation()">
+                    <input type="text" id="plot-world-search" class="plot-world-search" placeholder="Search world, data center, region..." oninput="filterPlotWorldOptions()">
+                    <div class="plot-world-menu-actions">
+                        <button type="button" class="plot-world-action-btn" id="plot-world-clear-btn" onclick="clearSelectedPlotWorlds()" disabled>Clear Selected</button>
+                    </div>
+                    <div class="plot-world-options">
+                        {% for world in data.plot_world_options %}
+                        <button type="button" class="plot-world-option" data-world="{{ world.name }}" data-search="{{ world.search_text }}" onclick="selectPlotWorld('{{ world.name }}', this)">
+                            <span class="plot-world-option-name">{{ world.name }}</span>
+                            <span class="plot-world-option-meta">{{ world.data_center }} | {{ world.region }}</span>
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <span class="plot-filter-label">Accounts:</span>
             {% for acc_name in data.plot_account_names %}
-            <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;color:var(--text-secondary);">
-                <input type="checkbox" checked onchange="filterPlots()" class="plot-acc-cb" value="{{ acc_name }}" style="cursor:pointer;"> {{ acc_name }}
+            <label class="plot-filter-checkbox">
+                <input type="checkbox" checked onchange="filterPlots()" class="plot-acc-cb" value="{{ acc_name }}"> {{ acc_name }}
             </label>
             {% endfor %}
+            <span class="plot-filter-divider">|</span>
+            <span class="plot-filter-label">Sizes:</span>
+            <label class="plot-filter-checkbox">
+                <input type="checkbox" checked onchange="filterPlots()" class="plot-size-cb" value="Small"> Small
+            </label>
+            <label class="plot-filter-checkbox">
+                <input type="checkbox" checked onchange="filterPlots()" class="plot-size-cb" value="Medium"> Medium
+            </label>
+            <label class="plot-filter-checkbox">
+                <input type="checkbox" checked onchange="filterPlots()" class="plot-size-cb" value="Large"> Large
+            </label>
         </div>
         <div class="district-grid">
             {% for dist_name, dist_data in data.district_summary.items() %}
@@ -6348,13 +6713,13 @@ MAP_TEMPLATE = '''
                             <span class="ward-label">W{{ ward_data.ward }}</span>
                             <div class="ward-plots">
                                 {% for plot in ward_data.plots %}
-                                <div class="plot-dot {{ plot.type }}" title="P{{ plot.plot }}" data-region="{{ plot.region }}" data-account="{{ plot.account }}">
+                                <div class="plot-dot {{ plot.type }}" title="P{{ plot.plot }}" data-region="{{ plot.region }}" data-account="{{ plot.account }}" data-world="{{ plot.world }}" data-size="{{ plot.size or '' }}">
                                     {{ plot.plot }}
                                     <div class="tooltip">
                                         <b class="fcdata-player-name" data-real-name="{{ plot.character }}">{{ plot.character }}</b><br>
                                         {{ dist_name }} W{{ ward_data.ward }} P{{ plot.plot }}<br>
-                                        {{ "FC" if plot.type == "fc" else "Personal" }}{% if plot.fc_name %} - {{ plot.fc_name }}{% endif %}<br>
-                                        <span style="color:var(--text-secondary)">{{ plot.world }} ({{ plot.account }})</span>
+                                        {{ "FC" if plot.type == "fc" else "Personal" }}{% if plot.size %} • {{ plot.size }}{% endif %}{% if plot.fc_name %} - {{ plot.fc_name }}{% endif %}<br>
+                                        <span style="color:var(--text-secondary)">{{ plot.world }}{% if plot.data_center %} | {{ plot.data_center }} | {{ plot.region }}{% endif %} ({{ plot.account }})</span>
                                     </div>
                                 </div>
                                 {% endfor %}
@@ -6623,6 +6988,7 @@ MAP_TEMPLATE = '''
         const MAX_PER_WORLD = 8;
 
         let currentPlotRegion = 'all';
+        const currentPlotWorlds = new Set();
 
         function setView(view, btn) {
             btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
@@ -6639,16 +7005,106 @@ MAP_TEMPLATE = '''
             filterPlots();
         }
 
+        function togglePlotWorldMenu(event) {
+            if (event) event.stopPropagation();
+            const dropdown = document.getElementById('plot-world-dropdown');
+            const menu = document.getElementById('plot-world-menu');
+            const searchInput = document.getElementById('plot-world-search');
+            if (!dropdown || !menu) return;
+            const nextOpen = !menu.classList.contains('open');
+            dropdown.classList.toggle('open', nextOpen);
+            menu.classList.toggle('open', nextOpen);
+            if (nextOpen && searchInput) {
+                searchInput.value = '';
+                filterPlotWorldOptions();
+                searchInput.focus();
+            }
+        }
+
+        function closePlotWorldMenu() {
+            const dropdown = document.getElementById('plot-world-dropdown');
+            const menu = document.getElementById('plot-world-menu');
+            if (dropdown) dropdown.classList.remove('open');
+            if (menu) menu.classList.remove('open');
+        }
+
+        function updatePlotWorldSelectionUI() {
+            const selectedWorlds = Array.from(currentPlotWorlds);
+            document.querySelectorAll('.plot-world-option').forEach(option => {
+                const worldName = option.getAttribute('data-world') || '';
+                option.classList.toggle('active', currentPlotWorlds.has(worldName));
+            });
+            const labelEl = document.getElementById('plot-world-selected-label');
+            if (labelEl) {
+                labelEl.textContent = selectedWorlds.length > 0 ? selectedWorlds.join(', ') : 'All Worlds';
+            }
+            const clearBtn = document.getElementById('plot-world-clear-btn');
+            if (clearBtn) {
+                clearBtn.disabled = selectedWorlds.length === 0;
+            }
+        }
+
+        function filterPlotWorldOptions() {
+            const searchInput = document.getElementById('plot-world-search');
+            const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+            document.querySelectorAll('.plot-world-option').forEach(option => {
+                const searchText = (option.getAttribute('data-search') || '').toLowerCase();
+                option.style.display = !query || searchText.includes(query) ? '' : 'none';
+            });
+        }
+
+        function selectPlotWorld(worldName, btn) {
+            if (!worldName) return;
+            if (currentPlotWorlds.has(worldName)) {
+                currentPlotWorlds.delete(worldName);
+            } else {
+                currentPlotWorlds.add(worldName);
+            }
+            if (btn) btn.blur();
+            updatePlotWorldSelectionUI();
+            filterPlots();
+        }
+
+        function clearSelectedPlotWorlds() {
+            if (currentPlotWorlds.size === 0) return;
+            currentPlotWorlds.clear();
+            updatePlotWorldSelectionUI();
+            filterPlots();
+        }
+
+        document.addEventListener('click', event => {
+            if (!event.target.closest('#plot-world-dropdown')) {
+                closePlotWorldMenu();
+            }
+        });
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                closePlotWorldMenu();
+            }
+        });
+
         function filterPlots() {
             const selRegion = currentPlotRegion;
+            const hasSelectedWorlds = currentPlotWorlds.size > 0;
             const checkedAccs = new Set();
             document.querySelectorAll('.plot-acc-cb:checked').forEach(cb => checkedAccs.add(cb.value));
+            const selectedSizes = new Set();
+            document.querySelectorAll('.plot-size-cb:checked').forEach(cb => selectedSizes.add(cb.value));
+            const totalSizeFilters = document.querySelectorAll('.plot-size-cb').length;
+            const allSizesSelected = selectedSizes.size === totalSizeFilters;
 
             // Filter dots
             document.querySelectorAll('.plot-dot').forEach(dot => {
                 const r = dot.getAttribute('data-region');
                 const a = dot.getAttribute('data-account');
-                const show = (selRegion === 'all' || r === selRegion) && checkedAccs.has(a);
+                const w = dot.getAttribute('data-world');
+                const s = dot.getAttribute('data-size') || '';
+                const show = (selRegion === 'all' || r === selRegion)
+                    && (!hasSelectedWorlds || currentPlotWorlds.has(w))
+                    && checkedAccs.has(a)
+                    && selectedSizes.size > 0
+                    && (allSizesSelected || selectedSizes.has(s));
                 dot.style.display = show ? '' : 'none';
             });
 
@@ -6872,6 +7328,8 @@ MAP_TEMPLATE = '''
         // Initialize on load
         document.addEventListener('DOMContentLoaded', () => {
             applyFcDataPrivacy();
+            updatePlotWorldSelectionUI();
+            filterPlots();
             updatePlanner();
         });
     </script>
