@@ -335,6 +335,12 @@ The **Inverse Supplier Formatting** column (v1.13+) integrates seamlessly with X
 - Kits Needed column shows: 200
 - Supplier gives: 500 tanks (to reach 1000), 200 kits (to reach 1000)
 
+---
+
+## License
+
+[AGPL-3.0-or-later](LICENSE)
+
 ## Version History
 
 **v1.14** (2025-12-25) - Added Last Online column from Altoholic database shows days since character last logged in  
