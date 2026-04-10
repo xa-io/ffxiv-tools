@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.36 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.37 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -7,7 +7,7 @@ A comprehensive automation script that monitors submarine return times across mu
 This readme is extensive, but don't be intimidated. Getting this up and running is actually quite straightforward and only requires a handful of steps. I've included thorough documentation so you can understand what everything does if you're curious, but the actual setup takes less than 5 minutes. Install python and the requirements, then in game install XA Slave and enable the Window Renamer with your account nickname, optionally add your live character name as a suffix if you want it visible in the title bar, configure 2FA if your accounts use it, add any alt accounts to your config file, and you're good to go.
 
 <p align="center">
-  <img width="793" height="560" alt="image" src="https://github.com/user-attachments/assets/04de8cf1-d27c-488e-b517-e59d40d1b09b" />
+  <img width="704" height="504" alt="image" src="https://github.com/user-attachments/assets/dfaa505f-ae04-4a78-9fe6-88b87e426fdf" />
 </p>
 
 ## Support
@@ -74,6 +74,8 @@ This readme is extensive, but don't be intimidated. Getting this up and running 
 - **Per-Character Farmer Tracking**: `sublord.db` now maintains `farmer_snapshots` rows with account nickname, character, CID, submarine ETA state, and last sent/returned timestamps
 - **XA Snapshot Financial Reads**: Daily wealth snapshots now read XA Database's `xa_characters` layout for character gil, retainer gil, and treasure values with legacy fallback
 - **Safer Processing Detection**: Submarine activity detection now uses per-character/per-sub transitions so active submarine sending does not look stalled when account-level ready counts stay flat
+- **Dynamic Window Placement**: Automatically arranges game windows in compact grid layout (1, 2, 3...) based on which accounts are actually open
+- **Custom Resolution Support**: Configure custom in-game resolutions alongside window layouts (XA Slave mods allow window size to be ignored for lower resolution support)
 - **72-Hour Stability Restart**: Automatically restarts clients at 71 hours uptime to avoid FFXIV's 72-hour stability issues
 
 </details>
@@ -1020,10 +1022,10 @@ python Auto-AutoRetainer.py
 
 ```
 =====================================================================================
-Auto-Autoretainer v1.36
+Auto-Autoretainer v1.37
 FFXIV Game Instance Manager
 =====================================================================================
-Updated: 2026-02-03 09:00:00
+Updated: 2026-04-10 10:00:00
 =====================================================================================
 
 Main  (16 subs)  : +12.3 hours              [Closed]
@@ -1359,6 +1361,14 @@ Created by: https://github.com/xa-io
 <details>
 
 <summary>Version History</summary>
+
+### v1.37 (2026-04-10) - Dynamic Grid Window Placement
+
+- **Dynamic Grid Placement**: Windows now fill positions sequentially (1, 2, 3...) based on which accounts are actually open, maintaining compact grid layout regardless of how many accounts you run
+- **DISABLE_GRID Setting**: Added config option to force legacy fixed-position mode (each account has hardcoded position in config)
+- **Conditional Window Resizing**: Windows are only resized when width/height are explicitly specified in the layout config; otherwise only position changes
+- **Custom Resolution Support**: Configure custom resolutions in-game (XA Slave has mods to allow window size to be ignored) for lower game resolution support alongside layout resizing
+- **Grid Mode Benefits**: Multi-client setups stay visually organized regardless of which specific accounts are running
 
 ### v1.36 (2026-04-06) - Character-Suffix Window Title Support
 
