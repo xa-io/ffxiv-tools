@@ -492,7 +492,7 @@ This dashboard is not officially associated with or endorsed by the AutoRetainer
 
 ## License
 
-`AGPL-3.0-or-later`
+[AGPL-3.0-or-later](LICENSE)
 
 Created by: https://github.com/xa-io
 
