@@ -25,21 +25,20 @@
 # • Retainer details with venture status, levels, and marketboard items
 # • Housing display showing Personal House and FC House locations
 # • Sorting by level, gil, treasure, FC points, ventures, inventory, MSQ%, retainer/sub levels
-# • Filtering by retainers, submarines, personal house, and FC house
+# • Filtering by retainers, submarines, personal house, FC house, and FC chest gil
 # • Anonymize mode for screenshots (hides names, addresses with TOP SECRET)
 # • Configurable display options (SHOW_CLASSES, SHOW_CURRENCIES)
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.33
+# Landing Page v1.34
 # AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-03-26 15:08:43
+# Last Updated: 2026-04-11 14:00:00
 #
 # ## Release Notes This Update ##
 #
-# v1.33 - Added multi-world selection and clear/reset support to the /fcdata/ Housing Plot Overview world filter
-# v1.32 - Added world filter with data center metadata, size filters (S/M/L), XA Database housing integration, and combined filter support
+# v1.34 - Main-page Total Gil now includes FC chest gil in character, account, and summary totals
 #
 ############################################################################################################################
 
@@ -65,7 +64,7 @@ DEBUG = False           # Flask debug mode (set True for development)
 AUTO_REFRESH = 60       # Auto-refresh interval in seconds (0 to disable)
 
 # Display options
-VERSION = "v1.33"       # Version number shown in footer and startup
+VERSION = "v1.34"       # Version number shown in footer and startup
 SHOW_CLASSES = False     # Show DoW/DoM and DoH/DoL job sections, disable to speed up page load
 SHOW_CURRENCIES = False  # Show currencies section, disable to speed up page load
 SHOW_MSQ_PROGRESSION = True  # Show MSQ progression tracking
@@ -979,6 +978,7 @@ def init_sublord_db():
             timestamp TEXT,
             total_character_gil INTEGER DEFAULT 0,
             total_retainer_gil INTEGER DEFAULT 0,
+            total_fc_chest_gil INTEGER DEFAULT 0,
             total_treasure_value INTEGER DEFAULT 0,
             total_gil_plus_treasure INTEGER DEFAULT 0,
             total_subs INTEGER DEFAULT 0,
@@ -998,6 +998,9 @@ def init_sublord_db():
             total_gil_overall INTEGER DEFAULT 0,
             total_supply_cost_overall INTEGER DEFAULT 0
         )""")
+        snapshot_columns = {row[1] for row in c.execute("PRAGMA table_info(daily_snapshots)").fetchall()}
+        if "total_fc_chest_gil" not in snapshot_columns:
+            c.execute("ALTER TABLE daily_snapshots ADD COLUMN total_fc_chest_gil INTEGER DEFAULT 0")
         c.execute("INSERT OR IGNORE INTO cumulative_totals (id, total_gil_overall, total_supply_cost_overall) VALUES (1, 0, 0)")
         conn.commit()
         conn.close()
@@ -1005,9 +1008,34 @@ def init_sublord_db():
         print(f"[SUBLORD-DB] Error initializing database: {e}")
 
 def _get_xa_gil_totals():
-    """Read character Gil and retainer Gil from all xa.db files."""
+    """Read character, retainer, and FC chest Gil from all xa.db files."""
+    def _read_fc_chest_gil(raw_value):
+        if not raw_value or raw_value == "null":
+            return 0
+        try:
+            parsed = json.loads(raw_value)
+        except Exception:
+            return 0
+        if isinstance(parsed, dict):
+            try:
+                return int(parsed.get("FcGil", 0) or 0)
+            except Exception:
+                return 0
+        if isinstance(parsed, list):
+            total = 0
+            for entry in parsed:
+                if not isinstance(entry, dict):
+                    continue
+                try:
+                    total += int(entry.get("FcGil", 0) or 0)
+                except Exception:
+                    continue
+            return total
+        return 0
+
     total_char_gil = 0
     total_ret_gil = 0
+    total_fc_chest_gil = 0
     for account in account_locations:
         db_path = Path(account.get("xa_db_path", ""))
         if not db_path or not db_path.exists():
@@ -1017,9 +1045,18 @@ def _get_xa_gil_totals():
             c = conn.cursor()
             tables = {row[0] for row in c.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
             if "xa_characters" in tables:
-                row = c.execute("SELECT COALESCE(SUM(gil), 0), COALESCE(SUM(retainer_gil), 0) FROM xa_characters").fetchone()
-                total_char_gil += row[0] or 0
-                total_ret_gil += row[1] or 0
+                xa_character_columns = {row[1] for row in c.execute("PRAGMA table_info(xa_characters)").fetchall()}
+                select_parts = [
+                    "COALESCE(gil, 0)",
+                    "COALESCE(retainer_gil, 0)",
+                    "free_company_json" if "free_company_json" in xa_character_columns else "NULL AS free_company_json",
+                ]
+                for char_gil, ret_gil, free_company_json in c.execute(
+                    f"SELECT {', '.join(select_parts)} FROM xa_characters"
+                ).fetchall():
+                    total_char_gil += char_gil or 0
+                    total_ret_gil += ret_gil or 0
+                    total_fc_chest_gil += _read_fc_chest_gil(free_company_json)
             else:
                 for row in c.execute("SELECT amount FROM currency_balances WHERE currency_name = 'Gil'").fetchall():
                     total_char_gil += row[0] or 0
@@ -1028,7 +1065,7 @@ def _get_xa_gil_totals():
             conn.close()
         except Exception:
             pass
-    return total_char_gil, total_ret_gil
+    return total_char_gil, total_ret_gil, total_fc_chest_gil
 
 def write_daily_snapshot(summary):
     """
@@ -1043,8 +1080,8 @@ def write_daily_snapshot(summary):
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Get character/retainer Gil split from xa.db files
-    char_gil, ret_gil = _get_xa_gil_totals()
+    # Get character/retainer/FC chest Gil split from xa.db files
+    char_gil, ret_gil, fc_chest_gil = _get_xa_gil_totals()
     treasure = summary.get("total_treasure", 0)
     
     # Check if this is a new day (for cumulative tracking)
@@ -1059,15 +1096,17 @@ def write_daily_snapshot(summary):
         is_new_day = existing is None
         
         c.execute("""INSERT INTO daily_snapshots (date, timestamp, total_character_gil, total_retainer_gil,
+            total_fc_chest_gil,
             total_treasure_value, total_gil_plus_treasure, total_subs, total_subs_farming, total_subs_leveling,
             total_gil_per_day, total_supply_cost_per_day, total_net_per_day,
             ceruleum_tank_inventory, repair_kit_inventory, days_until_restocking,
             total_tanks_per_day, total_kits_per_day)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(date) DO UPDATE SET
             timestamp=excluded.timestamp,
             total_character_gil=excluded.total_character_gil,
             total_retainer_gil=excluded.total_retainer_gil,
+            total_fc_chest_gil=excluded.total_fc_chest_gil,
             total_treasure_value=excluded.total_treasure_value,
             total_gil_plus_treasure=excluded.total_gil_plus_treasure,
             total_subs=excluded.total_subs,
@@ -1082,8 +1121,8 @@ def write_daily_snapshot(summary):
             total_tanks_per_day=excluded.total_tanks_per_day,
             total_kits_per_day=excluded.total_kits_per_day
         """, (
-            today, timestamp, char_gil, ret_gil,
-            treasure, char_gil + ret_gil + treasure,
+            today, timestamp, char_gil, ret_gil, fc_chest_gil,
+            treasure, char_gil + ret_gil + fc_chest_gil + treasure,
             summary.get("enabled_subs", 0),
             summary.get("subs_farming", 0),
             summary.get("subs_leveling", 0),
@@ -1424,7 +1463,7 @@ def scan_xa_db(db_path):
         "treasure_value": int, "coffer_dye_value": int, "coffer_count": int,
         "dye_count": int, "dye_pure_white": int, "dye_jet_black": int,
         "dye_pastel_pink": int, "mb_dye_count": int, "venture_coins": int,
-        "current_job": str, "current_level": int,
+        "current_job": str, "current_level": int, "fc_gil": int,
         "highest_job": str, "highest_level": int,
         "lowest_job": str, "lowest_level": int,
         "all_jobs": dict, "all_currencies": dict, "completed_quests": list,
@@ -1442,6 +1481,23 @@ def scan_xa_db(db_path):
         except Exception:
             return []
         return parsed if isinstance(parsed, list) else []
+
+    def _read_fc_gil(raw_value):
+        if not raw_value or raw_value == "null":
+            return 0
+        try:
+            parsed = json.loads(raw_value)
+        except Exception:
+            return 0
+        if isinstance(parsed, dict):
+            return _read_int(parsed, "FcGil", "fc_gil")
+        if isinstance(parsed, list):
+            total = 0
+            for entry in parsed:
+                if isinstance(entry, dict):
+                    total += _read_int(entry, "FcGil", "fc_gil")
+            return total
+        return 0
 
     def _read_int(entry, *keys):
         for key in keys:
@@ -1511,6 +1567,7 @@ def scan_xa_db(db_path):
                 "msq_milestones_json",
                 "personal_estate" if "personal_estate" in xa_character_columns else "'' AS personal_estate",
                 "fc_estate" if "fc_estate" in xa_character_columns else "'' AS fc_estate",
+                "free_company_json" if "free_company_json" in xa_character_columns else "'null' AS free_company_json",
             ]
             rows = c.execute(f"SELECT {', '.join(select_parts)} FROM xa_characters").fetchall()
             for row in rows:
@@ -1518,7 +1575,7 @@ def scan_xa_db(db_path):
                 result[cid] = {
                     "treasure_value": 0, "coffer_dye_value": 0, "coffer_count": 0,
                     "dye_count": 0, "dye_pure_white": 0, "dye_jet_black": 0,
-                    "dye_pastel_pink": 0, "mb_dye_count": 0, "venture_coins": 0,
+                    "dye_pastel_pink": 0, "mb_dye_count": 0, "venture_coins": 0, "fc_gil": 0,
                     "current_job": "", "current_level": 0,
                     "highest_job": "", "highest_level": 0,
                     "lowest_job": "", "lowest_level": 0,
@@ -1526,6 +1583,7 @@ def scan_xa_db(db_path):
                     "personal_estate": row[7] or "",
                     "fc_estate": row[8] or "",
                 }
+                result[cid]["fc_gil"] = _read_fc_gil(row[9])
 
                 for item in _load_json_list(row[3]):
                     item_id = _read_int(item, "ItemId", "item_id")
@@ -1590,7 +1648,7 @@ def scan_xa_db(db_path):
             result[cid] = {
                 "treasure_value": 0, "coffer_dye_value": 0, "coffer_count": 0,
                 "dye_count": 0, "dye_pure_white": 0, "dye_jet_black": 0,
-                "dye_pastel_pink": 0, "mb_dye_count": 0, "venture_coins": 0,
+                "dye_pastel_pink": 0, "mb_dye_count": 0, "venture_coins": 0, "fc_gil": 0,
                 "current_job": "", "current_level": 0,
                 "highest_job": "", "highest_level": 0,
                 "lowest_job": "", "lowest_level": 0,
@@ -2011,6 +2069,7 @@ def get_all_data():
             # Get FC info and FC points
             fc_name = ""
             fc_points = 0
+            fc_gil = 0
             if cid in fc_data:
                 fc_name = fc_data[cid].get("Name", "")
                 fc_points = fc_data[cid].get("FCPoints", 0)
@@ -2044,6 +2103,7 @@ def get_all_data():
                 dye_pastel_pink = alto_map[cid].get("dye_pastel_pink", 0)
                 mb_dye_count = alto_map[cid].get("mb_dye_count", 0)
                 venture_coins = alto_map[cid].get("venture_coins", 0)
+                fc_gil = alto_map[cid].get("fc_gil", 0)
                 current_job = alto_map[cid].get("current_job", "")
                 current_level = alto_map[cid].get("current_level", 0)
                 highest_job = alto_map[cid].get("highest_job", "")
@@ -2078,7 +2138,8 @@ def get_all_data():
                 "region": region_from_world(char.get("World", "")),
                 "gil": char_gil,
                 "retainer_gil": retainer_gil,
-                "total_gil": char_gil + retainer_gil,
+                "fc_gil": fc_gil,
+                "total_gil": char_gil + retainer_gil + fc_gil,
                 "treasure_value": treasure_value,
                 "coffer_dye_value": coffer_dye_value,
                 "coffer_count": coffer_count,
@@ -2088,7 +2149,7 @@ def get_all_data():
                 "dye_pastel_pink": dye_pastel_pink,
                 "mb_dye_count": mb_dye_count,
                 "venture_coins": venture_coins,
-                "total_with_treasure": char_gil + retainer_gil + treasure_value,
+                "total_with_treasure": char_gil + retainer_gil + fc_gil + treasure_value,
                 "submarines": submarines,
                 "retainers": retainers,
                 "fc_name": fc_name,
@@ -3515,6 +3576,7 @@ HTML_TEMPLATE = '''
                                 <button class="filter-btn" id="global-coffers-btn" onclick="toggleFilterGlobal('coffers')" title="Show only characters with Coffers">📦</button>
                                 <button class="filter-btn" id="global-dyes-btn" onclick="toggleFilterGlobal('dyes')" title="Show only characters with Dyes">🎨</button>
                                 <button class="filter-btn" id="global-mb-btn" onclick="toggleFilterGlobal('mb')" title="Show only characters with MB Items">🪧</button>
+                                <button class="filter-btn" id="global-fc-gil-btn" onclick="toggleFilterGlobal('fc-gil')" title="Show only characters with FC Chest Gil">🧰</button>
                                 <button class="filter-btn" id="global-retainers-btn" onclick="toggleFilterGlobal('retainers')" title="Show only characters with Retainers">👤</button>
                                 <button class="filter-btn" id="global-treasure-btn" onclick="toggleFilterGlobal('treasure')" title="Show only characters with Treasure">💎</button>
                                 <button class="filter-btn" id="global-subs-btn" onclick="toggleFilterGlobal('subs')" title="Show only characters with Submarines">🚢</button>
@@ -3647,7 +3709,7 @@ HTML_TEMPLATE = '''
             {% else %}
             <div class="character-grid">
                 {% for char in account.characters %}
-                <div class="character-card{% if char.has_max_mb_retainer %} has-max-mb{% endif %}{% if char.has_idle_retainer and not char.retainers_sleeping %} has-idle-retainer{% endif %}{% if char.has_idle_sub and not char.subs_sleeping %} has-idle-sub{% endif %}{% if char.has_potential_retainer %} has-potential-retainer{% endif %}{% if char.has_potential_subs %} has-potential-subs{% endif %}" data-char="{{ char.cid }}" data-level="{{ char.current_level }}" data-lowest-level="{{ char.lowest_level }}" data-highest-level="{{ char.highest_level }}" data-gil="{{ char.total_gil }}" data-treasure="{{ char.treasure_value }}" data-fc-points="{{ char.fc_points }}" data-venture-coins="{{ char.venture_coins }}" data-coffers="{{ char.coffer_count }}" data-dyes="{{ char.dye_count }}" data-tanks="{{ char.ceruleum }}" data-kits="{{ char.repair_kits }}" data-restock="{{ char.days_until_restock if char.days_until_restock is not none else 9999 }}" data-retainers="{{ char.ready_retainers }}" data-total-retainers="{{ char.total_retainers }}" data-subs="{{ char.ready_subs }}" data-total-subs="{{ char.total_subs }}" data-inventory="{{ 140 - char.inventory_space }}" data-has-personal-house="{{ 'true' if char.private_house else 'false' }}" data-has-fc-house="{{ 'true' if char.fc_house else 'false' }}" data-retainer-level="{{ char.max_retainer_level }}" data-sub-level="{{ char.min_sub_level }}" data-retainer-return="{{ char.min_retainer_return }}" data-sub-return="{{ char.min_sub_return }}" data-msq-percent="{{ char.msq_percent }}" data-has-max-mb="{{ 'true' if char.has_max_mb_retainer else 'false' }}" data-mb="{{ char.mb_items }}" data-has-mb="{{ 'true' if char.mb_items > 0 else 'false' }}" data-has-coffers="{{ 'true' if char.coffer_count > 0 else 'false' }}" data-has-dyes="{{ 'true' if char.dye_count > 0 else 'false' }}" data-has-treasure="{{ 'true' if char.treasure_value > 0 else 'false' }}" data-region="{{ char.region }}" data-has-ready="{{ 'true' if (char.ready_retainers > 0 and not char.exclude_retainer and not char.retainers_sleeping) or (char.ready_subs > 0 and not char.exclude_workshop and not char.subs_sleeping) else 'false' }}" data-has-exclusion="{{ 'true' if char.exclude_retainer or char.exclude_workshop else 'false' }}" data-is-processing="{{ 'true' if char.is_processing else 'false' }}" data-has-sleeping="{{ 'true' if (char.retainers_sleeping and char.total_retainers > 0 and not char.exclude_retainer) or (char.subs_sleeping and char.total_subs > 0 and not char.exclude_workshop) else 'false' }}" data-has-idle="{{ 'true' if (char.has_idle_retainer and not char.retainers_sleeping) or (char.has_idle_sub and not char.subs_sleeping) else 'false' }}" data-has-potential-subs="{{ 'true' if char.has_potential_subs or char.has_potential_retainer else 'false' }}">
+                <div class="character-card{% if char.has_max_mb_retainer %} has-max-mb{% endif %}{% if char.has_idle_retainer and not char.retainers_sleeping %} has-idle-retainer{% endif %}{% if char.has_idle_sub and not char.subs_sleeping %} has-idle-sub{% endif %}{% if char.has_potential_retainer %} has-potential-retainer{% endif %}{% if char.has_potential_subs %} has-potential-subs{% endif %}" data-char="{{ char.cid }}" data-level="{{ char.current_level }}" data-lowest-level="{{ char.lowest_level }}" data-highest-level="{{ char.highest_level }}" data-gil="{{ char.total_gil }}" data-treasure="{{ char.treasure_value }}" data-fc-points="{{ char.fc_points }}" data-venture-coins="{{ char.venture_coins }}" data-coffers="{{ char.coffer_count }}" data-dyes="{{ char.dye_count }}" data-tanks="{{ char.ceruleum }}" data-kits="{{ char.repair_kits }}" data-restock="{{ char.days_until_restock if char.days_until_restock is not none else 9999 }}" data-retainers="{{ char.ready_retainers }}" data-total-retainers="{{ char.total_retainers }}" data-subs="{{ char.ready_subs }}" data-total-subs="{{ char.total_subs }}" data-inventory="{{ 140 - char.inventory_space }}" data-has-personal-house="{{ 'true' if char.private_house else 'false' }}" data-has-fc-house="{{ 'true' if char.fc_house else 'false' }}" data-has-fc-gil="{{ 'true' if char.fc_gil > 0 else 'false' }}" data-retainer-level="{{ char.max_retainer_level }}" data-sub-level="{{ char.min_sub_level }}" data-retainer-return="{{ char.min_retainer_return }}" data-sub-return="{{ char.min_sub_return }}" data-msq-percent="{{ char.msq_percent }}" data-has-max-mb="{{ 'true' if char.has_max_mb_retainer else 'false' }}" data-mb="{{ char.mb_items }}" data-has-mb="{{ 'true' if char.mb_items > 0 else 'false' }}" data-has-coffers="{{ 'true' if char.coffer_count > 0 else 'false' }}" data-has-dyes="{{ 'true' if char.dye_count > 0 else 'false' }}" data-has-treasure="{{ 'true' if char.treasure_value > 0 else 'false' }}" data-region="{{ char.region }}" data-has-ready="{{ 'true' if (char.ready_retainers > 0 and not char.exclude_retainer and not char.retainers_sleeping) or (char.ready_subs > 0 and not char.exclude_workshop and not char.subs_sleeping) else 'false' }}" data-has-exclusion="{{ 'true' if char.exclude_retainer or char.exclude_workshop else 'false' }}" data-is-processing="{{ 'true' if char.is_processing else 'false' }}" data-has-sleeping="{{ 'true' if (char.retainers_sleeping and char.total_retainers > 0 and not char.exclude_retainer) or (char.subs_sleeping and char.total_subs > 0 and not char.exclude_workshop) else 'false' }}" data-has-idle="{{ 'true' if (char.has_idle_retainer and not char.retainers_sleeping) or (char.has_idle_sub and not char.subs_sleeping) else 'false' }}" data-has-potential-subs="{{ 'true' if char.has_potential_subs or char.has_potential_retainer else 'false' }}">
                     <div class="character-header collapsed {% if (char.ready_retainers > 0 and not char.exclude_retainer and not char.retainers_sleeping) or (char.ready_subs > 0 and not char.exclude_workshop and not char.subs_sleeping) %}has-available{% endif %}" onclick="toggleCharacter(this)">
                         <div class="char-header-row name-row">
                             <span class="character-name">{{ char.name }}{% if char.current_level > 0 %} <span style="font-size: 0.8em; color: var(--text-secondary);">(Lv {{ char.current_level }}, {{ char.current_job }})</span>{% endif %}{% if show_msq_progression and char.msq_completed > 0 %} <span style="font-size: 0.8em; {% if char.msq_percent >= 90 %}color: #4ade80;{% elif char.msq_percent >= 50 %}color: #fbbf24;{% else %}color: #94a3b8;{% endif %}" title="MSQ Progress: {{ char.msq_completed }}/{{ char.msq_total }}{% if char.msq_quest_name %} - {{ char.msq_quest_name }}{% endif %}">MSQ: {{ char.msq_percent }}%</span>{% endif %}{% if char.private_house %} <span style="font-size: 0.8em;" title="Personal House: {{ char.private_house }}">🏠</span>{% endif %}{% if char.fc_house %} <span style="font-size: 0.8em;" title="FC House: {{ char.fc_house }}">🏨</span>{% endif %}</span>
@@ -3719,6 +3781,10 @@ HTML_TEMPLATE = '''
                         <div class="info-row">
                             <span class="info-label">Retainer Gil</span>
                             <span class="info-value">{{ "{:,}".format(char.retainer_gil) }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">FC Gil</span>
+                            <span class="info-value" style="color: var(--accent-light);">{{ "{:,}".format(char.fc_gil) }}</span>
                         </div>
                         {% if char.treasure_value > 0 %}
                         <div class="info-row">
@@ -4715,7 +4781,7 @@ HTML_TEMPLATE = '''
                     if (label && value) {
                         const labelText = label.textContent;
                         const moneyLabels = [
-                            'Character Gil', 'Retainer Gil', 'Treasure Value', 'Coffer + Dye Value',
+                            'Character Gil', 'Retainer Gil', 'FC Gil', 'Treasure Value', 'Coffer + Dye Value',
                             'FC Points', 'Venture Coins', 'Coffers', 'Ceruleum Tanks', 'Repair Kits',
                             'Days Until Restock', 'Daily Income', 'Daily Cost'
                         ];
@@ -5044,6 +5110,7 @@ HTML_TEMPLATE = '''
             'coffers': false,
             'dyes': false,
             'mb': false,
+            'fc-gil': false,
             'retainers': false,
             'treasure': false,
             'subs': false,
@@ -5095,6 +5162,7 @@ HTML_TEMPLATE = '''
                     if (globalFilters['coffers'] && card.dataset.hasCoffers !== 'true') shouldShow = false;
                     if (globalFilters['dyes'] && card.dataset.hasDyes !== 'true') shouldShow = false;
                     if (globalFilters['mb'] && card.dataset.hasMb !== 'true') shouldShow = false;
+                    if (globalFilters['fc-gil'] && card.dataset.hasFcGil !== 'true') shouldShow = false;
                     if (globalFilters['retainers'] && parseInt(card.dataset.totalRetainers || 0) === 0) shouldShow = false;
                     if (globalFilters['treasure'] && card.dataset.hasTreasure !== 'true') shouldShow = false;
                     if (globalFilters['subs'] && parseInt(card.dataset.totalSubs || 0) === 0) shouldShow = false;
@@ -5122,6 +5190,7 @@ HTML_TEMPLATE = '''
                 'coffers': 'global-coffers-btn',
                 'dyes': 'global-dyes-btn',
                 'mb': 'global-mb-btn',
+                'fc-gil': 'global-fc-gil-btn',
                 'retainers': 'global-retainers-btn',
                 'treasure': 'global-treasure-btn',
                 'subs': 'global-subs-btn',
@@ -7400,6 +7469,9 @@ def get_subs_data():
             world = char.get("World", "Unknown")
             region = region_from_world(world)
             char_gil = char.get("Gil", 0)
+            exclude_retainer = char.get("ExcludeRetainer", False) if HONOR_AR_EXCLUSIONS else False
+            retainers = parse_retainer_data(char)
+            retainer_gil = sum(r["gil"] for r in retainers) if not exclude_retainer else 0
             ceruleum = char.get("Ceruleum", 0)
             repair_kits = char.get("RepairKits", 0)
             inventory_space = char.get("InventorySpace", 0)
@@ -7407,10 +7479,12 @@ def get_subs_data():
             
             # XA Database data
             treasure_value = 0
+            fc_gil = 0
             highest_level = 0
             highest_job = ""
             if cid in alto_map:
                 treasure_value = alto_map[cid].get("treasure_value", 0)
+                fc_gil = alto_map[cid].get("fc_gil", 0)
                 highest_level = alto_map[cid].get("highest_level", 0)
                 highest_job = alto_map[cid].get("highest_job", "")
             
@@ -7495,6 +7569,8 @@ def get_subs_data():
                 "char_level": highest_level,
                 "char_job": highest_job,
                 "gil": char_gil,
+                "retainer_gil": retainer_gil,
+                "fc_gil": fc_gil,
                 "ceruleum": ceruleum,
                 "repair_kits": repair_kits,
                 "inventory_space": inventory_space,
@@ -7882,29 +7958,31 @@ SUBS_TEMPLATE = r'''
                         <th onclick="sortTable(3, 'str')" data-col="3">Region <span class="sort-arrow">▲▼</span></th>
                         <th onclick="sortTable(4, 'num')" data-col="4">Lvl <span class="sort-arrow">▲▼</span></th>
                         <th onclick="sortTable(5, 'num')" data-col="5">Gil <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(6, 'num')" data-col="6">⛽ Tanks <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(7, 'num')" data-col="7">🔧 Kits <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(8, 'num')" data-col="8">♻️ Restock <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(9, 'num')" data-col="9">📦 Inv <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(10, 'num')" data-col="10">💎 Treasure <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(11, 'num')" data-col="11" class="sub-group-1">S1 Lvl <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(12, 'str')" data-col="12" class="sub-group-1">S1 Build <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(13, 'str')" data-col="13" class="sub-group-1">S1 Plan <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(14, 'str')" data-col="14" class="sub-group-1">S1 Return <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(15, 'num')" data-col="15" class="sub-group-2">S2 Lvl <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(16, 'str')" data-col="16" class="sub-group-2">S2 Build <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(17, 'str')" data-col="17" class="sub-group-2">S2 Plan <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(18, 'str')" data-col="18" class="sub-group-2">S2 Return <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(19, 'num')" data-col="19" class="sub-group-3">S3 Lvl <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(20, 'str')" data-col="20" class="sub-group-3">S3 Build <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(21, 'str')" data-col="21" class="sub-group-3">S3 Plan <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(22, 'str')" data-col="22" class="sub-group-3">S3 Return <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(23, 'num')" data-col="23" class="sub-group-4">S4 Lvl <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(24, 'str')" data-col="24" class="sub-group-4">S4 Build <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(25, 'str')" data-col="25" class="sub-group-4">S4 Plan <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(26, 'str')" data-col="26" class="sub-group-4">S4 Return <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(27, 'num')" data-col="27">💰 Daily <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(28, 'num')" data-col="28">🔧 Cost <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(6, 'num')" data-col="6">🛎️ Ret. Gil <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(7, 'num')" data-col="7">🧰 FC Gil <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(8, 'num')" data-col="8">💎 Treasure <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(9, 'num')" data-col="9">⛽ Tanks <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(10, 'num')" data-col="10">🔧 Kits <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(11, 'num')" data-col="11">♻️ Restock <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(12, 'num')" data-col="12">📦 Inv <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(13, 'num')" data-col="13" class="sub-group-1">S1 Lvl <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(14, 'str')" data-col="14" class="sub-group-1">S1 Build <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(15, 'str')" data-col="15" class="sub-group-1">S1 Plan <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(16, 'str')" data-col="16" class="sub-group-1">S1 Return <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(17, 'num')" data-col="17" class="sub-group-2">S2 Lvl <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(18, 'str')" data-col="18" class="sub-group-2">S2 Build <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(19, 'str')" data-col="19" class="sub-group-2">S2 Plan <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(20, 'str')" data-col="20" class="sub-group-2">S2 Return <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(21, 'num')" data-col="21" class="sub-group-3">S3 Lvl <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(22, 'str')" data-col="22" class="sub-group-3">S3 Build <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(23, 'str')" data-col="23" class="sub-group-3">S3 Plan <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(24, 'str')" data-col="24" class="sub-group-3">S3 Return <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(25, 'num')" data-col="25" class="sub-group-4">S4 Lvl <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(26, 'str')" data-col="26" class="sub-group-4">S4 Build <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(27, 'str')" data-col="27" class="sub-group-4">S4 Plan <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(28, 'str')" data-col="28" class="sub-group-4">S4 Return <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(29, 'num')" data-col="29">💰 Daily <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(30, 'num')" data-col="30">🔧 Cost <span class="sort-arrow">▲▼</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -7916,11 +7994,13 @@ SUBS_TEMPLATE = r'''
                         <td>{{ row.region }}</td>
                         <td>{{ row.char_level }}</td>
                         <td class="text-gold">{{ "{:,}".format(row.gil) }}</td>
+                        <td>{{ "{:,}".format(row.retainer_gil) }}</td>
+                        <td class="text-cyan">{{ "{:,}".format(row.fc_gil) }}</td>
+                        <td class="text-gold">{{ "{:,}".format(row.treasure_value) }}</td>
                         <td>{{ "{:,}".format(row.ceruleum) }}</td>
                         <td>{{ "{:,}".format(row.repair_kits) }}</td>
                         <td class="{% if row.days_until_restock is not none %}{% if row.days_until_restock < 7 %}restock-critical{% elif row.days_until_restock < 14 %}restock-warning{% else %}restock-ok{% endif %}{% endif %}">{% if row.days_until_restock is not none %}{{ row.days_until_restock }}d{% else %}-{% endif %}</td>
                         <td{% if row.inventory_space <= 10 %} class="text-danger"{% elif row.inventory_space <= 35 %} class="text-warning"{% endif %}>{{ row.inventory_space }}</td>
-                        <td class="text-gold">{{ "{:,}".format(row.treasure_value) }}</td>
                         {% for i in range(4) %}
                         {% if row.subs[i] %}
                         <td class="{% if row.subs[i].is_ready %}cell-ready{% endif %}">{{ row.subs[i].level }}</td>
@@ -8154,12 +8234,16 @@ CHARTS_TEMPLATE = '''
             <div class="value green">{{ "{:,}".format(data.daily_snapshots[-1].get('total_retainer_gil', 0)) }}</div>
         </div>
         <div class="summary-card">
+            <div class="label">FC Chest Gil</div>
+            <div class="value blue">{{ "{:,}".format(data.daily_snapshots[-1].get('total_fc_chest_gil', 0)) }}</div>
+        </div>
+        <div class="summary-card">
             <div class="label">Treasure Value</div>
             <div class="value gold">{{ "{:,}".format(data.daily_snapshots[-1].get('total_treasure_value', 0)) }}</div>
         </div>
         <div class="summary-card">
             <div class="label">Combined Total</div>
-            <div class="value blue">{{ "{:,}".format(data.daily_snapshots[-1].get('total_gil_plus_treasure', 0)) }}</div>
+            <div class="value">{{ "{:,}".format(data.daily_snapshots[-1].get('total_gil_plus_treasure', 0)) }}</div>
         </div>
         <div class="summary-card">
             <div class="label">Gil Earned (All Time)</div>
@@ -8183,7 +8267,7 @@ CHARTS_TEMPLATE = '''
 
     <div class="charts-area">
         <div class="chart-box full">
-            <h3>Total Wealth Over Time (Gil + Retainer Gil + Treasure)</h3>
+            <h3>Total Wealth Over Time (Character Gil + Retainer Gil + FC Chest Gil + Treasure)</h3>
             <div class="chart-wrap"><canvas id="wealthChart"></canvas></div>
         </div>
         <div class="chart-box">
@@ -8226,6 +8310,89 @@ CHARTS_TEMPLATE = '''
             }
         };
 
+        const compactMoneyTick = value => {
+            const num = Number(value);
+            if (!Number.isFinite(num)) return value;
+            const abs = Math.abs(num);
+            if (abs >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (abs >= 1000) return (num / 1000).toFixed(0) + 'k';
+            return num.toLocaleString();
+        };
+
+        const wholeNumberTick = value => {
+            const num = Number(value);
+            if (!Number.isFinite(num)) return value;
+            return Math.round(num).toLocaleString();
+        };
+
+        const decimalTick = value => {
+            const num = Number(value);
+            if (!Number.isFinite(num)) return value;
+            return num.toFixed(1);
+        };
+
+        function buildLinearAxis(position, tickCallback, drawOnChartArea = true) {
+            return {
+                type: 'linear',
+                position,
+                display: true,
+                ticks: {
+                    color: '#484f58',
+                    font: { size: 8 },
+                    callback: tickCallback,
+                    maxTicksLimit: 6
+                },
+                grid: {
+                    color: '#21262d',
+                    drawOnChartArea
+                }
+            };
+        }
+
+        function syncAxesWithDatasets(chart) {
+            Object.entries(chart.options.scales).forEach(([axisId, axisOptions]) => {
+                if (axisId === 'x') return;
+                const hasVisibleDataset = chart.data.datasets.some((dataset, index) => {
+                    const datasetAxisId = dataset.yAxisID || 'y';
+                    return datasetAxisId === axisId && chart.isDatasetVisible(index);
+                });
+                axisOptions.display = hasVisibleDataset;
+            });
+        }
+
+        const defaultLegendClick = Chart.defaults.plugins.legend.onClick;
+        function axisAwareLegendClick(event, legendItem, legend) {
+            defaultLegendClick(event, legendItem, legend);
+            const chart = legend.chart;
+            syncAxesWithDatasets(chart);
+            chart.update();
+        }
+
+        function createDualAxisLineChart(canvasId, datasets, leftTickCallback, rightTickCallback) {
+            const chart = new Chart(document.getElementById(canvasId), {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    ...chartDefaults,
+                    plugins: {
+                        ...chartDefaults.plugins,
+                        legend: {
+                            ...chartDefaults.plugins.legend,
+                            onClick: axisAwareLegendClick
+                        }
+                    },
+                    scales: {
+                        x: { ...chartDefaults.scales.x },
+                        y: buildLinearAxis('left', leftTickCallback),
+                        y1: buildLinearAxis('right', rightTickCallback, false)
+                    }
+                }
+            });
+            syncAxesWithDatasets(chart);
+            chart.update();
+            return chart;
+        }
+
         new Chart(document.getElementById('wealthChart'), {
             type: 'line',
             data: {
@@ -8233,6 +8400,7 @@ CHARTS_TEMPLATE = '''
                 datasets: [
                     { label: 'Character Gil', data: snapshots.map(s => s.total_character_gil || 0), borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
                     { label: 'Retainer Gil', data: snapshots.map(s => s.total_retainer_gil || 0), borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
+                    { label: 'FC Chest Gil', data: snapshots.map(s => s.total_fc_chest_gil || 0), borderColor: '#39c5cf', backgroundColor: 'rgba(57,197,207,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
                     { label: 'Treasure Value', data: snapshots.map(s => s.total_treasure_value || 0), borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
                     { label: 'Combined Total', data: snapshots.map(s => s.total_gil_plus_treasure || 0), borderColor: '#f0f6fc', backgroundColor: 'rgba(240,246,252,0)', fill: false, tension: 0.3, pointRadius: 2, borderWidth: 2, borderDash: [5, 3] }
                 ]
@@ -8240,67 +8408,54 @@ CHARTS_TEMPLATE = '''
             options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, stacked: false } } }
         });
 
-        new Chart(document.getElementById('earningsChart'), {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [
-                    { label: 'Gil Per Day', data: snapshots.map(s => s.total_gil_per_day), borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
-                    { label: 'Supply Cost Per Day', data: snapshots.map(s => s.total_supply_cost_per_day), borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
-                ]
-            },
-            options: chartDefaults
-        });
+        createDualAxisLineChart('earningsChart', [
+            { label: 'Gil Per Day', data: snapshots.map(s => s.total_gil_per_day || 0), yAxisID: 'y', borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
+            { label: 'Supply Cost Per Day', data: snapshots.map(s => s.total_supply_cost_per_day || 0), yAxisID: 'y1', borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
+        ], compactMoneyTick, compactMoneyTick);
 
+        const netProfitSeries = snapshots.map(s => (s.total_gil_per_day || 0) - (s.total_supply_cost_per_day || 0));
         new Chart(document.getElementById('profitChart'), {
-            type: 'bar',
+            type: 'line',
             data: {
                 labels,
                 datasets: [{
                     label: 'Net Profit',
-                    data: snapshots.map(s => s.total_gil_per_day - s.total_supply_cost_per_day),
-                    backgroundColor: snapshots.map(s => (s.total_gil_per_day - s.total_supply_cost_per_day) >= 0 ? 'rgba(63,185,80,0.7)' : 'rgba(248,81,73,0.7)'),
-                    borderRadius: 2
+                    data: netProfitSeries,
+                    borderColor: '#3fb950',
+                    backgroundColor: 'rgba(63,185,80,0.12)',
+                    fill: {
+                        target: 'origin',
+                        above: 'rgba(63,185,80,0.12)',
+                        below: 'rgba(248,81,73,0.12)'
+                    },
+                    tension: 0.3,
+                    pointRadius: 1.5,
+                    pointHoverRadius: 3,
+                    borderWidth: 1.5,
+                    pointBackgroundColor: netProfitSeries.map(v => v >= 0 ? '#3fb950' : '#f85149'),
+                    pointBorderColor: netProfitSeries.map(v => v >= 0 ? '#3fb950' : '#f85149'),
+                    segment: {
+                        borderColor: ctx => (ctx.p0.parsed.y < 0 || ctx.p1.parsed.y < 0) ? '#f85149' : '#3fb950'
+                    }
                 }]
             },
             options: chartDefaults
         });
 
-        new Chart(document.getElementById('subsChart'), {
-            type: 'bar',
-            data: {
-                labels,
-                datasets: [
-                    { label: 'Farming', data: snapshots.map(s => s.total_subs_farming), backgroundColor: 'rgba(88,166,255,0.7)', borderRadius: 2 },
-                    { label: 'Leveling', data: snapshots.map(s => s.total_subs_leveling), backgroundColor: 'rgba(210,153,34,0.7)', borderRadius: 2 }
-                ]
-            },
-            options: { ...chartDefaults, scales: { ...chartDefaults.scales, x: { ...chartDefaults.scales.x, stacked: true }, y: { ...chartDefaults.scales.y, stacked: true, ticks: { ...chartDefaults.scales.y.ticks, callback: v => v } } } }
-        });
+        createDualAxisLineChart('subsChart', [
+            { label: 'Farming Subs', data: snapshots.map(s => s.total_subs_farming || 0), yAxisID: 'y', borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
+            { label: 'Leveling Subs', data: snapshots.map(s => s.total_subs_leveling || 0), yAxisID: 'y1', borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
+        ], wholeNumberTick, wholeNumberTick);
 
-        new Chart(document.getElementById('supplyChart'), {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [
-                    { label: 'Ceruleum Tanks', data: snapshots.map(s => s.ceruleum_tank_inventory), borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
-                    { label: 'Repair Kits', data: snapshots.map(s => s.repair_kit_inventory), borderColor: '#8b949e', backgroundColor: 'rgba(139,148,158,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
-                ]
-            },
-            options: chartDefaults
-        });
+        createDualAxisLineChart('supplyChart', [
+            { label: 'Ceruleum Tanks', data: snapshots.map(s => s.ceruleum_tank_inventory || 0), yAxisID: 'y', borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
+            { label: 'Repair Kits', data: snapshots.map(s => s.repair_kit_inventory || 0), yAxisID: 'y1', borderColor: '#8b949e', backgroundColor: 'rgba(139,148,158,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
+        ], wholeNumberTick, wholeNumberTick);
 
-        new Chart(document.getElementById('consumptionChart'), {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [
-                    { label: 'Tanks/Day', data: snapshots.map(s => s.total_tanks_per_day), borderColor: '#d29922', tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
-                    { label: 'Kits/Day', data: snapshots.map(s => s.total_kits_per_day), borderColor: '#8b949e', tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
-                ]
-            },
-            options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, ticks: { ...chartDefaults.scales.y.ticks, callback: v => v.toFixed(1) } } } }
-        });
+        createDualAxisLineChart('consumptionChart', [
+            { label: 'Tanks/Day', data: snapshots.map(s => s.total_tanks_per_day || 0), yAxisID: 'y', borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
+            { label: 'Kits/Day', data: snapshots.map(s => s.total_kits_per_day || 0), yAxisID: 'y1', borderColor: '#8b949e', backgroundColor: 'rgba(139,148,158,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
+        ], decimalTick, decimalTick);
 
         new Chart(document.getElementById('restockChart'), {
             type: 'line',
