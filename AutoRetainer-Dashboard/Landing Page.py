@@ -31,14 +31,14 @@
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.34
+# Landing Page v1.35
 # AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-04-11 14:00:00
+# Last Updated: 2026-04-11 20:00:00
 #
 # ## Release Notes This Update ##
 #
-# v1.34 - Main-page Total Gil now includes FC chest gil in character, account, and summary totals
+# v1.35 - Added adjustable column options for the /fcdata/ submarine mass listing
 #
 ############################################################################################################################
 
@@ -64,7 +64,7 @@ DEBUG = False           # Flask debug mode (set True for development)
 AUTO_REFRESH = 60       # Auto-refresh interval in seconds (0 to disable)
 
 # Display options
-VERSION = "v1.34"       # Version number shown in footer and startup
+VERSION = "v1.35"       # Version number shown in footer and startup
 SHOW_CLASSES = False     # Show DoW/DoM and DoH/DoL job sections, disable to speed up page load
 SHOW_CURRENCIES = False  # Show currencies section, disable to speed up page load
 SHOW_MSQ_PROGRESSION = True  # Show MSQ progression tracking
@@ -6468,11 +6468,23 @@ MAP_TEMPLATE = '''
 
         /* Sub Planner */
         .sub-planner-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            --sp-account-columns: 1;
+            --sp-char-column-width: 150px;
+            --sp-column-gap: 1px;
+            --sp-account-width: calc((var(--sp-account-columns) * var(--sp-char-column-width)) + ((var(--sp-account-columns) - 1) * var(--sp-column-gap)));
+            display: flex;
+            flex-wrap: wrap;
             gap: 6px;
+            align-items: flex-start;
+            justify-content: flex-start;
+            overflow-x: auto;
+            padding-bottom: 4px;
         }
         .sp-account {
+            flex: 0 0 var(--sp-account-width);
+            width: var(--sp-account-width);
+            min-width: var(--sp-account-width);
+            box-sizing: border-box;
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 6px;
@@ -6494,11 +6506,18 @@ MAP_TEMPLATE = '''
             color: var(--text-secondary);
             font-size: 0.55rem;
         }
+        .sp-acc-body {
+            display: grid;
+            grid-template-columns: repeat(var(--sp-account-columns), var(--sp-char-column-width));
+            gap: var(--sp-column-gap);
+            background: rgba(255,255,255,0.05);
+        }
         .sp-char {
             padding: 2px 5px;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
+            background: var(--bg-card);
+            min-width: 0;
+            box-sizing: border-box;
         }
-        .sp-char:last-child { border-bottom: none; }
         .sp-char-name {
             font-size: 0.6rem;
             font-weight: 600;
@@ -6582,6 +6601,39 @@ MAP_TEMPLATE = '''
         .sp-sort-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
         .sp-char.excluded { opacity: 0.35; }
         .sp-char.sleeping { opacity: 0.5; }
+        .sp-layout-control {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+        }
+        .sp-layout-control span { white-space: nowrap; }
+        .sp-column-select {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            color-scheme: dark;
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .sp-column-select option {
+            background: #1b2340;
+            color: #f5f7ff;
+        }
+        .sp-column-select option:checked,
+        .sp-column-select option:hover,
+        .sp-column-select option:focus {
+            background: var(--accent);
+            color: #ffffff;
+        }
+        .sp-column-select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
         .fcdata-top-actions {
             display: flex;
             gap: 8px;
@@ -6876,14 +6928,25 @@ MAP_TEMPLATE = '''
             <button class="sp-sort-btn" onclick="sortSubPlanners('kits',this)" data-key="kits" data-dir="desc" title="Sort by repair kits">🔧 Kits ▼</button>
             <button class="sp-sort-btn" onclick="sortSubPlanners('restock',this)" data-key="restock" data-dir="asc" title="Sort by restock days">♻️ Restock ▲</button>
             <button class="sp-sort-btn" onclick="sortSubPlanners('inv',this)" data-key="inv" data-dir="desc" title="Sort by inventory slots">🎒 Inventory ▼</button>
+            <label class="sp-layout-control" for="sp-columns-select" title="How many character columns each account card should use">
+                <span>Cols/account</span>
+                <select id="sp-columns-select" class="sp-column-select" onchange="setSubPlannerColumns(this.value)">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                </select>
+            </label>
         </div>
-        <div class="sub-planner-grid">
+        <div id="sub-planner-grid" class="sub-planner-grid">
             {% for spa in data.sub_planner_accounts %}
             <div class="sp-account">
                 <div class="sp-acc-header">
                     <span>{{ spa.nickname }}</span>
                     <span class="sp-count">{{ spa.total_subs }} subs / {{ spa.total_chars }} chars</span>
                 </div>
+                <div class="sp-acc-body">
                 {% for ch in spa.characters %}
                 <div class="sp-char{% if ch.excluded %} excluded{% endif %}{% if ch.sleeping %} sleeping{% endif %}" data-subs="{{ ch.subs|length }}" data-maxlvl="{{ ch.subs|map(attribute='level')|max }}" data-tanks="{{ ch.tanks }}" data-kits="{{ ch.kits }}" data-restock="{{ ch.restock_days if ch.restock_days is not none else 9999 }}" data-inv="{{ ch.inventory }}">
                     <div class="sp-char-name fcdata-player-name" data-real-name="{{ ch.name }}" data-world="{{ ch.world }}" data-region="{{ ch.region }}" data-fc-name="{{ ch.fc_name }}" data-excluded="{{ 1 if ch.excluded else 0 }}" data-sleeping="{{ 1 if ch.sleeping else 0 }}" title="{{ ch.name }}@{{ ch.world }} ({{ ch.region }}){% if ch.fc_name %} — {{ ch.fc_name }}{% endif %}{% if ch.excluded %} [EXCLUDED]{% endif %}{% if ch.sleeping %} [SLEEPING]{% endif %}">
@@ -6906,6 +6969,7 @@ MAP_TEMPLATE = '''
                     </div>
                 </div>
                 {% endfor %}
+                </div>
             </div>
             {% endfor %}
         </div>
@@ -7055,9 +7119,39 @@ MAP_TEMPLATE = '''
         const accountData = {{ data.account_summaries | tojson }};
         const REGION_LIMITS = {"NA": 40, "EU": 40, "JP": 40, "OCE": 39};
         const MAX_PER_WORLD = 8;
+        const SUB_PLANNER_COLUMNS_KEY = 'fcdata-subplanner-columns';
+        const SUB_PLANNER_MIN_COLUMNS = 1;
+        const SUB_PLANNER_MAX_COLUMNS = 5;
 
         let currentPlotRegion = 'all';
         const currentPlotWorlds = new Set();
+
+        function clampSubPlannerColumns(value) {
+            const parsed = parseInt(value, 10);
+            if (Number.isNaN(parsed)) {
+                return SUB_PLANNER_MIN_COLUMNS;
+            }
+            return Math.min(SUB_PLANNER_MAX_COLUMNS, Math.max(SUB_PLANNER_MIN_COLUMNS, parsed));
+        }
+
+        function applySubPlannerColumns(value) {
+            const columns = clampSubPlannerColumns(value);
+            const grid = document.getElementById('sub-planner-grid');
+            if (grid) {
+                grid.style.setProperty('--sp-account-columns', String(columns));
+                grid.dataset.columns = String(columns);
+            }
+            const select = document.getElementById('sp-columns-select');
+            if (select && select.value !== String(columns)) {
+                select.value = String(columns);
+            }
+            return columns;
+        }
+
+        function setSubPlannerColumns(value) {
+            const columns = applySubPlannerColumns(value);
+            localStorage.setItem(SUB_PLANNER_COLUMNS_KEY, String(columns));
+        }
 
         function setView(view, btn) {
             btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
@@ -7235,9 +7329,13 @@ MAP_TEMPLATE = '''
         // Sub Planner sorting — store original DOM order on first load
         (function() {
             document.querySelectorAll('.sp-account').forEach(acc => {
-                const chars = Array.from(acc.querySelectorAll('.sp-char'));
+                const body = acc.querySelector('.sp-acc-body');
+                if (!body) return;
+                const chars = Array.from(body.querySelectorAll('.sp-char'));
                 chars.forEach((ch, i) => ch.setAttribute('data-orig', i));
             });
+            const savedColumns = localStorage.getItem(SUB_PLANNER_COLUMNS_KEY) || String(SUB_PLANNER_MIN_COLUMNS);
+            applySubPlannerColumns(savedColumns);
         })();
 
         function sortSubPlanners(key, btn) {
@@ -7261,7 +7359,9 @@ MAP_TEMPLATE = '''
             const dir = (btn && btn.dataset.dir === 'asc') ? 1 : -1;
 
             document.querySelectorAll('.sp-account').forEach(acc => {
-                const chars = Array.from(acc.querySelectorAll('.sp-char'));
+                const body = acc.querySelector('.sp-acc-body');
+                if (!body) return;
+                const chars = Array.from(body.querySelectorAll('.sp-char'));
                 chars.sort((a, b) => {
                     if (key === 'default') {
                         return parseInt(a.dataset.orig) - parseInt(b.dataset.orig);
@@ -7270,7 +7370,7 @@ MAP_TEMPLATE = '''
                     const bv = parseFloat(b.dataset[key]) || 0;
                     return (av - bv) * dir;
                 });
-                chars.forEach(ch => acc.appendChild(ch));
+                chars.forEach(ch => body.appendChild(ch));
             });
         }
 
@@ -7435,6 +7535,14 @@ def get_subs_data():
         "total_ceruleum": 0,
         "total_kits": 0,
         "total_fc_points": 0,
+        "total_monthly_income": 0,
+        "total_monthly_cost": 0,
+        "total_net_daily": 0,
+        "total_net_monthly": 0,
+        "total_fc_tanks": 0,
+        "total_fc_stacks": 0.0,
+        "total_fc_tank_value": 0,
+        "unique_fc_count": 0,
     }
     
     for account in account_locations:
