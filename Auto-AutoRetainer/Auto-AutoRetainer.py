@@ -33,17 +33,16 @@
 # and AutoRetainer multi-mode auto-enabled
 # for full automation. 2FA is supported via keyring integration. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.37
+# Auto-AutoRetainer v1.38
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-04-10 10:00:00
+# Last Updated: 2026-04-15 11:00:00
 #
 # ## Release Notes This Update ##
 #
-# v1.37 - Dynamic grid placement for window arrangement
-#         Windows now fill positions 1, 2, 3... sequentially based on which accounts are open
-#         Added DISABLE_GRID setting to force legacy fixed-position mode if desired
-#         Window resizing only occurs when width/height explicitly specified in config
+# v1.38 - Dynamic-grid window movement now ignores accounts disabled in config.json
+#         Stats/runtime account loading already honored enabled=false; window movement now matches that behavior
+#         Disabled account windows can stay open without being rearranged by Auto-AutoRetainer
 #
 ########################################################################################################################
 
@@ -87,7 +86,7 @@ except ImportError:
 # ===============================================
 # Configuration Parameters
 # ===============================================
-VERSION = "v1.37"     # Current script version
+VERSION = "v1.38"     # Current script version
 VERSION_SUFFIX = ""     # Custom text appended to version display (set via config.json, e.g., " - Main")
 
 # Display settings
@@ -1816,19 +1815,30 @@ def arrange_ffxiv_windows():
         # Find all FFXIV windows matching pattern: "PID - nickname" or "PID - nickname - Character"
         ffxiv_pattern = re.compile(r"^\d+\s+-\s+.+$", re.IGNORECASE)
         
-        # Collect all FFXIV windows with their nicknames
+        # Collect all FFXIV windows with their nicknames. Only enabled accounts
+        # from config should participate in automatic window arrangement.
+        enabled_account_nicknames = {acc["nickname"] for acc in account_locations}
         ffxiv_windows = []
+        skipped_disabled_windows = []
         for hwnd, title in windows:
             normalized_title = normalize_window_title_for_layout_matching(title)
             if ffxiv_pattern.match(normalized_title):
                 nickname = extract_nickname_from_title(title)
                 if nickname:
+                    if nickname not in enabled_account_nicknames:
+                        skipped_disabled_windows.append(title)
+                        continue
                     ffxiv_windows.append({
                         "hwnd": hwnd,
                         "title": title,
                         "nickname": nickname,
                         "priority": get_account_priority(nickname, account_order)
                     })
+
+        if DEBUG and skipped_disabled_windows:
+            print(f"[WINDOW-MOVER] Ignoring {len(skipped_disabled_windows)} disabled-account window(s)")
+            for title in skipped_disabled_windows:
+                print(f"  Skipped: {title}")
         
         # Sort by priority (config order)
         ffxiv_windows.sort(key=lambda w: w["priority"])
@@ -1968,6 +1978,23 @@ def arrange_ffxiv_windows():
             print(f"[WINDOW-MOVER]   Failed: '{title}' - {reason}")
     
     return len(successful_moves) > 0
+
+def compact_dynamic_window_grid_after_auto_close():
+    """
+    Wait briefly after an AUTO_CLOSE_THRESHOLD shutdown, then compact the
+    remaining windows only when dynamic grid mode is active.
+    """
+    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME or not ENABLE_WINDOW_LAYOUT:
+        return False
+
+    # DISABLE_GRID=True uses legacy fixed positions, which intentionally keep
+    # account slots stable instead of compacting the grid.
+    if DISABLE_GRID:
+        return False
+
+    print("[AUTO-CLOSE] Waiting 3 seconds for the closed client to exit before compacting the dynamic grid...")
+    time.sleep(3)
+    return arrange_ffxiv_windows()
 
 def kill_process_by_pid(pid, error_tag="PROCESS"):
     """
@@ -3921,13 +3948,15 @@ def main():
                     if soonest_hours is not None and soonest_hours > AUTO_CLOSE_THRESHOLD:
                         print(f"\n[AUTO-CLOSE] Closing {nickname} (PID: {process_id}) - Next sub in {soonest_hours:.1f}h")
                         
-                        kill_game_client_and_cleanup(
+                        close_success = kill_game_client_and_cleanup(
                             nickname, process_id,
                             f"[AUTO-CLOSE] Successfully closed {nickname}, waiting {TIMER_REFRESH_INTERVAL} seconds before checking clients again.",
                             f"[AUTO-CLOSE] Failed to close {nickname}",
                             closed_pids, game_status_dict, client_start_times,
                             last_launch_time=last_launch_time
                         )
+                        if close_success:
+                            compact_dynamic_window_grid_after_auto_close()
             
             # Force crash timer - check for frozen/stuck clients
             # Only run force-crash monitoring if ENABLE_AUTO_CLOSE is True
