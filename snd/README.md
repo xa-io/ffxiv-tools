@@ -1,3 +1,13 @@
+## This section is no longer under active development.
+
+## All features at this time (other than Lazy Crafter) has been implemented into `XA Slave`.
+
+- Please visit: https://github.com/xa-io/XA-Slave
+
+<details>
+
+<summary>DEPRECIATED</summary>
+
 # FFXIV SomethingNeedDoing Tools
 
 A comprehensive collection of automation scripts and function libraries for Final Fantasy XIV using the SomethingNeedDoing (SND) plugin. This repository provides robust tools for multi-character management, resource distribution, crafting automation, and various quality-of-life improvements.
@@ -401,3 +411,5 @@ Debug output shows:
 **Last Updated:** 2025-11-05
 
 **Repository:** [https://github.com/xa-io/ffxiv-tools](https://github.com/xa-io/ffxiv-tools)
+
+</details>
