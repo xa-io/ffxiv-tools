@@ -31,20 +31,14 @@
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.41
+# Landing Page v1.39
 # AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-05-08 16:02:23
+# Last Updated: 2026-05-08 16:00:00
 #
 # ## Release Notes This Update ##
 #
-# v1.41 - Replaced /fcdata/ housing size fallback with hardcoded verified plot sizes for every residential district plot
-# v1.35 - Added adjustable column options for the /fcdata/ submarine mass listing
-# v1.34 - Added a main-page 🧰 filter for characters with FC chest gil and inserted Retainer Gil / FC Gil columns on /data/
-# v1.34 - Changed Net Profit Per Day on /charts/ from a bar chart to the same line/area style used by the other financial charts
-# v1.34 - Added FC chest gil to /charts/, expanded total wealth history, and converted mixed-scale charts to dual-axis views with auto-hiding secondary axes
-# v1.33 - Added multi-world selection and clear/reset support to the /fcdata/ Housing Plot Overview world filter
-# v1.32 - Added world filter with data center metadata, size filters (S/M/L), XA Database housing integration, and combined filter support
+# v1.39 - Replaced /fcdata/ housing size fallback with hardcoded verified plot sizes for every residential district plot
 #
 ############################################################################################################################
 
