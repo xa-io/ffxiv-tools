@@ -1,4 +1,4 @@
-# AutoRetainer Dashboard v1.34
+# AutoRetainer Dashboard v1.35
 
 A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, XA Database, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels, currencies, income/cost calculations, comprehensive supply tracking, an FC Data page with Plot Map & FC Capacity Planner, and a Data Master List page for managing all submarines across all accounts with Excel export.
 
@@ -503,6 +503,13 @@ Created by: https://github.com/xa-io
 
 <summary>Version History</summary>
 
+### v1.35 (2026-05-08) - Hardcoded Housing Sizes
+
+- Added verified hardcoded residential plot-size mapping for `/fcdata/`
+- Corrected size filtering and tooltips for district-specific plot sizes
+
+---
+
 ### v1.34 (2026-04-11) - FC Chest Gil Dashboard Expansion
 
 - **FC Chest Gil Totals**: Main-page character, account, and summary gil totals now include master-owned FC chest gil from XA Database snapshots
@@ -511,17 +518,23 @@ Created by: https://github.com/xa-io
 - **Charts Upgrade**: `/charts/` now stores FC chest gil in daily history, adds an `FC Chest Gil` summary card, expands Total Wealth, and uses dual-axis handling for mixed-scale charts
 - **Chart Styling**: Net Profit Per Day now uses the same line/area style as the rest of the financial charts
 
+---
+
 ### v1.33 (2026-03-26) - Multi-World Housing Plot Filter
 
 - **Multi-World Selection**: Housing Plot Overview world filter now supports selecting multiple worlds at the same time on `/fcdata/`
 - **Clear Selected**: Added a one-click clear action that resets the world filter back to showing all worlds
 - **Filter Compatibility**: Multi-world selection continues to combine with the existing region, account, and size filters
 
+---
+
 ### v1.32 (2026-03-26) - FC Data Housing Filters
 
 - **World Filter**: Added a searchable Housing Plot Overview world dropdown showing world, data center, and region
 - **Size Filters**: Added Small / Medium / Large housing size filters after the account filters on `/fcdata/`
 - **XA Housing Merge**: Housing Plot Overview now merges XA Database housing snapshot size data into the Lifestream-based plot map when locations match
+
+---
 
 ### v1.31 (2026-03-17) - Submarine Unlock Counters
 
