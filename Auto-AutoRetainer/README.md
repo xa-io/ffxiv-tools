@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.38 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.40 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -28,8 +28,10 @@ This readme is extensive, but don't be intimidated. Getting this up and running 
 - **Automatically enters 2FA** (one-time password) if configured for your account, sending the OTP code to XIVLauncher
 - **Closes game** once all rotated and submarines won't return for 0.5 hours (30 minutes) for submarine-only accounts
 - **Keeps clients running** for accounts with `force247uptime=True` so AutoRetainer can process retainers continuously
+- **Automation hours**: Optional per-account schedules restrict when automation may launch or keep a client running
 - **Forces client restart** after 71 hours of uptime (`MAX_RUNTIME`) to avoid FFXIV 72-hour stability issues
 - **Crash recovery**: If game crashes when subs are ready or 24/7 uptime is enabled, game automatically relaunches
+- **Startup title recovery**: In multi-client mode, if a newly launched game stays titled `FINAL FANTASY XIV` after the title-renamer wait, the script force-closes that specific PID and retries the same account
 - **Timers refresh** every 30 seconds
 - **Client checkers refresh** every 60 seconds
 
@@ -69,7 +71,8 @@ This readme is extensive, but don't be intimidated. Getting this up and running 
 - **Intelligent Game Launching**: Automatically opens game instances when submarines are nearly ready (9 minutes by default, configurable)
 - **Automatic 2FA Login**: Generates and submits one-time passwords automatically when launching accounts with 2FA enabled
 - **Smart Idle Management**: Closes games when submarines won't be ready for an extended period (30 minutes by default, configurable)
-- **Crash Recovery**: Automatically detects and relaunches crashed game instances
+- **Automation Hours**: Restricts launch/run behavior to configured local time windows per account
+- **Crash Recovery**: Automatically detects and relaunches crashed game instances, including stale default-title startup clients in multi-client mode
 - **Frozen Client Detection**: Monitors submarine processing activity and force-crashes stuck clients after configurable inactivity period
 - **Per-Character Farmer Tracking**: `sublord.db` now maintains `farmer_snapshots` rows with account nickname, character, CID, submarine ETA state, and last sent/returned timestamps
 - **XA Snapshot Financial Reads**: Daily wealth snapshots now read XA Database's `xa_characters` layout for character gil, retainer gil, and treasure values with legacy fallback
@@ -110,6 +113,7 @@ This readme is extensive, but don't be intimidated. Getting this up and running 
 - **Frozen Client Force-Crash**: Monitors submarine and retainer processing, but pauses the inactivity timer during AutoRetainer `DisableRetainerVesselReturn` vessel waits on the most recently processed character
 - **72-Hour Stability Restart**: Automatically restarts clients approaching 72 hours uptime (MAX_RUNTIME default: 71 hours)
 - **Auto-Close Games**: Closes idle games when submarines won't be ready soon (30 minutes by default)
+- **Scheduled Account Windows**: Accounts with `scheduled=true` only launch and stay open during their configured `automation_hours`
 - **Smart Rate Limiting**: Prevents rapid game launches with configurable delays
 - **System Bootup Delay**: Configurable delay before script starts monitoring (useful for auto-start on system boot)
 - **Window Arrangement**: Automatically arranges game windows using customizable layouts
@@ -179,6 +183,8 @@ account_locations = [
 - **force247uptime**: Set to `True` to keep the game always running for this account so AutoRetainer can continuously rotate retainers (subject to `MAX_RUNTIME` safety restarts)
 - **enable_2fa**: Set to `True` if account uses Two-Factor Authentication (requires `keyring_name`)
 - **keyring_name**: Name of the keyring entry storing the OTP secret (use `Set_2FA_Key.py` to configure)
+- **scheduled**: Set to `True` to restrict this account to configured automation hours
+- **automation_hours**: List of allowed local-time windows used when `scheduled=True`
 
 **Configuration Behavior Matrix:**
 
@@ -194,6 +200,7 @@ account_locations = [
 - Use `include_submarines=False, force247uptime=True` for accounts that need 24/7 uptime for Retainer but have no submarines
 - Use `include_submarines=True, force247uptime=False` for standard submarine farming accounts
 - Use `include_submarines=True, force247uptime=True` for accounts that need both submarine monitoring and continuous Retainer rotation
+- Add `scheduled=True` with `automation_hours=[...]` to apply the selected behavior only during specific local-time windows
 
 ### Step 2: Configure Game Launchers
 
@@ -650,7 +657,9 @@ Use `{user}` in paths to automatically substitute the current Windows username:
             "include_submarines": true,
             "force247uptime": true,
             "enable_2fa": false,
-            "keyring_name": null
+            "keyring_name": null,
+            "scheduled": false,
+            "automation_hours": []
         }
     ],
 
@@ -665,6 +674,38 @@ Use `{user}` in paths to automatically substitute the current Windows username:
 - If `config.json` has a syntax error, the script will display the error and exit
 - The script prints `[CONFIG] Loaded configuration from ...` when using an external config
 - See `config.json.example` for all available settings
+
+### Automation Hours Configuration
+
+Use `scheduled=true` on an account to restrict automation to specific local-time windows. When an account is outside automation hours, Auto-AutoRetainer skips launch and closes the client if it is already running.
+
+```json
+{
+    "enabled": true,
+    "nickname": "Main",
+    "pluginconfigs_path": "C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs",
+    "include_submarines": true,
+    "force247uptime": false,
+    "enable_2fa": false,
+    "keyring_name": null,
+    "scheduled": true,
+    "automation_hours": [
+        {"start": "07:00", "end": "09:00", "days": ["mon", "tue", "wed", "thu", "fri"]},
+        {"start": "18:00", "end": "23:30"},
+        {"start": "22:00", "end": "02:00", "days": ["fri", "sat"]}
+    ]
+}
+```
+
+| Parameter | Default | Description |
+| --------- | ------- | ----------- |
+| `scheduled` | `false` | Enables account-specific automation hours when true |
+| `automation_hours` | `[]` | List of allowed automation windows for the account |
+| `automation_hours[].start` | required | Window start time in 24-hour `HH:MM` format |
+| `automation_hours[].end` | required | Window end time in 24-hour `HH:MM` format |
+| `automation_hours[].days` | every day | Optional day list: `mon`, `tue`, `wed`, `thu`, `fri`, `sat`, `sun` |
+
+Cross-midnight windows are supported by setting `end` earlier than `start`, such as `22:00` to `02:00`. Accounts with `force247uptime=true` and `scheduled=true` stay up continuously only during automation hours.
 
 ### Submarine Plans Configuration
 
@@ -822,6 +863,7 @@ SUBS_COUNT_WIDTH = 11          # Column width for submarine count display
 HOURS_WIDTH = 24               # Column width for hours/timer display
 STATUS_WIDTH = 10              # Column width for status indicator
 PID_WIDTH = 11                 # Column width for PID display
+AUTOMATION_HOURS_WIDTH = 16    # Column width for automation-hours status
 ```
 
 ### Timing Settings
@@ -882,7 +924,7 @@ ENABLE_AUTO_LAUNCH = True       # Enable automatic game launching
 AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if next sub <= 0.15 hours (9 minutes)
 OPEN_DELAY_THRESHOLD = 60       # Minimum 60 seconds between game launches
 WINDOW_TITLE_RESCAN = 5         # Seconds between window title update checks (waits for plugin to load)
-MAX_WINDOW_TITLE_RESCAN = 20    # Maximum title check attempts before killing stuck process (20 × 5s = 100s timeout)
+MAX_WINDOW_TITLE_RESCAN = 20    # Maximum title checks before stale default-title PID recovery (20 × 5s = 100s timeout)
 FORCE_LAUNCHER_RETRY = 3        # Maximum launcher retry attempts when XIVLauncher opens as active app instead of game
 MAX_CLIENTS = 0                 # Maximum concurrent running clients (0 = unlimited, N = limit to N clients)
 SYSTEM_BOOTUP_DELAY = 0         # Seconds to delay before starting monitoring (0 = no delay, useful for auto-start on boot)
@@ -900,9 +942,9 @@ SYSTEM_BOOTUP_DELAY = 0         # Seconds to delay before starting monitoring (0
 **MAX_WINDOW_TITLE_RESCAN Behavior:**
 - **Purpose**: Prevents infinite loops when game crashes during startup
 - **How it works**: Limits window title checks to MAX_WINDOW_TITLE_RESCAN attempts (default: 20 checks × 5s = 100s timeout)
-- **Timeout Action**: If max attempts reached without title update, kills stuck ffxiv_dx11.exe process and retries launch
-- **Recovery**: Resets launch time to 0 to allow immediate retry after killing stuck process
-- **Multi-Client Mode Only**: Only applies when USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = False
+- **Timeout Action**: If max attempts are reached while a default `FINAL FANTASY XIV` window is still visible in multi-client mode, force-closes only that window's FFXIV PID and retries the same account
+- **Recovery**: Resets launch time to 0 to allow immediate retry after killing the stale default-title client
+- **Multi-Client Safety**: Does not mass-kill all game clients; if no stale default-title PID is available, normal rotation continues and the account is retried by the client checker
 - **Benefit**: Prevents "[WINDOW-TITLE] Check #X" message spam and ensures script recovers from startup failures
 
 **FORCE_LAUNCHER_RETRY Behavior:**
@@ -927,7 +969,7 @@ SYSTEM_BOOTUP_DELAY = 0         # Seconds to delay before starting monitoring (0
 - **How it works**: After OPEN_DELAY_THRESHOLD, checks if window title is still "FINAL FANTASY XIV" (default)
 - **Multi-Client Mode Only**: Skipped in single client mode since it always uses default title
 - **Polling**: Rechecks every WINDOW_TITLE_RESCAN seconds until title updates to an account-matched renamed title such as `ProcessID - nickname` or `ProcessID - nickname - character`
-- **Timeout Protection**: MAX_WINDOW_TITLE_RESCAN prevents infinite waiting if game crashes during startup
+- **Timeout Protection**: MAX_WINDOW_TITLE_RESCAN prevents infinite waiting; stale default-title clients are closed by exact PID and relaunched so duplicate clients do not accumulate
 - **Benefit**: Ensures plugins have fully loaded and window can be properly identified before proceeding
 
 ### Logging & Autologin Settings
@@ -940,13 +982,13 @@ ENABLE_AUTOLOGIN_UPDATER = True     # Auto-update launcherConfigV3.json when lau
 
 **ENABLE_LOGGING Behavior:**
 - **Purpose**: Logs critical events to arr.log file for troubleshooting and monitoring
-- **Logged Events** (17 total):
+- **Logged Events**:
   - **Process Management**: PROCESS_KILL_FAILED, FFXIV_KILL_FAILED, LAUNCHER_KILL_FAILED, CRASH_HANDLER_KILL_FAILED
   - **Game Launch**: LAUNCH_FAILED_NO_PATH, LAUNCH_FAILED_NOT_FOUND, LAUNCH_FAILED_EXCEPTION
   - **Configuration**: CONFIG_VALIDATION_FAILED
   - **Window Management**: WINDOW_FORCE_CRASH, WINDOW_FORCE_CRASH_FAILED, WINDOW_FORCE_CRASH_ERROR
   - **Autologin**: AUTOLOGIN_FILE_NOT_FOUND, AUTOLOGIN_UPDATED, AUTOLOGIN_JSON_ERROR, AUTOLOGIN_ERROR
-  - **Launch Failures**: LAUNCHER_FAILED, WINDOW_TITLE_FAILED
+  - **Launch Failures**: LAUNCHER_FAILED, WINDOW_TITLE_FAILED, WINDOW_TITLE_STALE_DEFAULT, WINDOW_TITLE_STALE_DEFAULT_MAX, WINDOW_TITLE_STALE_DEFAULT_KILL_FAILED
 - **File Location**: Creates arr.log in script directory with timestamps
 - **Default Values**:
   - False for Auto-AutoRetainer.py (minimal logging)
@@ -1025,15 +1067,15 @@ python Auto-AutoRetainer.py
 
 ```
 =====================================================================================
-Auto-Autoretainer v1.38
+Auto-Autoretainer v1.40
 FFXIV Game Instance Manager
 =====================================================================================
-Updated: 2026-04-14 08:22:57
+Updated: 2026-05-01 07:56:15
 =====================================================================================
 
-Main  (16 subs)  : +12.3 hours              [Closed]
+Main  (16 subs)  : +12.3 hours              [Closed]  (Hours Active)
 Alt1  (16 subs)  : -1.2 hours (8 READY)     [Running] PID: 12345 UPTIME: 1.5 hrs X:8
-Alt2  (16 subs)  : +6.8 hours               [Closed]
+Alt2  (16 subs)  : +6.8 hours               [Closed]  (Hours Closed)
 
 =====================================================================================
 Total Subs: 8 / 48
@@ -1365,11 +1407,32 @@ Created by: https://github.com/xa-io
 
 <summary>Version History</summary>
 
+### v1.40 (2026-05-01) - Stale Default-Title Recovery
+
+- **Default-Title PID Detection**: Multi-client startup checks now extract the PID from visible `FINAL FANTASY XIV` windows when the title renamer never updates the window title
+- **Targeted Force-Close**: Stale default-title clients are closed by exact PID instead of waiting for normal rotation or killing unrelated game clients
+- **Same-Account Retry**: After closing the stale PID, Auto-AutoRetainer immediately retries the same account with bounded retries to avoid duplicate clients
+- **Safety Fallback**: If no stale default-title PID can be found, the previous normal-rotation retry path is preserved
+
+---
+
+### v1.39 (2026-04-25) - Automation Hours
+
+- **Scheduled Accounts**: Added `scheduled` and `automation_hours` account config for local-time automation windows
+- **Launch Gating**: Scheduled accounts do not auto-launch outside their configured automation hours
+- **Outside-Hours Closure**: Running scheduled accounts close when automation hours end, independent of `ENABLE_AUTO_CLOSE`
+- **Terminal Status**: Scheduled accounts show `(Hours Active)` or `(Hours Closed)` in the console display
+- **Planner Doc**: Added `docs/automation-hours-planner.md` with review notes from Asuna's time-window implementation
+
+---
+
 ### v1.38 (2026-04-14) - Auto-Close Grid Compaction
 
 - **Dynamic Grid Auto-Compact**: When `AUTO_CLOSE_THRESHOLD` closes a client and `DISABLE_GRID=False`, the script waits 3 seconds and then rearranges the remaining windows to fill the gap automatically
 - **Legacy Mode Unchanged**: When `DISABLE_GRID=True`, fixed-position layouts still preserve their configured account slots
 - **Disabled Accounts Stay Put**: Dynamic-grid window movement now ignores accounts marked `enabled=false` in `config.json`, so disabled-account windows are no longer rearranged if they are already open
+
+---
 
 ### v1.37 (2026-04-10) - Dynamic Grid Window Placement
 
@@ -1379,12 +1442,16 @@ Created by: https://github.com/xa-io
 - **Custom Resolution Support**: Configure custom resolutions in-game (XA Slave has mods to allow window size to be ignored) for lower game resolution support alongside layout resizing
 - **Grid Mode Benefits**: Multi-client setups stay visually organized regardless of which specific accounts are running
 
+---
+
 ### v1.36 (2026-04-06) - Character-Suffix Window Title Support
 
 - **XA Slave Character Suffix Support**: Multi-client window matching now accepts both `ProcessID - nickname` and `ProcessID - nickname - character`
 - **Stable Nickname Routing**: Auto-AutoRetainer still matches accounts on the PID/nickname segment, so adding the live character name does not create conflicts between accounts
 - **Launch Verification Compatibility**: Post-launch title checks now treat either renamed title format as a valid successful plugin rename
 - **Legacy Layout Compatibility**: Existing `title_regex` layout rules written for `PID - nickname` still work because the optional trailing ` - Character` suffix is normalized away during layout matching
+
+---
 
 ### v1.35 (2026-03-25) - Vessel-Wait Force-Crash Pause
 
@@ -1393,6 +1460,8 @@ Created by: https://github.com/xa-io
 - **Ready-Again Resume**: Once the waiting submarine actually returns, the pause ends and normal force-close monitoring resumes from a fresh inactivity window
 - **Countdown Cleanup**: The on-screen `X:xx` inactivity countdown is hidden while vessel waiting is active so the display no longer suggests an active crash timer during a legitimate AR wait
 
+---
+
 ### v1.34 (2026-03-08) - XA Snapshot Reads + Farmer Snapshot Tracking
 
 - **XA Snapshot Financial Reads**: Daily wealth snapshots now read XA Database's `xa_characters` layout
@@ -1400,6 +1469,8 @@ Created by: https://github.com/xa-io
 - **Stored Farmer State**: Each farmer row stores CID, account nickname, ETA JSON, and sent/returned processing state
 - **Safer Force-Crash Monitoring**: Force-crash detection now monitors per-sub transitions so active submarine processing does not look stalled
 - **Legacy XA Fallback Preserved**: Older XA Database files still work through the legacy fallback path
+
+---
 
 ### v1.33 (2026-03-07) - AR Configuration Awareness
 
