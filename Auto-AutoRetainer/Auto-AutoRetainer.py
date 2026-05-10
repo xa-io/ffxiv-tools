@@ -1,144 +1,1662 @@
-############################################################################################################################
+########################################################################################################################
 #
-#  ██╗      █████╗ ███╗   ██╗██████╗ ██╗███╗   ██╗ ██████╗     ██████╗  █████╗  ██████╗ ███████╗
-#  ██║     ██╔══██╗████╗  ██║██╔══██╗██║████╗  ██║██╔════╝     ██╔══██╗██╔══██╗██╔════╝ ██╔════╝
-#  ██║     ███████║██╔██╗ ██║██║  ██║██║██╔██╗ ██║██║  ███╗    ██████╔╝███████║██║  ███╗█████╗  
-#  ██║     ██╔══██║██║╚██╗██║██║  ██║██║██║╚██╗██║██║   ██║    ██╔═══╝ ██╔══██║██║   ██║██╔══╝  
-#  ███████╗██║  ██║██║ ╚████║██████╔╝██║██║ ╚████║╚██████╔╝    ██║     ██║  ██║╚██████╔╝███████╗
-#  ╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═════╝ ╚═╝╚═╝  ╚═══╝ ╚═════╝     ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
+#   █████╗ ██╗   ██╗████████╗ ██████╗        █████╗ ██╗   ██╗████████╗ ██████╗ ██████╗ ███████╗████████╗ █████╗ ██╗███╗   ██╗███████╗██████╗ 
+#  ██╔══██╗██║   ██║╚══██╔══╝██╔═══██╗      ██╔══██╗██║   ██║╚══██╔══╝██╔═══██╗██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██║████╗  ██║██╔════╝██╔══██╗
+#  ███████║██║   ██║   ██║   ██║   ██║█████╗███████║██║   ██║   ██║   ██║   ██║██████╔╝█████╗     ██║   ███████║██║██╔██╗ ██║█████╗  ██████╔╝
+#  ██╔══██║██║   ██║   ██║   ██║   ██║╚════╝██╔══██║██║   ██║   ██║   ██║   ██║██╔══██╗██╔══╝     ██║   ██╔══██║██║██║╚██╗██║██╔══╝  ██╔══██╗
+#  ██║  ██║╚██████╔╝   ██║   ╚██████╔╝      ██║  ██║╚██████╔╝   ██║   ╚██████╔╝██║  ██║███████╗   ██║   ██║  ██║██║██║ ╚████║███████╗██║  ██║
+#  ╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝       ╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝
 #
-# AutoRetainer Dashboard - Self-Hosted Web Interface
+# Automated FFXIV Submarine Management System
 #
-# A comprehensive web dashboard that displays FFXIV character data from AutoRetainer, XA Database, and Lifestream.
-# Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers,
-# housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels,
-# currencies, income/cost calculations, and comprehensive supply tracking.
+# A comprehensive automation script that monitors submarine return times across multiple FFXIV accounts and intelligently
+# manages game instances for hands-off submarine and retainer farming. Automatically launches games when submarines are ready,
+# handles 2FA login, recovers from crashes and frozen clients, enforces stability restarts, tracks daily gil earnings and supply 
+# levels, and closes games when idle, all without manual intervention.
 #
 # Core Features:
-# • Self-hosted Flask web server with configurable host/port
-# • Real-time data parsing from AutoRetainer, XA Database, and Lifestream configs
-# • Character overview with gil, FC points, venture coins, coffers, dyes, and inventory
-# • MSQ progression tracking with color-coded percentage (green ≥90%, yellow ≥50%, gray <50%)
-# • Job level display: DoW/DoM and DoH/DoL collapsible sections with all job levels
-# • Currency tracking: Categorized display (Crystals, Common, Tomestones, Battle, Societies)
-# • Submarine tracking with builds, levels, plans (leveling/farming), and return times
-# • Retainer details with venture status, levels, and marketboard items
-# • Housing display showing Personal House and FC House locations
-# • Sorting by level, gil, treasure, FC points, ventures, inventory, MSQ%, retainer/sub levels
-# • Filtering by retainers, submarines, personal house, FC house, and FC chest gil
-# • Anonymize mode for screenshots (hides names, addresses with TOP SECRET)
-# • Configurable display options (SHOW_CLASSES, SHOW_CURRENCIES)
-# • Monthly income and daily repair cost calculations
-# • Modern, responsive dark-themed UI with multi-account support
+# • Real-time submarine timer monitoring across all configured accounts
+# • Automatic game launching when submarines are nearly ready (configurable threshold)
+# • Automatic game closing when submarines won't be ready soon (prevents idle instances)
+# • Two-factor authentication (2FA/OTP) support with automatic code submission
+# • Crash recovery with automatic game relaunch when clients close unexpectedly
+# • Frozen client detection and force-crash after configurable inactivity period
+# • 72-hour stability protection with automatic restart at MAX_RUNTIME (71 hours)
+# • Supply level monitoring with restocking alerts for Ceruleum tanks and Repair Kits
+# • Gil earnings and supply cost calculations based on submarine builds and routes
+# • Multi-account support with flexible modes (submarine-only, 24/7 uptime, or both)
+# • Account-specific automation hours to restrict launch/run windows
+# • Intelligent window arrangement with customizable layouts
+# • External configuration via config.json with notification support (Pushover/Discord)
 #
-# Landing Page v1.39
-# AutoRetainer Dashboard
+# Important Note: This script requires properly configured game launchers (XIVLauncher.exe or batch files), game windows
+# labeled with "ProcessID - nickname" or "ProcessID - nickname - character" format, autologin enabled,
+# and AutoRetainer multi-mode auto-enabled
+# for full automation. 2FA is supported via keyring integration. See README.md for complete setup instructions.
+#
+# Auto-AutoRetainer v1.40
+# Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-05-08 16:00:00
+# Last Updated: 2026-05-01 08:00:00
 #
 # ## Release Notes This Update ##
 #
-# v1.39 - Replaced /fcdata/ housing size fallback with hardcoded verified plot sizes for every residential district plot
+# v1.40 - Multi-client stale default-title recovery now force-closes only the stuck FFXIV PID
+#         If a launched client remains "FINAL FANTASY XIV" after title polling, Auto-AutoRetainer kills that PID
+#         and immediately retries the same account instead of opening duplicate clients
+# v1.39 - Added account-specific automation hours using scheduled + automation_hours config (Thanks again, Asuna!)
+#         Scheduled accounts only launch/run during configured local time windows
+#         Terminal output now shows automation-hours state for scheduled accounts
+# v1.38 - Dynamic-grid window movement now ignores accounts disabled in config.json
+#         Stats/runtime account loading already honored enabled=false; window movement now matches that behavior
+#         Disabled account windows can stay open without being rearranged by Auto-AutoRetainer
 #
-############################################################################################################################
-
-###########################################
-#### Start of Configuration Parameters ####
-###########################################
+########################################################################################################################
 
 import json
 import os
 import datetime
+import sys
 import getpass
+import time
 import sqlite3
-import re
 from pathlib import Path
-from flask import Flask, render_template_string, jsonify
+import win32gui
+import win32process
+import subprocess
+import ctypes
+from ctypes import wintypes
+import re
+import win32con
+import requests
+import threading
+
+# Try to import psutil for process information
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    print("[WARNING] psutil not installed. Install with: pip install psutil")
+    print("[WARNING] Uptime will only be tracked from script start time.")
+
+# Try to import pyotp and keyring for 2FA support
+try:
+    import pyotp
+    import keyring
+    PYOTP_AVAILABLE = True
+except ImportError:
+    PYOTP_AVAILABLE = False
+    print("[WARNING] pyotp/keyring not installed. Install with: pip install pyotp keyring")
+    print("[WARNING] 2FA features will be disabled.")
 
 # ===============================================
-# Server Configuration
+# Configuration Parameters
 # ===============================================
-HOST = "127.0.0.1"      # Server host address (use "0.0.0.0" for network access)
-PORT = 1234             # Server port number
-DEBUG = False           # Flask debug mode (set True for development)
-AUTO_REFRESH = 60       # Auto-refresh interval in seconds (0 to disable)
+VERSION = "v1.40"     # Current script version
+VERSION_SUFFIX = ""     # Custom text appended to version display (set via config.json, e.g., " - Main")
 
-# Display options
-VERSION = "v1.41"       # Version number shown in footer and startup
-SHOW_CLASSES = False     # Show DoW/DoM and DoH/DoL job sections, disable to speed up page load
-SHOW_CURRENCIES = False  # Show currencies section, disable to speed up page load
-SHOW_MSQ_PROGRESSION = True  # Show MSQ progression tracking
-DEFAULT_THEME = "default"  # Theme preset for dashboard
-HIGHLIGHT_IDLE_RETAINERS = True  # Cyan outline on character cards with idle retainers
-HIGHLIGHT_IDLE_SUBS = True       # Pink outline on character cards with idle submarines
-HIGHLIGHT_READY_ITEMS = True     # Red background on character cards with ready retainers/subs
-HIGHLIGHT_MAX_MB = True          # Gold outline on character cards with max (20) MB listings
-HIGHLIGHT_POTENTIAL_RETAINER = True  # Brown outline on characters with MSQ 66060 done but 0 retainers
-HIGHLIGHT_POTENTIAL_SUBS = True  # Black outline on characters Lv 25+ not in FC (potential sub farmers)
-HONOR_AR_EXCLUSIONS = True  # Honor AutoRetainer's ExcludeRetainer/ExcludeWorkshop settings per character
+# Display settings
+NICKNAME_WIDTH = 5      # Display column width for account nicknames in terminal output
+SUBS_COUNT_WIDTH = 11   # Display column width for submarine count (e.g., "Subs: 4/4")
+HOURS_WIDTH = 24        # Display column width for submarine return times/ready status
+STATUS_WIDTH = 10       # Display column width for game status (Running/Closed/Up 24/7)
+PID_WIDTH = 11          # Display column width for process ID (e.g., "PID: 12345")
+AUTOMATION_HOURS_WIDTH = 16  # Display column width for automation-hours status
 
-# XA Database Integration (financial data from XA Database plugin)
-# This Is Under Development And May Not Report Everything Correctly
-USE_AAR_DB = True          # Enable /charts/ page with xa.db data from XA Database plugin
+# Timer settings
+TIMER_REFRESH_INTERVAL = 30     # Main loop cycle time (seconds) - updates submarine timers and checks for launch/close conditions
+WINDOW_REFRESH_INTERVAL = 60    # How often (seconds) to scan running processes to detect which game clients are open/closed
 
-# Highlight Colors (customizable)
-HIGHLIGHT_COLOR_IDLE_RETAINERS = "cyan"       # Cyan for idle retainers
-HIGHLIGHT_COLOR_IDLE_SUBS = "#FFB6C1"         # Pink for idle subs
-HIGHLIGHT_COLOR_MAX_MB = "#FFD700"            # Gold for max MB listings
-HIGHLIGHT_COLOR_POTENTIAL_RETAINER = "#8B4513"  # Brown for potential retainers
-HIGHLIGHT_COLOR_POTENTIAL_SUBS = "#1a1a1a"    # Black for potential sub farmers
-# Available themes:
-#   default      - Blue accent (original)
-#   ultra-dark   - Near-black with subtle gray
-#   dark-gray    - Neutral grays
-#   ocean-blue   - Deep blues with cyan accent
-#   forest-green - Dark greens
-#   crimson-red  - Dark reds
-#   purple-haze  - Dark purples
-#   pastel-pink  - Soft pink with hot pink accent
-#   dark-orange  - Warm orange/amber tones
-#   brown        - Earthy brown/sienna tones
+# Auto-close game settings
+ENABLE_AUTO_CLOSE = True            # Enable automatic closing of game clients when submarines are not ready soon
+AUTO_CLOSE_THRESHOLD = 0.5          # Close game if soonest submarine return time exceeds this many hours (0.5h = 30 minutes)
+MAX_RUNTIME = 71                    # Force close any game client that has been running for this many hours (prevents indefinite uptime)
+FORCE_CRASH_INACTIVITY_MINUTES = 10 # Force crash client if no submarine processing detected for this many minutes (after monitoring activates)
+FORCE_CRASH_RETAINER_MINUTES = 20   # Force crash client if no retainer processing detected for this many minutes (longer due to GC turn-ins)
+# Note: Monitoring activates AUTO_LAUNCH_THRESHOLD hours after game launches (not when subs become ready)
+# This ensures crash detection works even if game boots stuck without processing any submarines
 
-# ===============================================
-# External config file (optional)
-# ===============================================
+# Auto-launch game settings
+ENABLE_AUTO_LAUNCH = True       # Enable automatic launching of game clients when submarines are nearly ready
+OTP_LAUNCH_DELAY = 10           # For 2FA, delay in seconds between launching and sending OTP code (not recommended below 10)
+AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if soonest submarine return time is at or below this many hours (0.15h = 9 minutes)
+OPEN_DELAY_THRESHOLD = 60       # Minimum seconds to wait between launching the same account (rate limiting per account, prevents launch spam)
+WINDOW_TITLE_RESCAN = 5         # Seconds to wait between each window title check after launch (polling interval for plugin to rename window)
+MAX_WINDOW_TITLE_RESCAN = 20    # Maximum title checks before stale default-title PID recovery (20 checks × 5s = 100s timeout)
+FORCE_LAUNCHER_RETRY = 3        # Maximum number of launcher retry attempts when XIVLauncher.exe opens instead of game (prevents stuck accounts)
+ENABLE_AUTOLOGIN_UPDATER = True # Enable automatic updating of AutologinEnabled in launcherConfigV3.json when launcher opens instead of game
+                                # When True: After launcher fail 1/3 or 2/3, checks and updates AutologinEnabled to "true" before retry
+                                # This fixes rare cases where launcher opens because autologin was disabled in the config
+MAX_CLIENTS = 0                 # Maximum concurrent running game clients allowed (0 = unlimited, N = caps at N clients for hardware-limited systems)
+                                # When limit reached, prioritizes force247uptime accounts first, then submarine-ready accounts
+
+# Window arrangement settings
+ENABLE_WINDOW_LAYOUT = False                 # Enable automatic positioning/sizing of game windows after launch (requires window layout JSON files)
+WINDOW_LAYOUT = "main"                       # Which layout configuration to use: "left" (window_layout_left) or "main" (window_layout_main)
+WINDOW_MOVER_DIR = Path(__file__).parent     # Directory containing window layout JSON files (windows_layout_left.json / windows_layout_main.json)
+DISABLE_GRID = False                         # If True: use fixed positions from config (legacy mode). If False: use dynamic grid placement (windows fill positions 1-8 sequentially)
+MAX_WINDOW_MOVE_ATTEMPTS = 3                 # Maximum number of window move attempts per client (1-3 recommended, prevents script freeze on unresponsive windows)
+WINDOW_MOVE_VERIFICATION_DELAY = 1           # Seconds to wait after window move before verifying position (allows window to settle)
+MAX_FAILED_FORCE_CRASH = True                # Force crash client after MAX_WINDOW_MOVE_ATTEMPTS failures (script will relaunch on next cycle if game should be running)
+
+# Debug settings
+DEBUG = False                   # Show verbose debug output (auto-launch eligibility checks, window detection, process tracking, etc.)
+
+# Logging settings
+ENABLE_LOGGING = True          # Enable logging major issues to arr.log file
+LOG_FILE = "arr.log"           # Log file name for major issues (created in script directory)
+
+# System settings
+SYSTEM_BOOTUP_DELAY = 0         # Seconds to delay before starting script monitoring (useful for auto-start on system boot, 0 = no delay)
+
+# Pushover notification settings (optional)
+ENABLE_PUSHOVER = False         # Enable Pushover notifications for logged issues
+PUSHOVER_USER_KEY = ""          # Your Pushover user key (from https://pushover.net/)
+PUSHOVER_API_TOKEN = ""         # Your Pushover application API token
+
+# Discord webhook notification settings (optional)
+ENABLE_DISCORD_WEBHOOK = False  # Enable Discord webhook notifications for logged issues
+DISCORD_WEBHOOK_URL = ""        # Discord webhook URL for notifications
+
+# Single client mode settings
+USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = True    # If True: uses default "FINAL FANTASY XIV" window title (single account mode, no Dalamud renaming needed)
+                                              # If False: expects "ProcessID - nickname" or "ProcessID - nickname - character" window titles
+                                              # (multi-account mode, requires Dalamud/plugin window renaming with nickname preserved before any optional character suffix)
+                                              # Single client mode is intended for single-account setups where the game window title does not need to be customized
+
+# External config file name (not required, leave as is if not using)
 CONFIG_FILE = "config.json"
 
 # ===============================================
-# Account Configuration
+# Supply Costs (configurable via config.json)
+# ===============================================
+CERULEUM_TANK_COST = 350   # Gil cost per Ceruleum Tank
+REPAIR_KIT_COST = 2000     # Gil cost per Repair Kit
+
+# ===============================================
+# Treasure Values (for sublord.db financial tracking)
+# ===============================================
+TREASURE_VALUES = {
+    22500: 8000,   # Salvaged Ring
+    22501: 9000,   # Salvaged Bracelet
+    22502: 10000,  # Salvaged Earring
+    22503: 13000,  # Salvaged Necklace
+    22504: 27000,  # Extravagant Salvaged Ring
+    22505: 28500,  # Extravagant Salvaged Bracelet
+    22506: 30000,  # Extravagant Salvaged Earring
+    22507: 34500,  # Extravagant Salvaged Necklace
+}
+TREASURE_IDS = set(TREASURE_VALUES.keys())
+XA_TREASURE_CONTAINER_NAMES = (
+    "Inventory 1",
+    "Inventory 2",
+    "Inventory 3",
+    "Inventory 4",
+    "Saddlebag 1",
+    "Saddlebag 2",
+)
+
+# ===============================================
+# Sublord Database Settings (configurable via config.json)
+# ===============================================
+ENABLE_SUBLORD_DB = True                    # Enable sublord.db financial tracking database
+SUBLORD_DB_UPDATE_INTERVAL = 30             # Minutes between database updates (1-60, default 30)
+SUBLORD_DB_PATH = ""                        # Custom path to sublord.db (empty = script directory)
+_sublord_all_accounts = []                  # Built from ALL account_locations (incl disabled) for Gil/treasure scanning
+
+# ===============================================
+# Submarine Plan Configuration (configurable via config.json)
+# Leveling plans = no income counted, Farming plans = daily gil earnings
+# ===============================================
+submarine_plans = {
+    "leveling": [
+        "OJ Unlocker",
+        "Overseer OJ Unlocker", 
+        "XP Grind",
+        "Level Up Default",
+        "Unlock All Sectors"
+    ],
+    "farming": {
+        "OJ": 118661,
+        "Yummy OJ": 118661,
+        "Overseer OJ": 118661,
+        "JORZ": 140404,
+        "MROJZ": 116206
+    }
+}
+
+# ===============================================
+# Submarine Build Gil Rates (from AR Parser)
+# Gil/Sub/Day rates for each route
+# ===============================================
+build_gil_rates = {
+    "WSUC": 118661, "SSUC": 118661, "W+S+U+C+": 118661, "S+S+S+C+": 118661,
+    "YUUW": 93165, "Y+U+U+W+": 93165,
+    "WCSU": 106191, "WUSS": 106191, "W+U+S+S+": 106191,
+    "YSYC": 113321, "Y+S+Y+C+": 113321,
+    "S+S+U+C": 140404, "S+S+U+C+": 140404,
+    "WCYC": 105303, "WUWC": 105303, "W+U+W+C+": 105303,
+    "YSCU": 116206, "SCUS": 116206, "S+C+U+S+": 116206,
+}
+
+# ===============================================
+# Submarine Build Consumption Rates (from Routes.xlsx)
+# ===============================================
+build_consumption_rates = {
+    "WSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
+    "SSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
+    "W+S+U+C+": {"tanks_per_day": 9.0, "kits_per_day": 3.43},
+    "S+S+S+C+": {"tanks_per_day": 9.0, "kits_per_day": 3.43},
+    "YUUW": {"tanks_per_day": 7.5, "kits_per_day": 1.40},
+    "Y+U+U+W+": {"tanks_per_day": 10.0, "kits_per_day": 3.07},
+    "WCSU": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
+    "WUSS": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
+    "W+U+S+S+": {"tanks_per_day": 10.0, "kits_per_day": 3.20},
+    "YSYC": {"tanks_per_day": 10.0, "kits_per_day": 2.50},
+    "Y+S+Y+C+": {"tanks_per_day": 10.0, "kits_per_day": 3.20},
+    "S+S+U+C": {"tanks_per_day": 14.0, "kits_per_day": 3.67},
+    "WCYC": {"tanks_per_day": 10.5, "kits_per_day": 2.00},
+    "WUWC": {"tanks_per_day": 10.5, "kits_per_day": 2.00},
+    "W+U+W+C+": {"tanks_per_day": 10.5, "kits_per_day": 3.00},
+    "S+S+U+C+": {"tanks_per_day": 14.0, "kits_per_day": 4.0},
+    "YSCU": {"tanks_per_day": 9.0, "kits_per_day": 1.67},
+    "SCUS": {"tanks_per_day": 9.0, "kits_per_day": 1.67},
+    "S+C+U+S+": {"tanks_per_day": 13.5, "kits_per_day": 4.0},
+}
+
+# Global plan name cache (GUID -> plan name)
+submarine_plan_names = {}
+
+def build_plan_name_cache(data):
+    """Build a cache of plan GUIDs to plan names from AutoRetainer config."""
+    global submarine_plan_names
+    submarine_plan_names = {}
+    
+    # SubmarinePointPlans (farming routes)
+    for plan in data.get("SubmarinePointPlans", []):
+        guid = plan.get("GUID", "")
+        name = plan.get("Name", "")
+        if guid and name:
+            submarine_plan_names[guid] = name
+    
+    # SubmarineUnlockPlans (leveling/unlock routes)
+    for plan in data.get("SubmarineUnlockPlans", []):
+        guid = plan.get("GUID", "")
+        name = plan.get("Name", "")
+        if guid and name:
+            submarine_plan_names[guid] = name
+
+def get_submarine_plan_name(sub_data):
+    """Get the plan name for a submarine based on its selected plan GUID."""
+    selected_point_plan = sub_data.get("SelectedPointPlan", "")
+    selected_unlock_plan = sub_data.get("SelectedUnlockPlan", "")
+    vessel_behavior = sub_data.get("VesselBehavior", 0)
+    
+    # VesselBehavior 4 = Use Point Plan, 3 = Unlock Sectors
+    plan_guid = ""
+    if vessel_behavior == 4:
+        plan_guid = selected_point_plan
+    elif vessel_behavior == 3:
+        plan_guid = selected_unlock_plan
+    
+    return submarine_plan_names.get(plan_guid, "")
+
+# ===============================================
+# Automation Hours Functions
+# ===============================================
+# Keep this section above acc(); account entries parse schedules at module load/config load time.
+_AUTOMATION_WEEKDAY_NAMES = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+_VALID_AUTOMATION_DAYS = frozenset(_AUTOMATION_WEEKDAY_NAMES)
+
+def _parse_automation_hhmm(value):
+    """Parse a 24-hour HH:MM string into datetime.time."""
+    if not isinstance(value, str):
+        raise ValueError(f"time must be a string in 'HH:MM' format, got {type(value).__name__}")
+
+    parts = value.strip().split(":")
+    if len(parts) != 2:
+        raise ValueError(f"time must be 'HH:MM' format, got '{value}'")
+
+    try:
+        hour = int(parts[0])
+        minute = int(parts[1])
+    except ValueError:
+        raise ValueError(f"time must be 'HH:MM' with numeric hour/minute, got '{value}'")
+
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        raise ValueError(f"time out of range (HH 0-23, MM 0-59), got '{value}'")
+
+    return datetime.time(hour=hour, minute=minute)
+
+def parse_automation_hours(raw_hours, nickname, scheduled=False):
+    """
+    Normalize account automation_hours config into parsed time windows.
+    scheduled=false returns None and leaves the account unrestricted.
+    """
+    if not scheduled:
+        return None
+
+    if raw_hours is None:
+        raise ValueError(f"Account '{nickname}': scheduled=true requires automation_hours")
+    if not isinstance(raw_hours, list):
+        raise ValueError(f"Account '{nickname}': automation_hours must be a list, got {type(raw_hours).__name__}")
+    if len(raw_hours) == 0:
+        raise ValueError(f"Account '{nickname}': scheduled=true requires at least one automation_hours entry")
+
+    normalized = []
+    for index, entry in enumerate(raw_hours):
+        if not isinstance(entry, dict):
+            raise ValueError(
+                f"Account '{nickname}': automation_hours[{index}] must be an object, got {type(entry).__name__}"
+            )
+        if "start" not in entry:
+            raise ValueError(f"Account '{nickname}': automation_hours[{index}] missing 'start'")
+        if "end" not in entry:
+            raise ValueError(f"Account '{nickname}': automation_hours[{index}] missing 'end'")
+
+        try:
+            start_time = _parse_automation_hhmm(entry["start"])
+        except ValueError as e:
+            raise ValueError(f"Account '{nickname}': automation_hours[{index}] start: {e}")
+
+        try:
+            end_time = _parse_automation_hhmm(entry["end"])
+        except ValueError as e:
+            raise ValueError(f"Account '{nickname}': automation_hours[{index}] end: {e}")
+
+        if start_time == end_time:
+            raise ValueError(
+                f"Account '{nickname}': automation_hours[{index}] start and end are equal "
+                f"('{entry['start']}') - zero-length automation window"
+            )
+
+        raw_days = entry.get("days", None)
+        if raw_days is None:
+            days = None
+        else:
+            if not isinstance(raw_days, list):
+                raise ValueError(
+                    f"Account '{nickname}': automation_hours[{index}] days must be a list, "
+                    f"got {type(raw_days).__name__}"
+                )
+
+            lowered_days = set()
+            for day in raw_days:
+                if not isinstance(day, str):
+                    raise ValueError(
+                        f"Account '{nickname}': automation_hours[{index}] days contains non-string value"
+                    )
+                day_name = day.strip().lower()
+                if day_name not in _VALID_AUTOMATION_DAYS:
+                    raise ValueError(
+                        f"Account '{nickname}': automation_hours[{index}] has invalid day '{day}'. "
+                        f"Valid days: mon, tue, wed, thu, fri, sat, sun"
+                    )
+                lowered_days.add(day_name)
+
+            if not lowered_days:
+                raise ValueError(
+                    f"Account '{nickname}': automation_hours[{index}] days is empty - "
+                    f"omit the field to mean every day"
+                )
+            days = frozenset(lowered_days)
+
+        normalized.append({"start": start_time, "end": end_time, "days": days})
+
+    return normalized
+
+def automation_hours_enabled(account_entry):
+    """Return True when this account has scheduled automation hours enabled."""
+    return bool(account_entry.get("scheduled") and account_entry.get("automation_hours"))
+
+def is_account_in_automation_hours(account_entry, now):
+    """
+    Return True when now is inside any configured automation window.
+    Unscheduled accounts are unrestricted and return True.
+    """
+    windows = account_entry.get("automation_hours")
+    if not account_entry.get("scheduled") or not windows:
+        return True
+
+    now_time = now.time()
+    today_index = now.weekday()
+    today_name = _AUTOMATION_WEEKDAY_NAMES[today_index]
+    yesterday_name = _AUTOMATION_WEEKDAY_NAMES[(today_index - 1) % 7]
+
+    for window in windows:
+        start_time = window["start"]
+        end_time = window["end"]
+        days = window["days"]
+        crosses_midnight = end_time <= start_time
+
+        if days is None or today_name in days:
+            if not crosses_midnight and start_time <= now_time < end_time:
+                return True
+            if crosses_midnight and now_time >= start_time:
+                return True
+
+        if crosses_midnight and (days is None or yesterday_name in days):
+            if now_time < end_time:
+                return True
+
+    return False
+
+def format_automation_hours_status(account_entry, now):
+    """Return terminal status text for scheduled accounts."""
+    if not automation_hours_enabled(account_entry):
+        return ""
+    return "(Hours Active)" if is_account_in_automation_hours(account_entry, now) else "(Hours Closed)"
+
+# ===============================================
+# Account locations
 # ===============================================
 user = getpass.getuser()
 
-def acc(nickname, pluginconfigs_path):
-    """Create account configuration dictionary"""
+def acc(
+    nickname, pluginconfigs_path, include_submarines=True, force247uptime=False,
+    enable_2fa=False, keyring_name=None, scheduled=False, automation_hours=None
+):
     auto_path = os.path.join(pluginconfigs_path, "AutoRetainer", "DefaultConfig.json")
-    lfstrm_path = os.path.join(pluginconfigs_path, "Lifestream", "DefaultConfig.json")
-    xa_db_path = os.path.join(pluginconfigs_path, "XADatabase", "xa.db")
     return {
         "nickname": nickname,
         "auto_path": auto_path,
-        "lfstrm_path": lfstrm_path,
-        "xa_db_path": xa_db_path,
+        "include_submarines": bool(include_submarines),
+        "force247uptime": bool(force247uptime),
+        "enable_2fa": bool(enable_2fa),
+        "keyring_name": keyring_name,
+        "scheduled": bool(scheduled),
+        "automation_hours": parse_automation_hours(automation_hours, nickname, bool(scheduled)),
     }
 
-# Default account locations - update these paths for your setup
-# Supports both local paths (C:\Users\...) and network/UNC paths (\\server\share\...)
+# In the splatoon script: Rename($"{Environment.ProcessId} - nickname"
+# replace 'nickname' with "Main" of "Acc1" keep the space and dash
+
+# Account configuration - matches AR Parser order
+# 2FA: Set enable_2fa=True and keyring_name="your_keyring_name" for automatic OTP sending
 account_locations = [
-    acc("Main", f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs"),
-    # acc("Acc1", f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs"),
-    # acc("Acc2", f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs"),
-    # Network/UNC path examples:
-    # acc("NetworkAcc", f"\\\\server\\share\\Users\\{user}\\pluginConfigs"),
-    # acc("NAS-Acc", r"\\NAS\FFXIVData\pluginConfigs"),
+    acc("Main",   f"C:\\Users\\{user}\\AppData\\Roaming\\XIVLauncher\\pluginConfigs", include_submarines=True, force247uptime=False, enable_2fa=False, keyring_name=None),
+    # acc("Acc1",   f"C:\\Users\\{user}\\AltData\\Acc1\\pluginConfigs", include_submarines=True, force247uptime=False, enable_2fa=True, keyring_name="ffxiv_acc1"),
+    # acc("Acc2",   f"C:\\Users\\{user}\\AltData\\Acc2\\pluginConfigs", include_submarines=True, force247uptime=True, enable_2fa=True, keyring_name="ffxiv_acc2"),
 ]
 
-#########################################
-#### End of Configuration Parameters ####
-#########################################
+# # Game launcher paths for each account (update these paths to your actual game launchers)
+GAME_LAUNCHERS = {
+    "Main":   rf"C:\Users\{user}\AppData\Local\XIVLauncher\XIVLauncher.exe",
+    # "Acc1":   rf"C:\Users\{user}\AltData\Acc1.bat",
+    # "Acc2":   rf"C:\Users\{user}\AltData\Acc2.bat",
+}
 
 # ===============================================
-# Submarine Build Constants
+# External Configuration Loading
 # ===============================================
+def load_external_config():
+    """Load external config file if it exists and override settings."""
+    global VERSION_SUFFIX, NICKNAME_WIDTH, SUBS_COUNT_WIDTH, HOURS_WIDTH, STATUS_WIDTH, PID_WIDTH, AUTOMATION_HOURS_WIDTH
+    global TIMER_REFRESH_INTERVAL, WINDOW_REFRESH_INTERVAL
+    global ENABLE_AUTO_CLOSE, AUTO_CLOSE_THRESHOLD, MAX_RUNTIME, FORCE_CRASH_INACTIVITY_MINUTES, FORCE_CRASH_RETAINER_MINUTES
+    global ENABLE_AUTO_LAUNCH, OTP_LAUNCH_DELAY, AUTO_LAUNCH_THRESHOLD, OPEN_DELAY_THRESHOLD
+    global WINDOW_TITLE_RESCAN, MAX_WINDOW_TITLE_RESCAN, FORCE_LAUNCHER_RETRY, ENABLE_AUTOLOGIN_UPDATER, MAX_CLIENTS
+    global ENABLE_WINDOW_LAYOUT, WINDOW_LAYOUT, WINDOW_MOVER_DIR, DISABLE_GRID, MAX_WINDOW_MOVE_ATTEMPTS
+    global WINDOW_MOVE_VERIFICATION_DELAY, MAX_FAILED_FORCE_CRASH
+    global DEBUG, ENABLE_LOGGING, LOG_FILE, SYSTEM_BOOTUP_DELAY, USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME
+    global ENABLE_PUSHOVER, PUSHOVER_USER_KEY, PUSHOVER_API_TOKEN
+    global ENABLE_DISCORD_WEBHOOK, DISCORD_WEBHOOK_URL
+    global account_locations, GAME_LAUNCHERS
+    global build_gil_rates, build_consumption_rates, submarine_plans
+    global CERULEUM_TANK_COST, REPAIR_KIT_COST
+    global ENABLE_SUBLORD_DB, SUBLORD_DB_UPDATE_INTERVAL, SUBLORD_DB_PATH, _sublord_all_accounts
+
+    config_path = Path(__file__).parent / CONFIG_FILE
+    if not config_path.exists():
+        return
+
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        print(f"[CONFIG] Loaded configuration from {config_path}")
+    except json.JSONDecodeError as e:
+        print(f"[CONFIG] Error parsing {CONFIG_FILE}: {e}")
+        print("[CONFIG] Please fix the JSON syntax error and try again.")
+        input("\nPress Enter to exit...")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[CONFIG] Error reading {CONFIG_FILE}: {e}")
+        input("\nPress Enter to exit...")
+        sys.exit(1)
+
+    # Helper function for compact config loading
+    cfg = config.get
+
+    # Override settings if present in config (using compact cfg() approach)
+    VERSION_SUFFIX = cfg("VERSION_SUFFIX", VERSION_SUFFIX)
+    NICKNAME_WIDTH = cfg("NICKNAME_WIDTH", NICKNAME_WIDTH)
+    SUBS_COUNT_WIDTH = cfg("SUBS_COUNT_WIDTH", SUBS_COUNT_WIDTH)
+    HOURS_WIDTH = cfg("HOURS_WIDTH", HOURS_WIDTH)
+    STATUS_WIDTH = cfg("STATUS_WIDTH", STATUS_WIDTH)
+    PID_WIDTH = cfg("PID_WIDTH", PID_WIDTH)
+    AUTOMATION_HOURS_WIDTH = cfg("AUTOMATION_HOURS_WIDTH", AUTOMATION_HOURS_WIDTH)
+    TIMER_REFRESH_INTERVAL = cfg("TIMER_REFRESH_INTERVAL", TIMER_REFRESH_INTERVAL)
+    WINDOW_REFRESH_INTERVAL = cfg("WINDOW_REFRESH_INTERVAL", WINDOW_REFRESH_INTERVAL)
+    ENABLE_AUTO_CLOSE = cfg("ENABLE_AUTO_CLOSE", ENABLE_AUTO_CLOSE)
+    AUTO_CLOSE_THRESHOLD = cfg("AUTO_CLOSE_THRESHOLD", AUTO_CLOSE_THRESHOLD)
+    MAX_RUNTIME = cfg("MAX_RUNTIME", MAX_RUNTIME)
+    FORCE_CRASH_INACTIVITY_MINUTES = cfg("FORCE_CRASH_INACTIVITY_MINUTES", FORCE_CRASH_INACTIVITY_MINUTES)
+    FORCE_CRASH_RETAINER_MINUTES = cfg("FORCE_CRASH_RETAINER_MINUTES", FORCE_CRASH_RETAINER_MINUTES)
+    ENABLE_AUTO_LAUNCH = cfg("ENABLE_AUTO_LAUNCH", ENABLE_AUTO_LAUNCH)
+    OTP_LAUNCH_DELAY = cfg("OTP_LAUNCH_DELAY", OTP_LAUNCH_DELAY)
+    AUTO_LAUNCH_THRESHOLD = cfg("AUTO_LAUNCH_THRESHOLD", AUTO_LAUNCH_THRESHOLD)
+    OPEN_DELAY_THRESHOLD = cfg("OPEN_DELAY_THRESHOLD", OPEN_DELAY_THRESHOLD)
+    WINDOW_TITLE_RESCAN = cfg("WINDOW_TITLE_RESCAN", WINDOW_TITLE_RESCAN)
+    MAX_WINDOW_TITLE_RESCAN = cfg("MAX_WINDOW_TITLE_RESCAN", MAX_WINDOW_TITLE_RESCAN)
+    FORCE_LAUNCHER_RETRY = cfg("FORCE_LAUNCHER_RETRY", FORCE_LAUNCHER_RETRY)
+    ENABLE_AUTOLOGIN_UPDATER = cfg("ENABLE_AUTOLOGIN_UPDATER", ENABLE_AUTOLOGIN_UPDATER)
+    MAX_CLIENTS = cfg("MAX_CLIENTS", MAX_CLIENTS)
+    ENABLE_WINDOW_LAYOUT = cfg("ENABLE_WINDOW_LAYOUT", ENABLE_WINDOW_LAYOUT)
+    WINDOW_LAYOUT = cfg("WINDOW_LAYOUT", WINDOW_LAYOUT)
+    DISABLE_GRID = cfg("DISABLE_GRID", DISABLE_GRID)
+    MAX_WINDOW_MOVE_ATTEMPTS = cfg("MAX_WINDOW_MOVE_ATTEMPTS", MAX_WINDOW_MOVE_ATTEMPTS)
+    WINDOW_MOVE_VERIFICATION_DELAY = cfg("WINDOW_MOVE_VERIFICATION_DELAY", WINDOW_MOVE_VERIFICATION_DELAY)
+    MAX_FAILED_FORCE_CRASH = cfg("MAX_FAILED_FORCE_CRASH", MAX_FAILED_FORCE_CRASH)
+    DEBUG = cfg("DEBUG", DEBUG)
+    ENABLE_LOGGING = cfg("ENABLE_LOGGING", ENABLE_LOGGING)
+    LOG_FILE = cfg("LOG_FILE", LOG_FILE)
+    ENABLE_PUSHOVER = cfg("ENABLE_PUSHOVER", ENABLE_PUSHOVER)
+    PUSHOVER_USER_KEY = cfg("PUSHOVER_USER_KEY", PUSHOVER_USER_KEY)
+    PUSHOVER_API_TOKEN = cfg("PUSHOVER_API_TOKEN", PUSHOVER_API_TOKEN)
+    ENABLE_DISCORD_WEBHOOK = cfg("ENABLE_DISCORD_WEBHOOK", ENABLE_DISCORD_WEBHOOK)
+    DISCORD_WEBHOOK_URL = cfg("DISCORD_WEBHOOK_URL", DISCORD_WEBHOOK_URL)
+    SYSTEM_BOOTUP_DELAY = cfg("SYSTEM_BOOTUP_DELAY", SYSTEM_BOOTUP_DELAY)
+    USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME = cfg("USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME", USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME)
+    
+    # Override supply costs if present
+    CERULEUM_TANK_COST = cfg("ceruleum_tank_cost", CERULEUM_TANK_COST)
+    REPAIR_KIT_COST = cfg("repair_kit_cost", REPAIR_KIT_COST)
+    
+    # Override sublord DB settings if present
+    ENABLE_SUBLORD_DB = cfg("ENABLE_SUBLORD_DB", ENABLE_SUBLORD_DB)
+    SUBLORD_DB_UPDATE_INTERVAL = cfg("SUBLORD_DB_UPDATE_INTERVAL", SUBLORD_DB_UPDATE_INTERVAL)
+    SUBLORD_DB_PATH = cfg("SUBLORD_DB_PATH", SUBLORD_DB_PATH)
+    if SUBLORD_DB_PATH:
+        SUBLORD_DB_PATH = os.path.expandvars(SUBLORD_DB_PATH)
+        SUBLORD_DB_PATH = SUBLORD_DB_PATH.replace("{user}", user)
+    
+    # Build sublord scan list from ALL account_locations (including disabled) for Gil/treasure scanning
+    if "account_locations" in config:
+        _sublord_all_accounts = []
+        for acc_config in config["account_locations"]:
+            nickname = acc_config.get("nickname", "Unknown")
+            pp = acc_config.get("pluginconfigs_path", "")
+            pp = os.path.expandvars(pp)
+            pp = pp.replace("{user}", user)
+            ap = os.path.join(pp, "AutoRetainer", "DefaultConfig.json")
+            _sublord_all_accounts.append({"nickname": nickname, "auto_path": ap, "pluginconfigs_path": pp})
+        if ENABLE_SUBLORD_DB:
+            print(f"[SUBLORD-DB] Will scan {len(_sublord_all_accounts)} accounts for Gil/treasure tracking")
+    
+    # Override submarine_plans if present (merge with defaults)
+    if "submarine_plans" in config:
+        config_plans = config["submarine_plans"]
+        # Merge leveling plans (add to existing list, avoid duplicates)
+        if "leveling" in config_plans:
+            for plan in config_plans["leveling"]:
+                if plan not in submarine_plans["leveling"]:
+                    submarine_plans["leveling"].append(plan)
+        # Merge farming plans (add new, override existing with same name)
+        if "farming" in config_plans:
+            submarine_plans["farming"].update(config_plans["farming"])
+        print(f"[CONFIG] Loaded custom submarine plans")
+    
+    # Override build_gil_rates if present (merge with defaults)
+    if "build_gil_rates" in config:
+        build_gil_rates.update(config["build_gil_rates"])
+        print(f"[CONFIG] Loaded {len(config['build_gil_rates'])} custom build gil rates")
+    
+    # Override build_consumption_rates if present (merge with defaults)
+    if "build_consumption_rates" in config:
+        build_consumption_rates.update(config["build_consumption_rates"])
+        print(f"[CONFIG] Loaded {len(config['build_consumption_rates'])} custom build consumption rates")
+
+    # Override account_locations if present
+    if "account_locations" in config:
+        new_locations = []
+        for acc_config in config["account_locations"]:
+            # Skip disabled accounts (enabled defaults to True if not specified)
+            if not acc_config.get("enabled", True):
+                continue
+            nickname = acc_config.get("nickname", "Unknown")
+            pluginconfigs_path = acc_config.get("pluginconfigs_path", "")
+            pluginconfigs_path = os.path.expandvars(pluginconfigs_path)
+            pluginconfigs_path = pluginconfigs_path.replace("{user}", user)
+            try:
+                new_locations.append(acc(
+                    nickname=nickname,
+                    pluginconfigs_path=pluginconfigs_path,
+                    include_submarines=acc_config.get("include_submarines", True),
+                    force247uptime=acc_config.get("force247uptime", False),
+                    enable_2fa=acc_config.get("enable_2fa", False),
+                    keyring_name=acc_config.get("keyring_name", None),
+                    scheduled=acc_config.get("scheduled", False),
+                    automation_hours=acc_config.get("automation_hours", None)
+                ))
+            except ValueError as e:
+                print(f"[CONFIG] {e}")
+                print("[CONFIG] Please fix the error in config.json and try again.")
+                input("\nPress Enter to exit...")
+                sys.exit(1)
+        account_locations = new_locations
+
+    # Override game_launchers if present
+    if "game_launchers" in config:
+        new_launchers = {}
+        for nickname, path in config["game_launchers"].items():
+            path = os.path.expandvars(path)
+            path = path.replace("{user}", user)
+            new_launchers[nickname] = path
+        GAME_LAUNCHERS = new_launchers
+
+# Load external config if it exists
+load_external_config()
+
+# ===============================================
+# Sublord Database Module
+# ===============================================
+def get_sublord_db_path():
+    """Get the path to sublord.db (custom path or script directory)."""
+    if SUBLORD_DB_PATH:
+        return Path(SUBLORD_DB_PATH)
+    return Path(__file__).parent / "sublord.db"
+
+def init_sublord_db():
+    """Initialize sublord.db with required tables. Returns True on success."""
+    if not ENABLE_SUBLORD_DB:
+        return False
+    try:
+        db_path = get_sublord_db_path()
+        conn = sqlite3.connect(str(db_path))
+        conn.execute("PRAGMA journal_mode=WAL")
+        c = conn.cursor()
+        
+        # Daily snapshots table - one row per day, updated throughout the day
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS daily_snapshots (
+                date TEXT PRIMARY KEY,
+                total_subs INTEGER DEFAULT 0,
+                total_subs_farming INTEGER DEFAULT 0,
+                total_subs_leveling INTEGER DEFAULT 0,
+                total_gil_per_day INTEGER DEFAULT 0,
+                total_supply_cost_per_day INTEGER DEFAULT 0,
+                total_ceruleum_tanks INTEGER DEFAULT 0,
+                total_repair_kits INTEGER DEFAULT 0,
+                total_tanks_per_day REAL DEFAULT 0,
+                total_kits_per_day REAL DEFAULT 0,
+                days_until_restocking INTEGER,
+                lowest_inventory_sub_only INTEGER,
+                lowest_inventory_retainer INTEGER,
+                total_character_gil INTEGER DEFAULT 0,
+                total_retainer_gil INTEGER DEFAULT 0,
+                total_treasure_value INTEGER DEFAULT 0,
+                total_gil_plus_treasure INTEGER DEFAULT 0,
+                last_updated TEXT NOT NULL
+            )
+        """)
+        
+        # Add new columns to existing databases (safe to call even if columns exist)
+        for col_def in [
+            ("total_character_gil", "INTEGER DEFAULT 0"),
+            ("total_retainer_gil", "INTEGER DEFAULT 0"),
+            ("total_treasure_value", "INTEGER DEFAULT 0"),
+            ("total_gil_plus_treasure", "INTEGER DEFAULT 0"),
+        ]:
+            try:
+                c.execute(f"ALTER TABLE daily_snapshots ADD COLUMN {col_def[0]} {col_def[1]}")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+        
+        # Cumulative totals table - running totals across all time
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS cumulative_totals (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                total_gil_overall INTEGER DEFAULT 0,
+                total_supply_cost_overall INTEGER DEFAULT 0,
+                total_days_tracked INTEGER DEFAULT 0,
+                first_tracked TEXT,
+                last_updated TEXT NOT NULL
+            )
+        """)
+        
+        # Initialize cumulative row if not exists
+        c.execute("""
+            INSERT OR IGNORE INTO cumulative_totals (id, total_gil_overall, total_supply_cost_overall, total_days_tracked, first_tracked, last_updated)
+            VALUES (1, 0, 0, 0, ?, ?)
+        """, (datetime.datetime.now().strftime('%Y-%m-%d'), datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS farmer_snapshots (
+                account_nickname TEXT NOT NULL,
+                content_id INTEGER NOT NULL,
+                character_name TEXT NOT NULL,
+                world TEXT DEFAULT '',
+                workshop_enabled INTEGER DEFAULT 1,
+                enabled_subs_json TEXT DEFAULT '[]',
+                sub_eta_timers_json TEXT DEFAULT '[]',
+                total_subs INTEGER DEFAULT 0,
+                processable_subs INTEGER DEFAULT 0,
+                ready_subs INTEGER DEFAULT 0,
+                soonest_sub_hours REAL,
+                last_sub_sent TEXT,
+                last_sub_returned TEXT,
+                updated_utc TEXT NOT NULL,
+                PRIMARY KEY (account_nickname, content_id, character_name)
+            )
+        """)
+
+        conn.commit()
+        conn.close()
+        print(f"[SUBLORD-DB] Database initialized: {db_path}")
+        return True
+    except Exception as e:
+        print(f"[SUBLORD-DB] Error initializing database: {e}")
+        return False
+
+def update_sublord_db(snapshot_data):
+    """
+    Update sublord.db with current submarine financial data.
+    snapshot_data dict keys:
+        total_subs, total_subs_farming, total_subs_leveling,
+        total_gil_per_day, total_supply_cost_per_day,
+        total_ceruleum_tanks, total_repair_kits,
+        total_tanks_per_day, total_kits_per_day,
+        days_until_restocking, lowest_inventory_sub_only, lowest_inventory_retainer,
+        total_character_gil, total_retainer_gil, total_treasure_value, total_gil_plus_treasure
+    """
+    if not ENABLE_SUBLORD_DB:
+        return False
+    try:
+        db_path = get_sublord_db_path()
+        now = datetime.datetime.now()
+        today = now.strftime('%Y-%m-%d')
+        timestamp = now.strftime('%Y-%m-%d %H:%M:%S')
+        
+        conn = sqlite3.connect(str(db_path))
+        conn.execute("PRAGMA journal_mode=WAL")
+        c = conn.cursor()
+        
+        # Check if today's row already exists
+        c.execute("SELECT date FROM daily_snapshots WHERE date = ?", (today,))
+        existing = c.fetchone()
+        
+        if existing:
+            # Update today's row with latest data
+            c.execute("""
+                UPDATE daily_snapshots SET
+                    total_subs = ?,
+                    total_subs_farming = ?,
+                    total_subs_leveling = ?,
+                    total_gil_per_day = ?,
+                    total_supply_cost_per_day = ?,
+                    total_ceruleum_tanks = ?,
+                    total_repair_kits = ?,
+                    total_tanks_per_day = ?,
+                    total_kits_per_day = ?,
+                    days_until_restocking = ?,
+                    lowest_inventory_sub_only = ?,
+                    lowest_inventory_retainer = ?,
+                    total_character_gil = ?,
+                    total_retainer_gil = ?,
+                    total_treasure_value = ?,
+                    total_gil_plus_treasure = ?,
+                    last_updated = ?
+                WHERE date = ?
+            """, (
+                snapshot_data.get("total_subs", 0),
+                snapshot_data.get("total_subs_farming", 0),
+                snapshot_data.get("total_subs_leveling", 0),
+                snapshot_data.get("total_gil_per_day", 0),
+                snapshot_data.get("total_supply_cost_per_day", 0),
+                snapshot_data.get("total_ceruleum_tanks", 0),
+                snapshot_data.get("total_repair_kits", 0),
+                snapshot_data.get("total_tanks_per_day", 0.0),
+                snapshot_data.get("total_kits_per_day", 0.0),
+                snapshot_data.get("days_until_restocking"),
+                snapshot_data.get("lowest_inventory_sub_only"),
+                snapshot_data.get("lowest_inventory_retainer"),
+                snapshot_data.get("total_character_gil", 0),
+                snapshot_data.get("total_retainer_gil", 0),
+                snapshot_data.get("total_treasure_value", 0),
+                snapshot_data.get("total_gil_plus_treasure", 0),
+                timestamp,
+                today
+            ))
+        else:
+            # Insert new row for today
+            c.execute("""
+                INSERT INTO daily_snapshots (
+                    date, total_subs, total_subs_farming, total_subs_leveling,
+                    total_gil_per_day, total_supply_cost_per_day,
+                    total_ceruleum_tanks, total_repair_kits,
+                    total_tanks_per_day, total_kits_per_day,
+                    days_until_restocking, lowest_inventory_sub_only, lowest_inventory_retainer,
+                    total_character_gil, total_retainer_gil, total_treasure_value, total_gil_plus_treasure,
+                    last_updated
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                today,
+                snapshot_data.get("total_subs", 0),
+                snapshot_data.get("total_subs_farming", 0),
+                snapshot_data.get("total_subs_leveling", 0),
+                snapshot_data.get("total_gil_per_day", 0),
+                snapshot_data.get("total_supply_cost_per_day", 0),
+                snapshot_data.get("total_ceruleum_tanks", 0),
+                snapshot_data.get("total_repair_kits", 0),
+                snapshot_data.get("total_tanks_per_day", 0.0),
+                snapshot_data.get("total_kits_per_day", 0.0),
+                snapshot_data.get("days_until_restocking"),
+                snapshot_data.get("lowest_inventory_sub_only"),
+                snapshot_data.get("lowest_inventory_retainer"),
+                snapshot_data.get("total_character_gil", 0),
+                snapshot_data.get("total_retainer_gil", 0),
+                snapshot_data.get("total_treasure_value", 0),
+                snapshot_data.get("total_gil_plus_treasure", 0),
+                timestamp
+            ))
+            
+            # Update cumulative totals - increment days tracked for new day
+            c.execute("""
+                UPDATE cumulative_totals SET
+                    total_days_tracked = total_days_tracked + 1,
+                    last_updated = ?
+                WHERE id = 1
+            """, (timestamp,))
+        
+        # Always update cumulative gil and cost totals based on all daily snapshots
+        c.execute("SELECT COALESCE(SUM(total_gil_per_day), 0), COALESCE(SUM(total_supply_cost_per_day), 0), COUNT(*) FROM daily_snapshots")
+        row = c.fetchone()
+        total_gil_overall = row[0] if row else 0
+        total_cost_overall = row[1] if row else 0
+        total_days = row[2] if row else 0
+        
+        c.execute("""
+            UPDATE cumulative_totals SET
+                total_gil_overall = ?,
+                total_supply_cost_overall = ?,
+                total_days_tracked = ?,
+                last_updated = ?
+            WHERE id = 1
+        """, (total_gil_overall, total_cost_overall, total_days, timestamp))
+        
+        conn.commit()
+        conn.close()
+        
+        if DEBUG:
+            print(f"[SUBLORD-DB] Updated {today}: Gil/day={snapshot_data.get('total_gil_per_day', 0):,} | Cost/day={snapshot_data.get('total_supply_cost_per_day', 0):,} | CharGil={snapshot_data.get('total_character_gil', 0):,} | RetGil={snapshot_data.get('total_retainer_gil', 0):,} | Treasure={snapshot_data.get('total_treasure_value', 0):,} | Total={snapshot_data.get('total_gil_plus_treasure', 0):,}")
+        return True
+    except Exception as e:
+        print(f"[SUBLORD-DB] Error updating database: {e}")
+        return False
+
+def _safe_json_load(s):
+    """Safely parse JSON string, handling null/empty values."""
+    if not s or s == "null":
+        return None
+    try:
+        return json.loads(s)
+    except Exception:
+        return None
+
+def _safe_json_list(s):
+    parsed = _safe_json_load(s)
+    return parsed if isinstance(parsed, list) else []
+
+def _read_entry_int(entry, *keys):
+    for key in keys:
+        if key in entry and entry[key] is not None:
+            try:
+                return int(entry[key])
+            except Exception:
+                continue
+    return 0
+
+def get_xa_gil_totals(db_path):
+    if not db_path or not os.path.isfile(db_path):
+        return None
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cur = conn.cursor()
+            tables = {row[0] for row in cur.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+            if "xa_characters" in tables:
+                row = cur.execute("SELECT COALESCE(SUM(gil), 0), COALESCE(SUM(retainer_gil), 0) FROM xa_characters").fetchone()
+                return int(row[0] or 0), int(row[1] or 0)
+
+            total_character_gil = 0
+            total_retainer_gil = 0
+            if "currency_balances" in tables:
+                row = cur.execute("SELECT COALESCE(SUM(amount), 0) FROM currency_balances WHERE currency_name = 'Gil'").fetchone()
+                total_character_gil = int(row[0] or 0)
+            if "retainers" in tables:
+                row = cur.execute("SELECT COALESCE(SUM(gil), 0) FROM retainers").fetchone()
+                total_retainer_gil = int(row[0] or 0)
+            return total_character_gil, total_retainer_gil
+    except Exception as e:
+        if DEBUG:
+            print(f"[SUBLORD-DB] Error reading XA gil totals: {e}")
+        return None
+
+def _load_farmer_snapshot_state(account_nickname):
+    state = {}
+    if not ENABLE_SUBLORD_DB:
+        return state
+    try:
+        db_path = get_sublord_db_path()
+        with sqlite3.connect(str(db_path)) as conn:
+            cur = conn.cursor()
+            rows = cur.execute(
+                "SELECT content_id, character_name, sub_eta_timers_json, last_sub_sent, last_sub_returned FROM farmer_snapshots WHERE account_nickname = ?",
+                (account_nickname,)
+            ).fetchall()
+        for row in rows:
+            key = (int(row[0] or 0), str(row[1] or ""))
+            state[key] = {
+                "sub_eta_timers": _safe_json_list(row[2]),
+                "last_sub_sent": row[3],
+                "last_sub_returned": row[4],
+            }
+    except Exception as e:
+        if DEBUG:
+            print(f"[SUBLORD-DB] Error loading farmer snapshots for {account_nickname}: {e}")
+    return state
+
+def sync_farmer_snapshots(account_entry, submarine_state_cache, current_time):
+    nickname = account_entry["nickname"]
+    auto_path = account_entry.get("auto_path", "")
+    timestamp = datetime.datetime.fromtimestamp(current_time).strftime('%Y-%m-%d %H:%M:%S')
+    previous_state = submarine_state_cache.get(nickname)
+    if previous_state is None:
+        previous_state = _load_farmer_snapshot_state(nickname)
+
+    if not auto_path or not os.path.isfile(auto_path):
+        submarine_state_cache[nickname] = {}
+        if ENABLE_SUBLORD_DB:
+            try:
+                db_path = get_sublord_db_path()
+                with sqlite3.connect(str(db_path)) as conn:
+                    conn.execute("DELETE FROM farmer_snapshots WHERE account_nickname = ?", (nickname,))
+                    conn.commit()
+            except Exception as e:
+                if DEBUG:
+                    print(f"[SUBLORD-DB] Error clearing farmer snapshots for {nickname}: {e}")
+        return 0
+
+    try:
+        with open(auto_path, "r", encoding="utf-8-sig") as f:
+            data = json.load(f)
+    except Exception as e:
+        if DEBUG:
+            print(f"[SUBLORD-DB] Error reading farmer snapshot data for {nickname}: {e}")
+        return 0
+
+    chars = collect_characters(data, account_nickname=nickname)
+    next_state = {}
+    rows_to_write = []
+    processed_count = 0
+
+    for char in chars:
+        content_id = int(char.get("CID", 0) or 0)
+        character_name = str(char.get("Name", "Unknown"))
+        world = str(char.get("World", ""))
+        workshop_enabled = bool(char.get("WorkshopEnabled", True))
+        enabled_subs = char.get("EnabledSubs", [])
+        if not isinstance(enabled_subs, list):
+            enabled_subs = []
+        offline_sub_data = char.get("OfflineSubmarineData", [])
+        if not isinstance(offline_sub_data, list):
+            offline_sub_data = []
+
+        key = (content_id, character_name)
+        sub_eta_timers = []
+        total_subs = 0
+        processable_subs = 0
+        ready_subs = 0
+        soonest_sub_hours = None
+
+        for sub_dict in offline_sub_data:
+            if not isinstance(sub_dict, dict):
+                continue
+            sub_name = str(sub_dict.get("Name", ""))
+            return_time = int(sub_dict.get("ReturnTime", 0) or 0)
+            if not sub_name and return_time <= 0:
+                continue
+            total_subs += 1
+            processable = workshop_enabled and sub_name in enabled_subs
+            hours_remaining = None
+            is_ready = False
+            if return_time > 0:
+                hours_remaining = round((return_time - current_time) / 3600, 4)
+                is_ready = hours_remaining < 0
+                if processable:
+                    processable_subs += 1
+                    if is_ready:
+                        ready_subs += 1
+                    if soonest_sub_hours is None or hours_remaining < soonest_sub_hours:
+                        soonest_sub_hours = hours_remaining
+            sub_eta_timers.append({
+                "Name": sub_name,
+                "ReturnTime": return_time,
+                "HoursRemaining": hours_remaining,
+                "IsReady": is_ready,
+                "Processable": processable,
+            })
+
+        previous_row = previous_state.get(key, {})
+        previous_map = {
+            entry.get("Name"): entry
+            for entry in previous_row.get("sub_eta_timers", [])
+            if isinstance(entry, dict) and entry.get("Name")
+        }
+        last_sub_sent = previous_row.get("last_sub_sent")
+        last_sub_returned = previous_row.get("last_sub_returned")
+        char_sent = False
+        char_returned = False
+
+        for sub_entry in sub_eta_timers:
+            previous_entry = previous_map.get(sub_entry["Name"])
+            if not previous_entry:
+                continue
+            if not bool(previous_entry.get("Processable")) or not sub_entry["Processable"]:
+                continue
+            previous_ready = bool(previous_entry.get("IsReady"))
+            current_ready = bool(sub_entry["IsReady"])
+            if previous_ready and not current_ready:
+                char_sent = True
+                processed_count += 1
+            elif not previous_ready and current_ready:
+                char_returned = True
+
+        if char_sent:
+            last_sub_sent = timestamp
+        if char_returned:
+            last_sub_returned = timestamp
+
+        next_state[key] = {
+            "sub_eta_timers": sub_eta_timers,
+            "last_sub_sent": last_sub_sent,
+            "last_sub_returned": last_sub_returned,
+        }
+        rows_to_write.append((
+            nickname,
+            content_id,
+            character_name,
+            world,
+            1 if workshop_enabled else 0,
+            json.dumps(enabled_subs, ensure_ascii=False),
+            json.dumps(sub_eta_timers, ensure_ascii=False),
+            total_subs,
+            processable_subs,
+            ready_subs,
+            soonest_sub_hours,
+            last_sub_sent,
+            last_sub_returned,
+            timestamp,
+        ))
+
+    submarine_state_cache[nickname] = next_state
+
+    if ENABLE_SUBLORD_DB:
+        try:
+            db_path = get_sublord_db_path()
+            with sqlite3.connect(str(db_path)) as conn:
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("DELETE FROM farmer_snapshots WHERE account_nickname = ?", (nickname,))
+                if rows_to_write:
+                    conn.executemany(
+                        "INSERT INTO farmer_snapshots (account_nickname, content_id, character_name, world, workshop_enabled, enabled_subs_json, sub_eta_timers_json, total_subs, processable_subs, ready_subs, soonest_sub_hours, last_sub_sent, last_sub_returned, updated_utc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        rows_to_write,
+                    )
+                conn.commit()
+        except Exception as e:
+            if DEBUG:
+                print(f"[SUBLORD-DB] Error writing farmer snapshots for {nickname}: {e}")
+
+    return processed_count
+
+def get_xa_db_path(account_entry):
+    """Derive the XA Database path from an account's auto_path."""
+    auto_path = account_entry.get("auto_path", "")
+    if not auto_path:
+        return None
+    # auto_path = .../pluginConfigs/AutoRetainer/DefaultConfig.json
+    pluginconfigs_dir = Path(auto_path).parent.parent  # up to pluginConfigs
+    xa_path = pluginconfigs_dir / "XADatabase" / "xa.db"
+    if xa_path.exists():
+        return str(xa_path)
+    return None
+
+def scan_xa_treasure(db_path):
+    """
+    Scan XA Database and return treasure values per character.
+    Returns: { content_id: treasure_value }
+    """
+    result = {}
+    if not db_path or not os.path.isfile(db_path):
+        return result
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cur = conn.cursor()
+            tables = {row[0] for row in cur.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+            if "xa_characters" in tables:
+                rows = cur.execute("SELECT content_id, items_json, listings_json, retainer_items_json FROM xa_characters").fetchall()
+                for content_id, items_json, listings_json, retainer_items_json in rows:
+                    cid = int(content_id or 0)
+                    total_value = 0
+                    for section in (_safe_json_list(items_json), _safe_json_list(listings_json), _safe_json_list(retainer_items_json)):
+                        for item in section:
+                            if not isinstance(item, dict):
+                                continue
+                            item_id = _read_entry_int(item, "ItemId", "item_id")
+                            quantity = _read_entry_int(item, "Quantity", "quantity")
+                            if item_id not in TREASURE_VALUES or quantity <= 0:
+                                continue
+                            total_value += quantity * TREASURE_VALUES[item_id]
+                    if total_value > 0:
+                        result[cid] = total_value
+                return result
+
+            retainer_map = {}
+            if "retainers" in tables:
+                for retainer_id, content_id in cur.execute("SELECT retainer_id, content_id FROM retainers").fetchall():
+                    retainer_map[int(retainer_id)] = int(content_id)
+
+            treasure_ids = sorted(TREASURE_IDS)
+            treasure_placeholders = ", ".join("?" for _ in treasure_ids)
+
+            if "container_items" in tables:
+                query = f"SELECT content_id, item_id, quantity FROM container_items WHERE item_id IN ({treasure_placeholders})"
+                for content_id, item_id, quantity in cur.execute(query, treasure_ids).fetchall():
+                    cid = int(content_id or 0)
+                    item_id = int(item_id or 0)
+                    quantity = int(quantity or 0)
+                    if item_id in TREASURE_VALUES and quantity > 0:
+                        result[cid] = result.get(cid, 0) + (quantity * TREASURE_VALUES[item_id])
+
+            if "retainer_items" in tables:
+                query = f"SELECT retainer_id, item_id, quantity FROM retainer_items WHERE item_id IN ({treasure_placeholders})"
+                for retainer_id, item_id, quantity in cur.execute(query, treasure_ids).fetchall():
+                    cid = retainer_map.get(int(retainer_id or 0))
+                    item_id = int(item_id or 0)
+                    quantity = int(quantity or 0)
+                    if cid and item_id in TREASURE_VALUES and quantity > 0:
+                        result[cid] = result.get(cid, 0) + (quantity * TREASURE_VALUES[item_id])
+
+            if "retainer_listings" in tables:
+                query = f"SELECT retainer_id, item_id, quantity FROM retainer_listings WHERE item_id IN ({treasure_placeholders})"
+                for retainer_id, item_id, quantity in cur.execute(query, treasure_ids).fetchall():
+                    cid = retainer_map.get(int(retainer_id or 0))
+                    item_id = int(item_id or 0)
+                    quantity = int(quantity or 0)
+                    if cid and item_id in TREASURE_VALUES and quantity > 0:
+                        result[cid] = result.get(cid, 0) + (quantity * TREASURE_VALUES[item_id])
+    except Exception as e:
+        if DEBUG:
+            print(f"[SUBLORD-DB] Error scanning XA Database: {e}")
+    return result
+
+def collect_sublord_snapshot():
+    """
+    Collect current submarine financial data from all accounts for sublord.db.
+    Includes character Gil, retainer Gil, and treasure values from XA Database.
+    Returns dict with all required snapshot fields.
+    """
+    total_all_subs = 0
+    all_builds = []
+    all_plans = []
+    all_days_remaining = []
+    all_inventory_spaces = []
+    all_retainer_inventory_spaces = []
+    total_ceruleum = 0
+    total_repair_kits_count = 0
+    total_character_gil = 0
+    total_retainer_gil = 0
+    total_treasure_value = 0
+    
+    # Submarine operational data from AAR-managed accounts only
+    for account_entry in account_locations:
+        timer_data = get_submarine_timers_for_account(account_entry)
+        total_all_subs += timer_data["total_subs"]
+        all_builds.extend(timer_data["sub_builds"])
+        all_plans.extend(timer_data.get("sub_plans", []))
+        total_ceruleum += timer_data.get("total_ceruleum", 0)
+        total_repair_kits_count += timer_data.get("total_repair_kits", 0)
+        if timer_data.get("days_until_restocking") is not None:
+            all_days_remaining.append(timer_data["days_until_restocking"])
+        if timer_data.get("lowest_inventory_space") is not None:
+            all_inventory_spaces.append(timer_data["lowest_inventory_space"])
+        if timer_data.get("lowest_retainer_inventory_space") is not None:
+            all_retainer_inventory_spaces.append(timer_data["lowest_retainer_inventory_space"])
+    
+    # Gil/treasure scanning: use _sublord_all_accounts (ALL accounts from config, incl disabled)
+    # This ensures ALL accounts contribute to Gil/treasure totals, not just AAR-managed ones
+    scan_entries = _sublord_all_accounts if _sublord_all_accounts else account_locations
+    scanned_paths = set()
+    
+    for entry in scan_entries:
+        auto_path = entry.get("auto_path", "")
+        if not auto_path or auto_path in scanned_paths:
+            continue
+        scanned_paths.add(auto_path)
+
+        xa_path = get_xa_db_path(entry)
+        xa_gil_totals = get_xa_gil_totals(xa_path) if xa_path else None
+        if xa_gil_totals is not None:
+            total_character_gil += xa_gil_totals[0]
+            total_retainer_gil += xa_gil_totals[1]
+            total_treasure_value += sum(scan_xa_treasure(xa_path).values())
+        elif os.path.isfile(auto_path):
+            try:
+                with open(auto_path, "r", encoding="utf-8-sig") as f:
+                    data = json.load(f)
+                nickname = entry.get("nickname", "Unknown")
+                chars = collect_characters(data, account_nickname=nickname)
+                for char in chars:
+                    total_character_gil += char.get("Gil", 0)
+                    for ret in char.get("RetainerData", []):
+                        total_retainer_gil += ret.get("Gil", 0)
+            except Exception as e:
+                if DEBUG:
+                    print(f"[SUBLORD-DB] Error reading Gil for {entry.get('nickname', '?')}: {e}")
+        
+        # Collect treasure values from XA Database
+        xa_path = get_xa_db_path(entry)
+        if xa_path:
+            treasure_map = scan_xa_treasure(xa_path)
+            total_treasure_value += sum(treasure_map.values())
+    
+    # Calculate gil per day (same logic as display_submarine_timers)
+    total_daily_gil = 0
+    farming_subs_count = 0
+    leveling_plans_list = submarine_plans.get("leveling", [])
+    farming_plans_dict = submarine_plans.get("farming", {})
+    
+    for i, build in enumerate(all_builds):
+        plan_name = all_plans[i] if i < len(all_plans) else ""
+        if plan_name and plan_name in leveling_plans_list:
+            continue
+        if plan_name and plan_name in farming_plans_dict:
+            total_daily_gil += farming_plans_dict[plan_name]
+            farming_subs_count += 1
+            continue
+        if build in build_gil_rates:
+            total_daily_gil += build_gil_rates[build]
+            farming_subs_count += 1
+    
+    leveling_subs_count = total_all_subs - farming_subs_count
+    
+    # Calculate supply costs
+    total_tanks_per_day = 0.0
+    total_kits_per_day = 0.0
+    for build in all_builds:
+        if build in build_consumption_rates:
+            total_tanks_per_day += build_consumption_rates[build]["tanks_per_day"]
+            total_kits_per_day += build_consumption_rates[build]["kits_per_day"]
+        else:
+            total_tanks_per_day += 9.0
+            total_kits_per_day += 1.33
+    
+    total_supply_cost = int((total_tanks_per_day * CERULEUM_TANK_COST) + (total_kits_per_day * REPAIR_KIT_COST))
+    min_days = min(all_days_remaining) if all_days_remaining else None
+    min_inv = min(all_inventory_spaces) if all_inventory_spaces else None
+    min_ret_inv = min(all_retainer_inventory_spaces) if all_retainer_inventory_spaces else None
+    
+    # Combined total: character gil + retainer gil + treasure value
+    total_gil_plus_treasure = total_character_gil + total_retainer_gil + total_treasure_value
+    
+    return {
+        "total_subs": total_all_subs,
+        "total_subs_farming": farming_subs_count,
+        "total_subs_leveling": leveling_subs_count,
+        "total_gil_per_day": total_daily_gil,
+        "total_supply_cost_per_day": total_supply_cost,
+        "total_ceruleum_tanks": total_ceruleum,
+        "total_repair_kits": total_repair_kits_count,
+        "total_tanks_per_day": total_tanks_per_day,
+        "total_kits_per_day": total_kits_per_day,
+        "days_until_restocking": min_days,
+        "lowest_inventory_sub_only": min_inv,
+        "lowest_inventory_retainer": min_ret_inv,
+        "total_character_gil": total_character_gil,
+        "total_retainer_gil": total_retainer_gil,
+        "total_treasure_value": total_treasure_value,
+        "total_gil_plus_treasure": total_gil_plus_treasure,
+    }
+
+# ===============================================
+# Notification Credential Validation
+# ===============================================
+def validate_notification_credentials():
+    """Validate notification credentials and halt if misconfigured."""
+    if ENABLE_PUSHOVER:
+        if not PUSHOVER_USER_KEY or not PUSHOVER_API_TOKEN:
+            print("\n" + "=" * 80)
+            print("[ERROR] Pushover is enabled but credentials are missing!")
+            print("=" * 80)
+            print("ENABLE_PUSHOVER = True requires both:")
+            print("  - PUSHOVER_USER_KEY: Your Pushover user key")
+            print("  - PUSHOVER_API_TOKEN: Your Pushover application API token")
+            print("\nPlease either:")
+            print(f"  1. Enter your Pushover credentials in the script or {CONFIG_FILE}")
+            print("  2. Set ENABLE_PUSHOVER = False to disable Pushover notifications")
+            print("=" * 80)
+            input("\nPress Enter to exit...")
+            sys.exit(1)
+    
+    if ENABLE_DISCORD_WEBHOOK:
+        if not DISCORD_WEBHOOK_URL:
+            print("\n" + "=" * 80)
+            print("[ERROR] Discord webhook is enabled but URL is missing!")
+            print("=" * 80)
+            print("ENABLE_DISCORD_WEBHOOK = True requires:")
+            print("  - DISCORD_WEBHOOK_URL: Your Discord webhook URL")
+            print("\nPlease either:")
+            print(f"  1. Enter your Discord webhook URL in the script or {CONFIG_FILE}")
+            print("  2. Set ENABLE_DISCORD_WEBHOOK = False to disable Discord notifications")
+            print("=" * 80)
+            input("\nPress Enter to exit...")
+            sys.exit(1)
+
+# Validate notification credentials
+validate_notification_credentials()
+
+# ===============================================
+# Notification Functions
+# ===============================================
+def send_pushover(message):
+    """Send a Pushover notification. Only sends if enabled and configured."""
+    if not ENABLE_PUSHOVER or not PUSHOVER_USER_KEY or not PUSHOVER_API_TOKEN:
+        return
+    try:
+        response = requests.post(
+            "https://api.pushover.net/1/messages.json",
+            data={
+                "token": PUSHOVER_API_TOKEN,
+                "user": PUSHOVER_USER_KEY,
+                "title": "Auto-AutoRetainer",
+                "message": message,
+            },
+            timeout=10
+        )
+        if DEBUG:
+            if response.status_code == 200:
+                print(f"[DEBUG] Pushover notification sent successfully")
+            else:
+                print(f"[DEBUG] Pushover notification failed: {response.status_code}")
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Failed to send Pushover notification: {e}")
+
+def send_discord_webhook(message):
+    """Send a Discord webhook notification. Only sends if enabled and configured."""
+    if not ENABLE_DISCORD_WEBHOOK or not DISCORD_WEBHOOK_URL:
+        return
+    try:
+        response = requests.post(
+            DISCORD_WEBHOOK_URL,
+            json={
+                "content": f"{message}",
+            },
+            timeout=10
+        )
+        if DEBUG:
+            if response.status_code in [200, 204]:
+                print(f"[DEBUG] Discord webhook notification sent successfully")
+            else:
+                print(f"[DEBUG] Discord webhook notification failed: {response.status_code}")
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Failed to send Discord webhook notification: {e}")
+
+# ===============================================
+# Logging Functions
+# ===============================================
+def log_error(message):
+    """
+    Log major issues to arr.log file with timestamp.
+    Only logs if ENABLE_LOGGING is True.
+    Also sends Pushover and Discord notifications if enabled.
+    """
+    if not ENABLE_LOGGING:
+        return
+    try:
+        log_path = Path(__file__).parent / LOG_FILE
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(f"[{timestamp}] {message}\n")
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Failed to write to log file: {e}")
+    
+    # Send notifications
+    send_pushover(message)
+    send_discord_webhook(message)
+
+# ===============================================
+# Autologin Updater Functions
+# ===============================================
+def get_launcher_config_path(nickname):
+    """
+    Get the launcherConfigV3.json path for a given account nickname.
+    The launcher config is in the PARENT directory of pluginConfigs.
+    Example: pluginConfigs = C:\\Users\\user\\AltData\\Acc1\\pluginConfigs
+             launcher config = C:\\Users\\user\\AltData\\Acc1\\launcherConfigV3.json
+    Returns None if account not found or path doesn't exist.
+    """
+    for account in account_locations:
+        if account["nickname"] == nickname:
+            # Get the pluginConfigs path from auto_path (remove AutoRetainer/DefaultConfig.json)
+            auto_path = account["auto_path"]
+            pluginconfigs_path = Path(auto_path).parent.parent  # Go up from AutoRetainer/DefaultConfig.json to pluginConfigs
+            launcher_config_path = pluginconfigs_path.parent / "launcherConfigV3.json"
+            return launcher_config_path
+    return None
+
+def check_and_update_autologin(nickname):
+    """
+    Check and update AutologinEnabled in launcherConfigV3.json for the given account.
+    If AutologinEnabled is "false", updates it to "true".
+    Returns True if update was made, False if no update needed or error occurred.
+    """
+    if not ENABLE_AUTOLOGIN_UPDATER:
+        return False
+    
+    launcher_config_path = get_launcher_config_path(nickname)
+    if launcher_config_path is None:
+        if DEBUG:
+            print(f"[AUTOLOGIN] Could not find launcher config path for {nickname}")
+        return False
+    
+    if not launcher_config_path.exists():
+        if DEBUG:
+            print(f"[AUTOLOGIN] Launcher config file not found: {launcher_config_path}")
+        log_error(f"AUTOLOGIN_FILE_NOT_FOUND: {nickname} - {launcher_config_path}")
+        return False
+    
+    try:
+        # Read the JSON file
+        with open(launcher_config_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Check current AutologinEnabled value
+        current_value = data.get("AutologinEnabled", None)
+        
+        if current_value == "false":
+            # Update to "true"
+            data["AutologinEnabled"] = "true"
+            
+            # Write back to file
+            with open(launcher_config_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4)
+            
+            print(f"[AUTOLOGIN] Updated AutologinEnabled from 'false' to 'true' for {nickname}")
+            log_error(f"AUTOLOGIN_UPDATED: {nickname} - Changed AutologinEnabled from 'false' to 'true' in {launcher_config_path}")
+            return True
+        elif current_value == "true":
+            if DEBUG:
+                print(f"[AUTOLOGIN] AutologinEnabled already 'true' for {nickname}")
+            return False
+        else:
+            if DEBUG:
+                print(f"[AUTOLOGIN] AutologinEnabled has unexpected value '{current_value}' for {nickname}")
+            return False
+            
+    except json.JSONDecodeError as e:
+        print(f"[AUTOLOGIN] Error parsing JSON for {nickname}: {e}")
+        log_error(f"AUTOLOGIN_JSON_ERROR: {nickname} - {e}")
+        return False
+    except Exception as e:
+        print(f"[AUTOLOGIN] Error updating config for {nickname}: {e}")
+        log_error(f"AUTOLOGIN_ERROR: {nickname} - {e}")
+        return False
+
+def check_and_update_otp_server(nickname):
+    """
+    Check and update OtpServerEnabled in launcherConfigV3.json for accounts with 2FA enabled.
+    If enable_2fa=True for the account and OtpServerEnabled is "false", updates it to "true".
+    Returns True if update was made, False if no update needed or error occurred.
+    """
+    if not ENABLE_AUTOLOGIN_UPDATER:
+        return False
+    
+    # Check if this account has 2FA enabled
+    account_config = None
+    for acc_item in account_locations:
+        if acc_item["nickname"] == nickname:
+            account_config = acc_item
+            break
+    
+    if not account_config or not account_config.get("enable_2fa", False):
+        # 2FA not enabled for this account, skip OTP server check
+        return False
+    
+    launcher_config_path = get_launcher_config_path(nickname)
+    if launcher_config_path is None:
+        if DEBUG:
+            print(f"[OTP-SERVER] Could not find launcher config path for {nickname}")
+        return False
+    
+    if not launcher_config_path.exists():
+        if DEBUG:
+            print(f"[OTP-SERVER] Launcher config file not found: {launcher_config_path}")
+        return False
+    
+    try:
+        # Read the JSON file
+        with open(launcher_config_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Check current OtpServerEnabled value
+        current_value = data.get("OtpServerEnabled", None)
+        
+        if current_value == "false":
+            # Update to "true"
+            data["OtpServerEnabled"] = "true"
+            
+            # Write back to file
+            with open(launcher_config_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4)
+            
+            print(f"[OTP-SERVER] Updated OtpServerEnabled from 'false' to 'true' for {nickname}")
+            log_error(f"OTP_SERVER_UPDATED: {nickname} - Changed OtpServerEnabled from 'false' to 'true' in {launcher_config_path}")
+            return True
+        elif current_value == "true":
+            if DEBUG:
+                print(f"[OTP-SERVER] OtpServerEnabled already 'true' for {nickname}")
+            return False
+        else:
+            if DEBUG:
+                print(f"[OTP-SERVER] OtpServerEnabled has unexpected value '{current_value}' for {nickname}")
+            return False
+            
+    except json.JSONDecodeError as e:
+        print(f"[OTP-SERVER] Error parsing JSON for {nickname}: {e}")
+        log_error(f"OTP_SERVER_JSON_ERROR: {nickname} - {e}")
+        return False
+    except Exception as e:
+        print(f"[OTP-SERVER] Error updating config for {nickname}: {e}")
+        log_error(f"OTP_SERVER_ERROR: {nickname} - {e}")
+        return False
+
+def validate_launcher_config_before_launch(nickname):
+    """
+    Validate and fix launcher configuration BEFORE launching game.
+    Checks launcherConfigV3.json and ensures:
+    1. AutologinEnabled is "true" (always)
+    2. OtpServerEnabled is "true" (only if account has enable_2fa=True)
+    
+    This prevents the launcher from opening with login prompt instead of auto-logging in.
+    Returns True if config is valid (or was fixed), False if critical error.
+    """
+    launcher_config_path = get_launcher_config_path(nickname)
+    
+    if launcher_config_path is None:
+        print(f"[CONFIG-CHECK] Could not find launcher config path for {nickname}")
+        return True  # Continue anyway, will fail at launch if path is wrong
+    
+    if not launcher_config_path.exists():
+        print(f"[CONFIG-CHECK] Launcher config not found: {launcher_config_path}")
+        return True  # Continue anyway, launcher may create it
+    
+    # Get account config to check if 2FA is enabled
+    account_config = None
+    for acc_item in account_locations:
+        if acc_item["nickname"] == nickname:
+            account_config = acc_item
+            break
+    
+    enable_2fa = account_config.get("enable_2fa", False) if account_config else False
+    
+    try:
+        with open(launcher_config_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        config_updated = False
+        
+        # Check and fix AutologinEnabled
+        autologin_value = data.get("AutologinEnabled", None)
+        if autologin_value != "true":
+            old_value = autologin_value
+            data["AutologinEnabled"] = "true"
+            config_updated = True
+            print(f"[CONFIG-CHECK] Fixed AutologinEnabled: '{old_value}' -> 'true' for {nickname}")
+            log_error(f"CONFIG_FIXED_AUTOLOGIN: {nickname} - Changed AutologinEnabled from '{old_value}' to 'true'")
+        
+        # Check and fix OtpServerEnabled (only if 2FA is enabled for this account)
+        if enable_2fa:
+            otp_value = data.get("OtpServerEnabled", None)
+            if otp_value != "true":
+                old_value = otp_value
+                data["OtpServerEnabled"] = "true"
+                config_updated = True
+                print(f"[CONFIG-CHECK] Fixed OtpServerEnabled: '{old_value}' -> 'true' for {nickname}")
+                log_error(f"CONFIG_FIXED_OTP: {nickname} - Changed OtpServerEnabled from '{old_value}' to 'true'")
+        
+        # Write back if changes were made
+        if config_updated:
+            with open(launcher_config_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4)
+            print(f"[CONFIG-CHECK] Launcher config updated for {nickname}")
+        elif DEBUG:
+            print(f"[CONFIG-CHECK] Launcher config OK for {nickname}")
+        
+        return True
+        
+    except json.JSONDecodeError as e:
+        print(f"[CONFIG-CHECK] Error parsing launcher config JSON for {nickname}: {e}")
+        log_error(f"CONFIG_CHECK_JSON_ERROR: {nickname} - {e}")
+        return False
+    except Exception as e:
+        print(f"[CONFIG-CHECK] Error checking launcher config for {nickname}: {e}")
+        log_error(f"CONFIG_CHECK_ERROR: {nickname} - {e}")
+        return False
+
+# Submarine Part Constants for build detection
 SUB_PARTS_LOOKUP = {
     21792: "Shark-class Bow",
     21793: "Shark-class Bridge",
@@ -195,1141 +1713,27 @@ CLASS_SHORTCUTS = {
     "Modified Syldra-class": "Y+"
 }
 
-# Gil rates per submarine build per day (based on Routes.xlsx)
-BUILD_GIL_RATES = {
-    "WSUC": 118661,
-    "SSUC": 118661,
-    "W+S+U+C+": 118661,  # WSUC++ (modified)
-    "S+S+S+C+": 118661,  # SSSC++ (modified for OJ route)
-    
-    # MOJ Route (36h) - 93,165 gil/day
-    "YUUW": 93165,
-    "Y+U+U+W+": 93165,  # YU+U+W+ (modified)
-    
-    # ROJ Route (36h) - 106,191 gil/day
-    "WCSU": 106191,
-    "WUSS": 106191,
-    "W+U+S+S+": 106191,  # WUSS++ (modified)
-    
-    # JOZ Route (36h) - 113,321 gil/day
-    "YSYC": 113321,
-    "Y+S+Y+C+": 113321,  # YS+YC+ (modified)
-    
-    # MROJ Route (36h) - 120,728 gil/day
-    "S+S+S+C+": 120728,  # SSSC++ (modified)
-    "S+S+U+C+": 120728,  # SSUC++ (modified)
-    
-    # JORZ Route (36h) - 140,404 gil/day (highest gil/day)
-    "S+S+U+C": 140404,
-    "S+S+U+C+": 140404,  # SSUC++ variant for JORZ
-    
-    # JORZ 48h Route - 105,303 gil/day
-    "WCYC": 105303,
-    "WUWC": 105303,
-    "W+U+W+C+": 105303,  # WUWC++ (modified)
-    
-    # MOJZ Route (36h) - 127,857 gil/day
-    # MOJZ uses SSUC++ at rank 110
-    
-    # MROJZ Route (48h) - 116,206 gil/day
-    "YSCU": 116206,
-    "SCUS": 116206,
-    "S+C+U+S+": 116206,  # SCUS++ (modified)
-}
+def collect_characters(full_data, account_nickname):
+    """Extract characters from AutoRetainer JSON data"""
+    all_chars = []
+    def assign_nickname(chara):
+        chara["AccountNickname"] = account_nickname
+        return chara
 
-# Consumption rates per build per day
-BUILD_CONSUMPTION_RATES = {
-    "SSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
-    "WSUC": {"tanks_per_day": 9.0, "kits_per_day": 1.33},
-    "W+S+U+C+": {"tanks_per_day": 9.0, "kits_per_day": 3.43},
-    "S+S+S+C+": {"tanks_per_day": 9.0, "kits_per_day": 3.43},
-    "YUUW": {"tanks_per_day": 7.5, "kits_per_day": 1.40},
-    "Y+U+U+W+": {"tanks_per_day": 10.0, "kits_per_day": 3.07},
-    "WCSU": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
-    "WUSS": {"tanks_per_day": 10.0, "kits_per_day": 1.67},
-    "W+U+S+S+": {"tanks_per_day": 10.0, "kits_per_day": 3.20},
-    "YSYC": {"tanks_per_day": 10.0, "kits_per_day": 2.50},
-    "Y+S+Y+C+": {"tanks_per_day": 10.0, "kits_per_day": 3.20},
-    "S+S+U+C": {"tanks_per_day": 14.0, "kits_per_day": 3.67},
-    "WCYC": {"tanks_per_day": 10.5, "kits_per_day": 2.00},
-    "WUWC": {"tanks_per_day": 10.5, "kits_per_day": 2.00},
-    "W+U+W+C+": {"tanks_per_day": 10.5, "kits_per_day": 3.00},
-    "S+S+U+C+": {"tanks_per_day": 14.0, "kits_per_day": 4.0},
-    "YSCU": {"tanks_per_day": 9.0, "kits_per_day": 1.67},
-    "SCUS": {"tanks_per_day": 9.0, "kits_per_day": 1.67},
-    "S+C+U+S+": {"tanks_per_day": 13.5, "kits_per_day": 4.0},
-}
-
-# Default consumption for leveling submarines
-DEFAULT_CONSUMPTION = {"tanks_per_day": 9.0, "kits_per_day": 1.33}
-
-# ===============================================
-# Treasure Values (scanned from XA Database inventory)
-# ===============================================
-TREASURE_VALUES = {
-    22500: 8000,   # Salvaged Ring
-    22501: 9000,   # Salvaged Bracelet
-    22502: 10000,  # Salvaged Earring
-    22503: 13000,  # Salvaged Necklace
-    22504: 27000,  # Extravagant Salvaged Ring
-    22505: 28500,  # Extravagant Salvaged Bracelet
-    22506: 30000,  # Extravagant Salvaged Earring
-    22507: 34500,  # Extravagant Salvaged Necklace
-}
-TREASURE_IDS = set(TREASURE_VALUES.keys())
-
-# Cost constants
-CERULEUM_TANK_COST = 350   # Gil per tank
-REPAIR_KIT_COST = 2000     # Gil per kit
-
-# ===============================================
-# Coffer and Dye Values (for estimation)
-# ===============================================
-COFFER_DYE_VALUES = {
-    32161: 18000,   # Venture Coffer
-    13114: 450000,  # General-purpose Pure White Dye
-    13115: 600000,  # General-purpose Jet Black Dye
-    13708: 40000,   # General-purpose Pastel Pink Dye
-}
-COFFER_DYE_IDS = set(COFFER_DYE_VALUES.keys())
-
-# ===============================================
-# World Region Mappings (for region filtering)
-# ===============================================
-WORLD_REGION_DC_GROUPS = {
-    "NA": {
-        "Aether": ["Adamantoise", "Cactuar", "Faerie", "Gilgamesh", "Jenova", "Midgardsormr", "Sargatanas", "Siren"],
-        "Crystal": ["Balmung", "Brynhildr", "Coeurl", "Diabolos", "Goblin", "Malboro", "Mateus", "Zalera"],
-        "Dynamis": ["Cuchulainn", "Golem", "Halicarnassus", "Kraken", "Maduin", "Marilith", "Rafflesia", "Seraph"],
-        "Primal": ["Behemoth", "Excalibur", "Exodus", "Famfrit", "Hyperion", "Lamia", "Leviathan", "Ultros"],
-    },
-    "EU": {
-        "Chaos": ["Cerberus", "Louisoix", "Moogle", "Omega", "Phantom", "Ragnarok", "Sagittarius", "Spriggan"],
-        "Light": ["Alpha", "Lich", "Odin", "Phoenix", "Raiden", "Shiva", "Twintania", "Zodiark"],
-    },
-    "JP": {
-        "Elemental": ["Aegis", "Atomos", "Carbuncle", "Garuda", "Gungnir", "Kujata", "Tonberry", "Typhon"],
-        "Gaia": ["Alexander", "Bahamut", "Durandal", "Fenrir", "Ifrit", "Ridill", "Tiamat", "Ultima"],
-        "Mana": ["Anima", "Asura", "Chocobo", "Hades", "Ixion", "Masamune", "Pandaemonium", "Titan"],
-        "Meteor": ["Belias", "Mandragora", "Ramuh", "Shinryu", "Unicorn", "Valefor", "Yojimbo", "Zeromus"],
-    },
-    "OCE": {
-        "Materia": ["Bismarck", "Ravana", "Sephirot", "Sophia", "Zurvan"],
-    },
-}
-REGION_ORDER = ["NA", "EU", "JP", "OCE"]
-DATA_CENTER_ORDER = {
-    "NA": ["Aether", "Crystal", "Dynamis", "Primal"],
-    "EU": ["Chaos", "Light"],
-    "JP": ["Elemental", "Gaia", "Mana", "Meteor"],
-    "OCE": ["Materia"],
-}
-REGION_SORT_INDEX = {region: index for index, region in enumerate(REGION_ORDER)}
-DATA_CENTER_SORT_INDEX = {
-    region: {dc: index for index, dc in enumerate(order)}
-    for region, order in DATA_CENTER_ORDER.items()
-}
-WORLD_METADATA = {}
-REGION_WORLD_ORDER = {region: [] for region in REGION_ORDER}
-for region_code, dc_worlds in WORLD_REGION_DC_GROUPS.items():
-    for data_center_name, world_names in dc_worlds.items():
-        for world_name in world_names:
-            WORLD_METADATA[world_name.lower()] = {
-                "name": world_name,
-                "data_center": data_center_name,
-                "region": region_code,
-            }
-            REGION_WORLD_ORDER[region_code].append(world_name)
-
-NA_WORLDS = {world.lower() for world in REGION_WORLD_ORDER["NA"]}
-EU_WORLDS = {world.lower() for world in REGION_WORLD_ORDER["EU"]}
-OCE_WORLDS = {world.lower() for world in REGION_WORLD_ORDER["OCE"]}
-JP_WORLDS = {world.lower() for world in REGION_WORLD_ORDER["JP"]}
-PLOT_WORLD_OPTIONS = sorted(
-    (
-        {
-            "name": info["name"],
-            "data_center": info["data_center"],
-            "region": info["region"],
-            "label": f"{info['name']} | {info['data_center']} | {info['region']}",
-            "search_text": f"{info['name']} {info['data_center']} {info['region']}".lower(),
-        }
-        for info in WORLD_METADATA.values()
-    ),
-    key=lambda info: (
-        REGION_SORT_INDEX.get(info["region"], 99),
-        DATA_CENTER_SORT_INDEX.get(info["region"], {}).get(info["data_center"], 99),
-        info["name"],
-    )
-)
-
-def get_world_info(world: str) -> dict:
-    if not world:
-        return {}
-    return WORLD_METADATA.get(str(world).strip().lower(), {})
-
-def region_from_world(world: str) -> str:
-    info = get_world_info(world)
-    return info.get("region", "")
-
-def datacenter_from_world(world: str) -> str:
-    info = get_world_info(world)
-    return info.get("data_center", "")
-
-# ===============================================
-# Job Class Abbreviations (for character class display)
-# ===============================================
-JOB_ABBREVIATIONS = {
-    "Adventurer": "ADV", "Paladin": "PLD", "Gladiator": "GLA", "Warrior": "WAR",
-    "Marauder": "MRD", "DarkKnight": "DRK", "Gunbreaker": "GNB", "WhiteMage": "WHM",
-    "Conjurer": "CNJ", "Scholar": "SCH", "Astrologian": "AST", "Sage": "SGE",
-    "Monk": "MNK", "Pugilist": "PGL", "Dragoon": "DRG", "Lancer": "LNC",
-    "Ninja": "NIN", "Rogue": "ROG", "Samurai": "SAM", "Reaper": "RPR",
-    "Viper": "VPR", "Bard": "BRD", "Archer": "ARC", "Machinist": "MCH",
-    "Dancer": "DNC", "Pictomancer": "PCT", "BlackMage": "BLM", "Thaumaturge": "THM",
-    "Summoner": "SMN", "Arcanist": "ACN", "RedMage": "RDM", "BlueMage": "BLU",
-    "Carpenter": "CRP", "Blacksmith": "BSM", "Armorer": "ARM", "Goldsmith": "GSM",
-    "Leatherworker": "LTW", "Weaver": "WVR", "Alchemist": "ALC", "Culinarian": "CUL",
-    "Miner": "MIN", "Botanist": "BTN", "Fisher": "FSH",
-}
-
-# ClassJob ID to Abbreviation mapping (FFXIV internal job IDs)
-CLASSJOB_ID_TO_ABBR = {
-    0: "ADV",   # Adventurer
-    1: "GLA", 2: "PGL", 3: "MRD", 4: "LNC", 5: "ARC", 6: "CNJ", 7: "THM",
-    8: "CRP", 9: "BSM", 10: "ARM", 11: "GSM", 12: "LTW", 13: "WVR", 14: "ALC", 15: "CUL",
-    16: "MIN", 17: "BTN", 18: "FSH",
-    19: "PLD", 20: "MNK", 21: "WAR", 22: "DRG", 23: "BRD", 24: "WHM", 25: "BLM",
-    26: "ACN", 27: "SMN", 28: "SCH", 29: "ROG", 30: "NIN", 31: "MCH", 32: "DRK",
-    33: "AST", 34: "SAM", 35: "RDM", 36: "BLU", 37: "GNB", 38: "DNC", 39: "RPR",
-    40: "SGE", 41: "VPR", 42: "PCT",
-}
-
-# ===============================================
-# Job Categories for DoW/DoM and DoH/DoL display
-# Shows only final job classes (not starter classes)
-# ===============================================
-JOB_CATEGORIES = {
-    "Tank": ["Paladin", "Warrior", "DarkKnight", "Gunbreaker"],
-    "Healer": ["WhiteMage", "Scholar", "Astrologian", "Sage"],
-    "MeleeDPS": ["Monk", "Dragoon", "Ninja", "Samurai", "Reaper", "Viper"],
-    "PhysRangedDPS": ["Bard", "Machinist", "Dancer"],
-    "MagicRangedDPS": ["BlackMage", "Summoner", "RedMage", "Pictomancer", "BlueMage"],
-    "DoH": ["Carpenter", "Blacksmith", "Armorer", "Goldsmith", "Leatherworker", "Weaver", "Alchemist", "Culinarian"],
-    "DoL": ["Miner", "Botanist", "Fisher"],
-}
-
-# Map base classes to their upgraded jobs (for level lookup)
-# If a character has Gladiator level but not Paladin, use Gladiator level for Paladin display
-JOB_BASE_CLASS = {
-    "Paladin": "Gladiator",
-    "Warrior": "Marauder",
-    "WhiteMage": "Conjurer",
-    "BlackMage": "Thaumaturge",
-    "Bard": "Archer",
-    "Dragoon": "Lancer",
-    "Monk": "Pugilist",
-    "Summoner": "Arcanist",
-    "Scholar": "Arcanist",
-    "Ninja": "Rogue",
-}
-
-# Combat jobs only (for MSQ level validation - excludes DoH/DoL)
-COMBAT_JOBS = set(
-    JOB_CATEGORIES["Tank"] + JOB_CATEGORIES["Healer"] + 
-    JOB_CATEGORIES["MeleeDPS"] + JOB_CATEGORIES["PhysRangedDPS"] + 
-    JOB_CATEGORIES["MagicRangedDPS"]
-)
-
-# Map job names to display names (handles CamelCase to spaced names)
-JOB_DISPLAY_NAMES = {
-    "Paladin": "Paladin", "Warrior": "Warrior", "DarkKnight": "Dark Knight", "Gunbreaker": "Gunbreaker",
-    "WhiteMage": "White Mage", "Scholar": "Scholar", "Astrologian": "Astrologian", "Sage": "Sage",
-    "Monk": "Monk", "Dragoon": "Dragoon", "Ninja": "Ninja", "Samurai": "Samurai", "Reaper": "Reaper", "Viper": "Viper",
-    "Bard": "Bard", "Machinist": "Machinist", "Dancer": "Dancer",
-    "BlackMage": "Black Mage", "Summoner": "Summoner", "RedMage": "Red Mage", "Pictomancer": "Pictomancer", "BlueMage": "Blue Mage",
-    "Carpenter": "Carpenter", "Blacksmith": "Blacksmith", "Armorer": "Armorer", "Goldsmith": "Goldsmith",
-    "Leatherworker": "Leatherworker", "Weaver": "Weaver", "Alchemist": "Alchemist", "Culinarian": "Culinarian",
-    "Miner": "Miner", "Botanist": "Botanist", "Fisher": "Fisher",
-}
-
-# Reverse mapping: xa.db lowercase job name -> CamelCase key used by JOB_CATEGORIES
-# xa.db stores names like "paladin", "dark knight"; templates expect "Paladin", "DarkKnight"
-XA_JOB_NAME_TO_KEY = {display.lower(): key for key, display in JOB_DISPLAY_NAMES.items()}
-# Also map base class lowercase names to their CamelCase equivalents
-for _jkey, _base in JOB_BASE_CLASS.items():
-    XA_JOB_NAME_TO_KEY[_base.lower()] = _base
-
-# ===============================================
-# Currency Categories and Display Names
-# ===============================================
-# Categories for organizing currencies in the UI
-CURRENCY_CATEGORIES = {
-    "Crystals": [
-        "Fire_Shard", "Fire_Crystal", "Fire_Cluster",
-        "Ice_Shard", "Ice_Crystal", "Ice_Cluster",
-        "Wind_Shard", "Wind_Crystal", "Wind_Cluster",
-        "Earth_Shard", "Earth_Crystal", "Earth_Cluster",
-        "Lightning_Shard", "Lightning_Crystal", "Lightning_Cluster",
-        "Water_Shard", "Water_Crystal", "Water_Cluster",
-    ],
-    "Common": [
-        "Gil", "MGP", "Venture", "Bicolor_Gemstone",
-    ],
-    "Tomestones": [
-        "Allagan_Tomestone_Of_Poetics", "Allagan_Tomestone_Of_Aesthetics",
-        "Allagan_Tomestone_Of_Heliometry", "Allagan_Tomestone_Of_Causality",
-        "Allagan_Tomestone_Of_Comedy", "Allagan_Tomestone_Of_Astronomy",
-        "Allagan_Tomestone_Of_Aphorism", "Allagan_Tomestone_Of_Revelation",
-        "Allagan_Tomestone_Of_Allegory", "Allagan_Tomestone_Of_Phantasmagoria",
-        "Allagan_Tomestone_Of_Goetia", "Allagan_Tomestone_Of_Genesis",
-        "Allagan_Tomestone_Of_Mendacity", "Allagan_Tomestone_Of_Creation",
-        "Allagan_Tomestone_Of_Verity", "Allagan_Tomestone_Of_Scripture",
-        "Allagan_Tomestone_Of_Lore", "Allagan_Tomestone_Of_Esoterics",
-        "Allagan_Tomestone_Of_Law", "Allagan_Tomestone_Of_Soldiery",
-        "Allagan_Tomestone_Of_Poetics", "Allagan_Tomestone_Of_Mythology",
-        "Allagan_Tomestone_Of_Philosophy", "Allagan_Tomestone_Of_Mnemosyne",
-        "Allagan_Tomestone_Of_Mathematics",
-    ],
-    "Battle": [
-        "Wolf_Mark", "Trophy_Crystal", "Allied_Seal", "Centurio_Seal",
-        "Sack_Of_Nuts", "Faux_Leaf", "Bozjan_Cluster", "Flame_Seal",
-        "Serpent_Seal", "Storm_Seal", "Achievement_Certificate",
-    ],
-    "Societies": [
-        "Fae_Fancy", "Hammered_Frogment", "Carved_Kupo_Nut",
-        "Loporrit_Carat", "Omicron_Omnitoken", "Seafarer's_Cowrie",
-        "Ananta_Dreamstaff", "Arkasodara_Pana", "Black_Copper_Gil",
-        "Kojin_Sango", "Namazu_Koban", "Pixie_Locket", "Qitari_Compliment",
-        "Steel_Amalj'ok", "Sylphic_Goldleaf", "Titan_Cobaltpiece",
-        "Tribal_Quest_Allowance",
-    ],
-}
-
-# Shorten currency names for display
-CURRENCY_SHORT_NAMES = {
-    # Tomestones - remove "Allagan_Tomestone_Of_"
-    "Allagan_Tomestone_Of_Poetics": "Poetics",
-    "Allagan_Tomestone_Of_Aesthetics": "Aesthetics",
-    "Allagan_Tomestone_Of_Heliometry": "Heliometry",
-    "Allagan_Tomestone_Of_Causality": "Causality",
-    "Allagan_Tomestone_Of_Comedy": "Comedy",
-    "Allagan_Tomestone_Of_Astronomy": "Astronomy",
-    "Allagan_Tomestone_Of_Aphorism": "Aphorism",
-    "Allagan_Tomestone_Of_Revelation": "Revelation",
-    "Allagan_Tomestone_Of_Allegory": "Allegory",
-    "Allagan_Tomestone_Of_Phantasmagoria": "Phantasmagoria",
-    "Allagan_Tomestone_Of_Goetia": "Goetia",
-    "Allagan_Tomestone_Of_Genesis": "Genesis",
-    "Allagan_Tomestone_Of_Mendacity": "Mendacity",
-    "Allagan_Tomestone_Of_Creation": "Creation",
-    "Allagan_Tomestone_Of_Verity": "Verity",
-    "Allagan_Tomestone_Of_Scripture": "Scripture",
-    "Allagan_Tomestone_Of_Lore": "Lore",
-    "Allagan_Tomestone_Of_Esoterics": "Esoterics",
-    "Allagan_Tomestone_Of_Law": "Law",
-    "Allagan_Tomestone_Of_Soldiery": "Soldiery",
-    "Allagan_Tomestone_Of_Mythology": "Mythology",
-    "Allagan_Tomestone_Of_Philosophy": "Philosophy",
-    "Allagan_Tomestone_Of_Mnemosyne": "Mnemosyne",
-    "Allagan_Tomestone_Of_Mathematics": "Mathematics",
-    # Crystals - remove underscores
-    "Fire_Shard": "Fire Shard", "Fire_Crystal": "Fire Crystal", "Fire_Cluster": "Fire Cluster",
-    "Ice_Shard": "Ice Shard", "Ice_Crystal": "Ice Crystal", "Ice_Cluster": "Ice Cluster",
-    "Wind_Shard": "Wind Shard", "Wind_Crystal": "Wind Crystal", "Wind_Cluster": "Wind Cluster",
-    "Earth_Shard": "Earth Shard", "Earth_Crystal": "Earth Crystal", "Earth_Cluster": "Earth Cluster",
-    "Lightning_Shard": "Lightning Shard", "Lightning_Crystal": "Lightning Crystal", "Lightning_Cluster": "Lightning Cluster",
-    "Water_Shard": "Water Shard", "Water_Crystal": "Water Crystal", "Water_Cluster": "Water Cluster",
-    # Common - clean up underscores
-    "Bicolor_Gemstone": "Bicolor Gemstone",
-    # Battle
-    "Wolf_Mark": "Wolf Marks", "Trophy_Crystal": "Trophy Crystal", "Allied_Seal": "Allied Seals",
-    "Centurio_Seal": "Centurio Seals", "Sack_Of_Nuts": "Sack of Nuts", "Faux_Leaf": "Faux Leaves",
-    "Bozjan_Cluster": "Bozjan Clusters", "Flame_Seal": "Flame Seals", "Serpent_Seal": "Serpent Seals",
-    "Storm_Seal": "Storm Seals", "Achievement_Certificate": "Achievement Cert",
-    # Societies
-    "Fae_Fancy": "Fae Fancy", "Hammered_Frogment": "Hammered Frogment", "Carved_Kupo_Nut": "Carved Kupo Nut",
-    "Loporrit_Carat": "Loporrit Carat", "Omicron_Omnitoken": "Omicron Omnitoken",
-    "Seafarer's_Cowrie": "Seafarer's Cowrie", "Ananta_Dreamstaff": "Ananta Dreamstaff",
-    "Arkasodara_Pana": "Arkasodara Pana", "Black_Copper_Gil": "Black Copper Gil",
-    "Kojin_Sango": "Kojin Sango", "Namazu_Koban": "Namazu Koban", "Pixie_Locket": "Pixie Locket",
-    "Qitari_Compliment": "Qitari Compliment", "Steel_Amalj'ok": "Steel Amalj'ok",
-    "Sylphic_Goldleaf": "Sylphic Goldleaf", "Titan_Cobaltpiece": "Titan Cobaltpiece",
-    "Tribal_Quest_Allowance": "Tribal Allowance",
-}
-
-
-def get_currency_display_name(currency_name):
-    """Get shortened display name for a currency"""
-    if currency_name in CURRENCY_SHORT_NAMES:
-        return CURRENCY_SHORT_NAMES[currency_name]
-    # Fallback: replace underscores with spaces
-    return currency_name.replace("_", " ")
-
-
-def categorize_currencies(currencies_dict):
-    """
-    Categorize currencies into groups for display.
-    Returns dict with:
-      - 'crystal_grid': dict of element -> {'Shard': val, 'Crystal': val, 'Cluster': val}
-      - 'categories': dict of category -> [(display_name, value), ...]
-    """
-    # Crystal elements in display order
-    CRYSTAL_ELEMENTS = ["Fire", "Ice", "Wind", "Earth", "Lightning", "Water"]
-    
-    # Build crystal grid: element -> {type: value}
-    crystal_grid = {elem: {"Shard": 0, "Crystal": 0, "Cluster": 0} for elem in CRYSTAL_ELEMENTS}
-    
-    # Other categories
-    categorized = {
-        "Common": [],
-        "Tomestones": [],
-        "Battle": [],
-        "Societies": [],
-        "Other": [],
-    }
-    
-    for curr_name, curr_value in currencies_dict.items():
-        # Check if it's a crystal
-        is_crystal = False
-        for elem in CRYSTAL_ELEMENTS:
-            if curr_name.startswith(elem + "_"):
-                is_crystal = True
-                if curr_name.endswith("_Shard"):
-                    crystal_grid[elem]["Shard"] = curr_value
-                elif curr_name.endswith("_Crystal"):
-                    crystal_grid[elem]["Crystal"] = curr_value
-                elif curr_name.endswith("_Cluster"):
-                    crystal_grid[elem]["Cluster"] = curr_value
-                break
-        
-        if is_crystal:
-            continue
-        
-        # Check other categories
-        display_name = get_currency_display_name(curr_name)
-        found_category = False
-        
-        for cat_name, cat_currencies in CURRENCY_CATEGORIES.items():
-            if cat_name == "Crystals":
-                continue  # Already handled
-            if curr_name in cat_currencies:
-                categorized[cat_name].append((display_name, curr_value))
-                found_category = True
-                break
-        
-        if not found_category:
-            categorized["Other"].append((display_name, curr_value))
-    
-    # Sort each category alphabetically by display name
-    for cat_name in categorized:
-        categorized[cat_name].sort(key=lambda x: x[0])
-    
-    # Check if character has any crystals
-    has_crystals = any(
-        crystal_grid[elem][t] > 0 
-        for elem in CRYSTAL_ELEMENTS 
-        for t in ["Shard", "Crystal", "Cluster"]
-    )
-    
-    return {
-        "crystal_grid": crystal_grid if has_crystals else None,
-        "crystal_elements": CRYSTAL_ELEMENTS,
-        "categories": {k: v for k, v in categorized.items() if v}
-    }
-
-
-# ===============================================
-# Residential District Mapping (Lifestream)
-# ===============================================
-RESIDENTIAL_DISTRICTS = {
-    8: "Mist",
-    9: "Goblet",
-    2: "Lavender Beds",
-    70: "Empyreum",
-    111: "Shirogane"
-}
-
-DISTRICT_ABBREV = {
-    "Mist": "Mist",
-    "The Mist": "Mist",
-    "Goblet": "Goblet",
-    "The Goblet": "Goblet",
-    "Lavender Beds": "LB",
-    "The Lavender Beds": "LB",
-    "Empyreum": "Empyreum",
-    "Shirogane": "Shirogane"
-}
-
-HOUSING_PLOT_SIZE_BY_DISTRICT = {
-    "Mist": (
-        "Medium", "Large", "Small", "Medium", "Large", "Medium", "Medium", "Small", "Small", "Small",
-        "Small", "Small", "Small", "Medium", "Large", "Small", "Small", "Small", "Small", "Small",
-        "Small", "Small", "Small", "Small", "Small", "Small", "Small", "Small", "Medium", "Medium",
-        "Medium", "Large", "Small", "Medium", "Large", "Medium", "Medium", "Small", "Small", "Small",
-        "Small", "Small", "Small", "Medium", "Large", "Small", "Small", "Small", "Small", "Small",
-        "Small", "Small", "Small", "Small", "Small", "Small", "Small", "Small", "Medium", "Medium",
-    ),
-    "Goblet": (
-        "Small", "Small", "Small", "Medium", "Large", "Medium", "Small", "Medium", "Small", "Small",
-        "Medium", "Medium", "Large", "Small", "Small", "Small", "Small", "Small", "Medium", "Small",
-        "Small", "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Small", "Large",
-        "Small", "Small", "Small", "Medium", "Large", "Medium", "Small", "Medium", "Small", "Small",
-        "Medium", "Medium", "Large", "Small", "Small", "Small", "Small", "Small", "Medium", "Small",
-        "Small", "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Small", "Large",
-    ),
-    "Lavender Beds": (
-        "Medium", "Small", "Large", "Small", "Medium", "Large", "Small", "Small", "Small", "Small",
-        "Medium", "Small", "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Small",
-        "Medium", "Small", "Small", "Small", "Small", "Small", "Medium", "Large", "Small", "Medium",
-        "Medium", "Small", "Large", "Small", "Medium", "Large", "Small", "Small", "Small", "Small",
-        "Medium", "Small", "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Small",
-        "Medium", "Small", "Small", "Small", "Small", "Small", "Medium", "Large", "Small", "Medium",
-    ),
-    "Shirogane": (
-        "Medium", "Small", "Small", "Small", "Small", "Small", "Large", "Medium", "Small", "Small",
-        "Small", "Small", "Medium", "Small", "Medium", "Large", "Small", "Small", "Medium", "Small",
-        "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Medium", "Small", "Large",
-        "Medium", "Small", "Small", "Small", "Small", "Small", "Large", "Medium", "Small", "Small",
-        "Small", "Small", "Medium", "Small", "Medium", "Large", "Small", "Small", "Medium", "Small",
-        "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Medium", "Small", "Large",
-    ),
-    "Empyreum": (
-        "Small", "Medium", "Small", "Small", "Small", "Small", "Medium", "Medium", "Small", "Small",
-        "Small", "Large", "Small", "Small", "Small", "Small", "Medium", "Medium", "Small", "Small",
-        "Medium", "Large", "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Large",
-        "Small", "Medium", "Small", "Small", "Small", "Small", "Medium", "Medium", "Small", "Small",
-        "Small", "Large", "Small", "Small", "Small", "Small", "Medium", "Medium", "Small", "Small",
-        "Medium", "Large", "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Large",
-    ),
-}
-
-HOUSING_SIZE_DISTRICT_KEYS = {
-    "mist": "Mist",
-    "the mist": "Mist",
-    "goblet": "Goblet",
-    "the goblet": "Goblet",
-    "lavender beds": "Lavender Beds",
-    "the lavender beds": "Lavender Beds",
-    "lb": "Lavender Beds",
-    "shirogane": "Shirogane",
-    "empyreum": "Empyreum",
-}
-
-HOUSING_OWNER_SUFFIX_REGEX = re.compile(r"\s*\[[^\]]+\]\s*$")
-HOUSING_SIZE_REGEX = re.compile(r"\((Small|Medium|Large)\)\s*(?:\[[^\]]+\])?\s*$", re.IGNORECASE)
-HOUSING_PLOT_REGEX = re.compile(r"\bPlot\s+(?P<plot>\d+)\b", re.IGNORECASE)
-HOUSING_WARD_REGEX = re.compile(r"\b(?:Ward\s+(?P<ward_after>\d+)|(?P<ward_before>\d+)(?:st|nd|rd|th)\s+Ward)\b", re.IGNORECASE)
-HOUSING_PAREN_REGEX = re.compile(r"\s*\([^)]*\)")
-
-def housing_size_district_key(district):
-    normalized = str(district or "").strip().lower()
-    return HOUSING_SIZE_DISTRICT_KEYS.get(normalized, "")
-
-def get_housing_plot_size(district, plot_number):
-    district_key = housing_size_district_key(district)
-    if not district_key:
-        return ""
-    try:
-        plot_index = int(plot_number) - 1
-    except (TypeError, ValueError):
-        return ""
-    sizes = HOUSING_PLOT_SIZE_BY_DISTRICT.get(district_key, ())
-    if plot_index < 0 or plot_index >= len(sizes):
-        return ""
-    return sizes[plot_index]
-
-def strip_housing_owner_suffix(value):
-    return HOUSING_OWNER_SUFFIX_REGEX.sub("", str(value or "").strip()).strip()
-
-def extract_housing_plot_size(value):
-    normalized = strip_housing_owner_suffix(value)
-    if not normalized:
-        return ""
-    match = HOUSING_SIZE_REGEX.search(normalized)
-    return match.group(1).title() if match else ""
-
-def parse_xa_housing_location(value):
-    normalized = strip_housing_owner_suffix(value)
-    if not normalized:
-        return None
-    plot_match = HOUSING_PLOT_REGEX.search(normalized)
-    ward_match = HOUSING_WARD_REGEX.search(normalized)
-    if not plot_match or not ward_match:
-        return None
-    ward_value = ward_match.group("ward_after") or ward_match.group("ward_before")
-    if not ward_value:
-        return None
-    segments = [segment.strip() for segment in normalized.split(",") if segment.strip()]
-    if not segments:
-        return None
-    district_name = HOUSING_PAREN_REGEX.sub("", segments[-1]).strip().rstrip(",")
-    plot_number = int(plot_match.group("plot"))
-    district_abbrev = DISTRICT_ABBREV.get(district_name, district_name)
-    return {
-        "ward": int(ward_value),
-        "plot": plot_number,
-        "district": district_abbrev,
-        "size": get_housing_plot_size(district_abbrev, plot_number) or extract_housing_plot_size(normalized),
-    }
-
-def build_xa_housing_size_lookup(snapshot_map):
-    size_lookup = {}
-    for snapshot in snapshot_map.values():
-        for estate_key in ("personal_estate", "fc_estate"):
-            parsed = parse_xa_housing_location(snapshot.get(estate_key, ""))
-            if not parsed or not parsed.get("size"):
-                continue
-            size_lookup.setdefault((parsed["district"], parsed["plot"]), parsed["size"])
-    return size_lookup
-
-def merge_xa_housing_entry(current_entry, raw_value, size_lookup=None):
-    if not current_entry:
-        return current_entry
-    merged = dict(current_entry)
-    merged.setdefault("size", "")
-    parsed = parse_xa_housing_location(raw_value)
-    if parsed:
-        same_location = (
-            merged.get("ward") == parsed["ward"]
-            and merged.get("plot") == parsed["plot"]
-            and DISTRICT_ABBREV.get(merged.get("district", ""), merged.get("district", "")) == parsed["district"]
-        )
-        if same_location and parsed.get("size"):
-            merged["size"] = parsed["size"]
-    hardcoded_size = get_housing_plot_size(merged.get("district", ""), merged.get("plot"))
-    if hardcoded_size:
-        merged["size"] = hardcoded_size
-    if not merged.get("size") and size_lookup:
-        fallback_key = (
-            DISTRICT_ABBREV.get(merged.get("district", ""), merged.get("district", "")),
-            merged.get("plot"),
-        )
-        fallback_size = size_lookup.get(fallback_key, "")
-        if fallback_size:
-            merged["size"] = fallback_size
-    return merged
-
-def apply_xa_housing_sizes(housing_entry, xa_entry, size_lookup=None):
-    if not housing_entry:
-        return housing_entry
-    return {
-        "private": merge_xa_housing_entry(housing_entry.get("private"), xa_entry.get("personal_estate", ""), size_lookup),
-        "fc": merge_xa_housing_entry(housing_entry.get("fc"), xa_entry.get("fc_estate", ""), size_lookup),
-    }
-
-
-def load_lifestream_data(lifestream_path):
-    """
-    Load housing plot data from Lifestream config.
-    Returns a dict mapping CID -> {'private': {'ward': int, 'plot': int, 'district': str}, 'fc': {'ward': int, 'plot': int, 'district': str}}
-    Characters can have both a private house and FC house.
-    """
-    if not os.path.isfile(lifestream_path):
-        return {}
-    
-    try:
-        with open(lifestream_path, 'r', encoding='utf-8-sig') as f:
-            data = json.load(f)
-        
-        house_data = data.get('HousePathDatas', [])
-        housing_map = {}
-        
-        for entry in house_data:
-            cid = entry.get('CID')
-            if cid:
-                if cid not in housing_map:
-                    housing_map[cid] = {'private': None, 'fc': None}
-                
-                ward = entry.get('Ward')
-                plot = entry.get('Plot')
-                if ward is not None:
-                    ward = ward + 1
-                if plot is not None:
-                    plot = plot + 1
-                
-                district_id = entry.get('ResidentialDistrict')
-                district_name = RESIDENTIAL_DISTRICTS.get(district_id, "")
-                district_abbrev = DISTRICT_ABBREV.get(district_name, "")
-                
-                is_private = entry.get('IsPrivate', False)
-                
-                if is_private:
-                    housing_map[cid]['private'] = {'ward': ward, 'plot': plot, 'district': district_abbrev, 'size': get_housing_plot_size(district_abbrev, plot)}
-                else:
-                    housing_map[cid]['fc'] = {'ward': ward, 'plot': plot, 'district': district_abbrev, 'size': get_housing_plot_size(district_abbrev, plot)}
-        
-        return housing_map
-    except Exception as e:
-        print(f"[WARNING] Failed to load Lifestream data from '{lifestream_path}': {e}")
-        return {}
-
-
-# ===============================================
-# Submarine VesselBehavior Plan Types
-# ===============================================
-# VesselBehavior values from AutoRetainer (VoyageMain.cs):
-# 0 = Finalize (collect sub, do not redeploy)
-# 1 = Redeploy (re-use last deployed route, no named plan)
-# 2 = Level Up (leveling mode)
-# 3 = Unlock Sectors
-# 4 = Use Point Plan
-VESSEL_BEHAVIOR_FARMING = {1, 4}  # These indicate farming mode
-VESSEL_BEHAVIOR_LEVELING = {2, 3}  # These indicate leveling mode
-VESSEL_BEHAVIOR_REDEPLOY = 1      # Redeploy: re-use last route
-VESSEL_BEHAVIOR_FINALIZE = 0      # Finalize: collect and dock
-
-# ===============================================
-# Plan Configuration (loaded from config.json)
-# ===============================================
-# These can be overridden in config.json
-submarine_plans = {
-    "leveling": [],  # plan names that indicate leveling
-    "farming": {},   # plan name: average daily earnings
-    "redeploy": [],  # build strings for subs set to Redeploy (VesselBehavior 1)
-    "finalize": []   # build strings for subs set to Finalize (VesselBehavior 0)
-}
-# Retainer leveling/farming is purely level-based: < 100 = leveling, >= 100 = farming
-item_values = {
-    "venture_coffer": 18000,
-    "pure_white_dye": 450000,
-    "jet_black_dye": 600000,
-    "pastel_pink_dye": 40000
-}
-# Plan GUID to Name lookup (built from DefaultConfig.json)
-submarine_plan_names = {}  # GUID -> Name
-
-# ===============================================
-# Flask Application
-# ===============================================
-app = Flask(__name__)
-
-@app.template_filter('sp_compact')
-def sp_compact_filter(value):
-    """Compact number: 404288500 -> 404.2m, 1155110 -> 1,155k, 32000 -> 32k, 1500 -> 1.5k, 872 -> 872"""
-    try:
-        n = int(value)
-    except (TypeError, ValueError):
-        return str(value)
-    if n >= 1_000_000_000:
-        b = n / 1_000_000_000
-        return f"{b:,.1f}b".replace('.0b', 'b')
-    elif n >= 1_000_000:
-        m = n / 1_000_000
-        return f"{m:,.1f}m".replace('.0m', 'm')
-    elif n >= 10000:
-        return f"{n // 1000:,}k"
-    elif n >= 1000:
-        k = n / 1000
-        return f"{k:.1f}k".replace('.0k', 'k')
-    return str(n)
-
-# ===============================================
-# Data Parsing Functions
-# ===============================================
-def load_external_config():
-    """Load external config file if it exists"""
-    global HOST, PORT, DEBUG, AUTO_REFRESH, account_locations
-    global submarine_plans, retainer_plans, item_values
-    global SHOW_CLASSES, SHOW_CURRENCIES, SHOW_MSQ_PROGRESSION, DEFAULT_THEME
-    global HIGHLIGHT_IDLE_RETAINERS, HIGHLIGHT_IDLE_SUBS, HIGHLIGHT_READY_ITEMS, HIGHLIGHT_MAX_MB, HIGHLIGHT_POTENTIAL_RETAINER, HIGHLIGHT_POTENTIAL_SUBS
-    global HONOR_AR_EXCLUSIONS
-    global HIGHLIGHT_COLOR_IDLE_RETAINERS, HIGHLIGHT_COLOR_IDLE_SUBS, HIGHLIGHT_COLOR_MAX_MB, HIGHLIGHT_COLOR_POTENTIAL_RETAINER, HIGHLIGHT_COLOR_POTENTIAL_SUBS
-    global BUILD_GIL_RATES, BUILD_CONSUMPTION_RATES
-    global CERULEUM_TANK_COST, REPAIR_KIT_COST
-    global USE_AAR_DB
-    
-    config_path = Path(__file__).parent / CONFIG_FILE
-    if not config_path.exists():
-        return
-    
-    try:
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-        
-        HOST = config.get("HOST", HOST)
-        PORT = config.get("PORT", PORT)
-        DEBUG = config.get("DEBUG", DEBUG)
-        AUTO_REFRESH = config.get("AUTO_REFRESH", AUTO_REFRESH)
-        SHOW_CLASSES = config.get("SHOW_CLASSES", SHOW_CLASSES)
-        SHOW_CURRENCIES = config.get("SHOW_CURRENCIES", SHOW_CURRENCIES)
-        SHOW_MSQ_PROGRESSION = config.get("SHOW_MSQ_PROGRESSION", SHOW_MSQ_PROGRESSION)
-        DEFAULT_THEME = config.get("DEFAULT_THEME", DEFAULT_THEME)
-        HIGHLIGHT_IDLE_RETAINERS = config.get("HIGHLIGHT_IDLE_RETAINERS", HIGHLIGHT_IDLE_RETAINERS)
-        HIGHLIGHT_IDLE_SUBS = config.get("HIGHLIGHT_IDLE_SUBS", HIGHLIGHT_IDLE_SUBS)
-        HIGHLIGHT_READY_ITEMS = config.get("HIGHLIGHT_READY_ITEMS", HIGHLIGHT_READY_ITEMS)
-        HIGHLIGHT_MAX_MB = config.get("HIGHLIGHT_MAX_MB", HIGHLIGHT_MAX_MB)
-        HIGHLIGHT_POTENTIAL_RETAINER = config.get("HIGHLIGHT_POTENTIAL_RETAINER", HIGHLIGHT_POTENTIAL_RETAINER)
-        HIGHLIGHT_POTENTIAL_SUBS = config.get("HIGHLIGHT_POTENTIAL_SUBS", HIGHLIGHT_POTENTIAL_SUBS)
-        HONOR_AR_EXCLUSIONS = config.get("HONOR_AR_EXCLUSIONS", HONOR_AR_EXCLUSIONS)
-        
-        # Load custom highlight colors
-        HIGHLIGHT_COLOR_IDLE_RETAINERS = config.get("HIGHLIGHT_COLOR_IDLE_RETAINERS", HIGHLIGHT_COLOR_IDLE_RETAINERS)
-        HIGHLIGHT_COLOR_IDLE_SUBS = config.get("HIGHLIGHT_COLOR_IDLE_SUBS", HIGHLIGHT_COLOR_IDLE_SUBS)
-        HIGHLIGHT_COLOR_MAX_MB = config.get("HIGHLIGHT_COLOR_MAX_MB", HIGHLIGHT_COLOR_MAX_MB)
-        HIGHLIGHT_COLOR_POTENTIAL_RETAINER = config.get("HIGHLIGHT_COLOR_POTENTIAL_RETAINER", HIGHLIGHT_COLOR_POTENTIAL_RETAINER)
-        HIGHLIGHT_COLOR_POTENTIAL_SUBS = config.get("HIGHLIGHT_COLOR_POTENTIAL_SUBS", HIGHLIGHT_COLOR_POTENTIAL_SUBS)
-        
-        if "account_locations" in config:
-            new_locations = []
-            for acc_config in config["account_locations"]:
-                if not acc_config.get("enabled", True):
-                    continue
-                nickname = acc_config.get("nickname", "Unknown")
-                pluginconfigs_path = acc_config.get("pluginconfigs_path", "")
-                pluginconfigs_path = os.path.expandvars(pluginconfigs_path)
-                pluginconfigs_path = pluginconfigs_path.replace("{user}", user)
-                new_locations.append(acc(nickname, pluginconfigs_path))
-            account_locations = new_locations
-        
-        # Load plan configurations
-        if "submarine_plans" in config:
-            submarine_plans.update(config["submarine_plans"])
-        if "item_values" in config:
-            item_values.update(config["item_values"])
-        
-        # Load custom build rates (optional - merges with built-in rates)
-        if "build_gil_rates" in config:
-            BUILD_GIL_RATES.update(config["build_gil_rates"])
-            print(f"[CONFIG] Loaded {len(config['build_gil_rates'])} custom build gil rates")
-        if "build_consumption_rates" in config:
-            BUILD_CONSUMPTION_RATES.update(config["build_consumption_rates"])
-            print(f"[CONFIG] Loaded {len(config['build_consumption_rates'])} custom build consumption rates")
-        
-        # Load supply cost overrides (optional)
-        if "ceruleum_tank_cost" in config:
-            CERULEUM_TANK_COST = config["ceruleum_tank_cost"]
-        if "repair_kit_cost" in config:
-            REPAIR_KIT_COST = config["repair_kit_cost"]
-        
-        # Load XA Database integration settings
-        USE_AAR_DB = config.get("USE_AAR_DB", USE_AAR_DB)
-        
-        print(f"[CONFIG] Loaded configuration from {config_path}")
-    except Exception as e:
-        print(f"[CONFIG] Error loading config: {e}")
-
-
-# ===============================================
-# Sublord DB Functions (local historical snapshots for /charts/)
-# ===============================================
-# Landing Page creates and maintains sublord.db in its own directory.
-# Each page load, live data from xa.db files is aggregated into a daily snapshot.
-# The charts page reads historical snapshots from sublord.db.
-
-SUBLORD_DB_NAME = "sublord.db"
-
-def get_sublord_db_path():
-    """Get path to local sublord.db in script directory."""
-    return Path(__file__).parent / SUBLORD_DB_NAME
-
-def init_sublord_db():
-    """Create sublord.db tables if they don't exist."""
-    db_path = get_sublord_db_path()
-    try:
-        conn = sqlite3.connect(str(db_path))
-        c = conn.cursor()
-        c.execute("""CREATE TABLE IF NOT EXISTS daily_snapshots (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT UNIQUE,
-            timestamp TEXT,
-            total_character_gil INTEGER DEFAULT 0,
-            total_retainer_gil INTEGER DEFAULT 0,
-            total_fc_chest_gil INTEGER DEFAULT 0,
-            total_treasure_value INTEGER DEFAULT 0,
-            total_gil_plus_treasure INTEGER DEFAULT 0,
-            total_subs INTEGER DEFAULT 0,
-            total_subs_farming INTEGER DEFAULT 0,
-            total_subs_leveling INTEGER DEFAULT 0,
-            total_gil_per_day INTEGER DEFAULT 0,
-            total_supply_cost_per_day INTEGER DEFAULT 0,
-            total_net_per_day INTEGER DEFAULT 0,
-            ceruleum_tank_inventory INTEGER DEFAULT 0,
-            repair_kit_inventory INTEGER DEFAULT 0,
-            days_until_restocking REAL,
-            total_tanks_per_day REAL DEFAULT 0,
-            total_kits_per_day REAL DEFAULT 0
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS cumulative_totals (
-            id INTEGER PRIMARY KEY,
-            total_gil_overall INTEGER DEFAULT 0,
-            total_supply_cost_overall INTEGER DEFAULT 0
-        )""")
-        snapshot_columns = {row[1] for row in c.execute("PRAGMA table_info(daily_snapshots)").fetchall()}
-        if "total_fc_chest_gil" not in snapshot_columns:
-            c.execute("ALTER TABLE daily_snapshots ADD COLUMN total_fc_chest_gil INTEGER DEFAULT 0")
-        c.execute("INSERT OR IGNORE INTO cumulative_totals (id, total_gil_overall, total_supply_cost_overall) VALUES (1, 0, 0)")
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        print(f"[SUBLORD-DB] Error initializing database: {e}")
-
-def _get_xa_gil_totals():
-    """Read character, retainer, and FC chest Gil from all xa.db files."""
-    def _read_fc_chest_gil(raw_value):
-        if not raw_value or raw_value == "null":
-            return 0
-        try:
-            parsed = json.loads(raw_value)
-        except Exception:
-            return 0
-        if isinstance(parsed, dict):
-            try:
-                return int(parsed.get("FcGil", 0) or 0)
-            except Exception:
-                return 0
-        if isinstance(parsed, list):
-            total = 0
-            for entry in parsed:
-                if not isinstance(entry, dict):
-                    continue
-                try:
-                    total += int(entry.get("FcGil", 0) or 0)
-                except Exception:
-                    continue
-            return total
-        return 0
-
-    total_char_gil = 0
-    total_ret_gil = 0
-    total_fc_chest_gil = 0
-    for account in account_locations:
-        db_path = Path(account.get("xa_db_path", ""))
-        if not db_path or not db_path.exists():
-            continue
-        try:
-            conn = sqlite3.connect(str(db_path))
-            c = conn.cursor()
-            tables = {row[0] for row in c.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
-            if "xa_characters" in tables:
-                xa_character_columns = {row[1] for row in c.execute("PRAGMA table_info(xa_characters)").fetchall()}
-                select_parts = [
-                    "COALESCE(gil, 0)",
-                    "COALESCE(retainer_gil, 0)",
-                    "free_company_json" if "free_company_json" in xa_character_columns else "NULL AS free_company_json",
-                ]
-                for char_gil, ret_gil, free_company_json in c.execute(
-                    f"SELECT {', '.join(select_parts)} FROM xa_characters"
-                ).fetchall():
-                    total_char_gil += char_gil or 0
-                    total_ret_gil += ret_gil or 0
-                    total_fc_chest_gil += _read_fc_chest_gil(free_company_json)
-            else:
-                for row in c.execute("SELECT amount FROM currency_balances WHERE currency_name = 'Gil'").fetchall():
-                    total_char_gil += row[0] or 0
-                for row in c.execute("SELECT gil FROM retainers").fetchall():
-                    total_ret_gil += row[0] or 0
-            conn.close()
-        except Exception:
-            pass
-    return total_char_gil, total_ret_gil, total_fc_chest_gil
-
-def write_daily_snapshot(summary):
-    """
-    Write a daily snapshot to sublord.db from dashboard summary data + xa.db live Gil.
-    Called after get_all_data() computes the dashboard summary.
-    Only writes once per day (INSERT OR REPLACE on date).
-    """
-    if not USE_AAR_DB:
-        return
-    
-    db_path = get_sublord_db_path()
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Get character/retainer/FC chest Gil split from xa.db files
-    char_gil, ret_gil, fc_chest_gil = _get_xa_gil_totals()
-    treasure = summary.get("total_treasure", 0)
-    
-    # Check if this is a new day (for cumulative tracking)
-    is_new_day = False
-    
-    try:
-        conn = sqlite3.connect(str(db_path))
-        c = conn.cursor()
-        
-        # Check if we already have a snapshot for today
-        existing = c.execute("SELECT id FROM daily_snapshots WHERE date = ?", (today,)).fetchone()
-        is_new_day = existing is None
-        
-        c.execute("""INSERT INTO daily_snapshots (date, timestamp, total_character_gil, total_retainer_gil,
-            total_fc_chest_gil,
-            total_treasure_value, total_gil_plus_treasure, total_subs, total_subs_farming, total_subs_leveling,
-            total_gil_per_day, total_supply_cost_per_day, total_net_per_day,
-            ceruleum_tank_inventory, repair_kit_inventory, days_until_restocking,
-            total_tanks_per_day, total_kits_per_day)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(date) DO UPDATE SET
-            timestamp=excluded.timestamp,
-            total_character_gil=excluded.total_character_gil,
-            total_retainer_gil=excluded.total_retainer_gil,
-            total_fc_chest_gil=excluded.total_fc_chest_gil,
-            total_treasure_value=excluded.total_treasure_value,
-            total_gil_plus_treasure=excluded.total_gil_plus_treasure,
-            total_subs=excluded.total_subs,
-            total_subs_farming=excluded.total_subs_farming,
-            total_subs_leveling=excluded.total_subs_leveling,
-            total_gil_per_day=excluded.total_gil_per_day,
-            total_supply_cost_per_day=excluded.total_supply_cost_per_day,
-            total_net_per_day=excluded.total_net_per_day,
-            ceruleum_tank_inventory=excluded.ceruleum_tank_inventory,
-            repair_kit_inventory=excluded.repair_kit_inventory,
-            days_until_restocking=excluded.days_until_restocking,
-            total_tanks_per_day=excluded.total_tanks_per_day,
-            total_kits_per_day=excluded.total_kits_per_day
-        """, (
-            today, timestamp, char_gil, ret_gil, fc_chest_gil,
-            treasure, char_gil + ret_gil + fc_chest_gil + treasure,
-            summary.get("enabled_subs", 0),
-            summary.get("subs_farming", 0),
-            summary.get("subs_leveling", 0),
-            int(summary.get("daily_income", 0)),
-            int(summary.get("daily_cost", 0)),
-            int(summary.get("daily_profit", 0)),
-            summary.get("total_ceruleum", 0),
-            summary.get("total_kits", 0),
-            summary.get("min_restock_days"),
-            summary.get("total_tanks_per_day", 0),
-            summary.get("total_kits_per_day", 0),
-        ))
-        
-        # Update cumulative totals only on first snapshot of the day
-        if is_new_day:
-            c.execute("""UPDATE cumulative_totals SET
-                total_gil_overall = total_gil_overall + ?,
-                total_supply_cost_overall = total_supply_cost_overall + ?
-                WHERE id = 1""", (
-                int(summary.get("daily_income", 0)),
-                int(summary.get("daily_cost", 0)),
-            ))
-        
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        print(f"[SUBLORD-DB] Error writing snapshot: {e}")
-
-def read_sublord_data():
-    """
-    Read historical snapshots from local sublord.db for charts page.
-    Returns dict with daily_snapshots list and cumulative dict, or None if unavailable.
-    """
-    if not USE_AAR_DB:
-        return None
-    
-    db_path = get_sublord_db_path()
-    if not db_path.exists():
-        return None
-    
-    try:
-        conn = sqlite3.connect(str(db_path))
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        
-        c.execute("SELECT * FROM daily_snapshots ORDER BY date ASC")
-        snapshots = [dict(row) for row in c.fetchall()]
-        
-        c.execute("SELECT * FROM cumulative_totals WHERE id = 1")
-        cum_row = c.fetchone()
-        cumulative = dict(cum_row) if cum_row else {}
-        
-        conn.close()
-        
-        if not snapshots:
-            return {"daily_snapshots": [], "cumulative": cumulative}
-        
-        return {
-            "daily_snapshots": snapshots,
-            "cumulative": cumulative,
-        }
-    except Exception as e:
-        print(f"[SUBLORD-DB] Error reading database: {e}")
-        return None
-
-def check_xa_db_status():
-    """Check xa.db availability for all accounts. Call once at startup."""
-    found = []
-    missing = []
-    for account in account_locations:
-        nickname = account.get("nickname", "?")
-        db_path = Path(account.get("xa_db_path", ""))
-        if db_path and db_path.exists():
-            found.append(nickname)
+    if isinstance(full_data, dict):
+        if "OfflineData" in full_data and isinstance(full_data["OfflineData"], list):
+            for c in full_data["OfflineData"]:
+                if isinstance(c, dict) and "CID" in c:
+                    all_chars.append(assign_nickname(c))
         else:
-            missing.append(nickname)
-    return found, missing
-
-
-def build_plan_name_lookup(data):
-    """Build GUID to plan name lookup from AutoRetainer config"""
-    global submarine_plan_names
-    submarine_plan_names = {}
-    
-    # SubmarinePointPlans
-    for plan in data.get("SubmarinePointPlans", []):
-        guid = plan.get("GUID", "")
-        name = plan.get("Name", "")
-        if guid and name:
-            submarine_plan_names[guid] = name
-    
-    # SubmarineUnlockPlans
-    for plan in data.get("SubmarineUnlockPlans", []):
-        guid = plan.get("GUID", "")
-        name = plan.get("Name", "")
-        if guid and name:
-            submarine_plan_names[guid] = name
-
-
-def get_submarine_plan_info(sub_data, build=""):
-    """
-    Determine submarine leveling/farming status and earnings based on plan name.
-    Returns: (is_leveling, is_farming, plan_name, plan_earnings)
-    """
-    vessel_behavior = sub_data.get("VesselBehavior", 0)
-    
-    # VesselBehavior 0 = Finalize: collect sub, do not redeploy — takes priority
-    if vessel_behavior == VESSEL_BEHAVIOR_FINALIZE:
-        return False, False, "Finalize", 0
-    
-    # VesselBehavior 1 = Redeploy: re-uses last route, no named plan — takes priority
-    if vessel_behavior == VESSEL_BEHAVIOR_REDEPLOY:
-        return False, True, "Redeploy", 0
-    
-    # Get the plan GUID being used
-    selected_point_plan = sub_data.get("SelectedPointPlan", "")
-    selected_unlock_plan = sub_data.get("SelectedUnlockPlan", "")
-    
-    # Determine which plan to look up based on VesselBehavior
-    plan_guid = ""
-    if vessel_behavior == 4:  # Use Point Plan
-        plan_guid = selected_point_plan
-    elif vessel_behavior == 3:  # Unlock Sectors
-        plan_guid = selected_unlock_plan
-    
-    # Get plan name from GUID lookup
-    plan_name = submarine_plan_names.get(plan_guid, "")
-    
-    # Check if plan name matches config leveling or farming plans
-    leveling_plans = submarine_plans.get("leveling", [])
-    farming_plans = submarine_plans.get("farming", {})
-    
-    if plan_name and plan_name in leveling_plans:
-        return True, False, plan_name, 0
-    
-    if plan_name and plan_name in farming_plans:
-        plan_earnings = farming_plans.get(plan_name, 0)
-        return False, True, plan_name, plan_earnings
-    
-    # Fallback to VesselBehavior detection
-    if vessel_behavior in VESSEL_BEHAVIOR_FARMING:
-        if plan_name and plan_name in farming_plans:
-            return False, True, plan_name, farming_plans[plan_name]
-        return False, True, plan_name if plan_name else "Unknown Plan", 0
-    elif vessel_behavior in VESSEL_BEHAVIOR_LEVELING:
-        return True, False, plan_name if plan_name else "Leveling", 0
-    
-    # Default fallback
-    return True, False, "", 0
-
+            for _, value in full_data.items():
+                if isinstance(value, dict) and "CID" in value:
+                    all_chars.append(assign_nickname(value))
+    elif isinstance(full_data, list):
+        for item in full_data:
+            if isinstance(item, dict) and "CID" in item:
+                all_chars.append(assign_nickname(item))
+    return all_chars
 
 def shorten_part_name(full_name: str) -> str:
     """Convert full submarine part name to short code"""
@@ -1338,8 +1742,7 @@ def shorten_part_name(full_name: str) -> str:
             return code
     return "?"
 
-
-def get_sub_build_string(sub_data: dict) -> str:
+def get_sub_parts_string(sub_data: dict) -> str:
     """Get submarine build string from part IDs"""
     parts = []
     for key in ["Part1", "Part2", "Part3", "Part4"]:
@@ -1350,7596 +1753,2769 @@ def get_sub_build_string(sub_data: dict) -> str:
             parts.append(short_code)
     return "".join(parts)
 
-
-def format_time_remaining(unix_timestamp):
-    """Format unix timestamp to human-readable time remaining"""
-    if not unix_timestamp:
-        return "Unknown"
-    
-    now = datetime.datetime.now()
-    target = datetime.datetime.fromtimestamp(unix_timestamp)
-    delta = target - now
-    
-    if delta.total_seconds() <= 0:
-        return "Ready!"
-    
-    hours = int(delta.total_seconds() // 3600)
-    minutes = int((delta.total_seconds() % 3600) // 60)
-    
-    if hours > 24:
-        days = hours // 24
-        hours = hours % 24
-        return f"{days}d {hours}h {minutes}m"
-    elif hours > 0:
-        return f"{hours}h {minutes}m"
-    else:
-        return f"{minutes}m"
-
-
-def format_gil(amount):
-    """Format gil amount with commas"""
-    return f"{amount:,}"
-
-
-def _safe_json_load(s):
-    """Safely parse JSON string, handling null/empty values"""
-    if not s or s == "null":
-        return None
-    try:
-        return json.loads(s)
-    except Exception:
-        return None
-
-
 # ===============================================
-# MSQ Quest Tracking - Chronological Quest List with Names
+# Window Mover Functions
 # ===============================================
-# Complete MSQ quest data in CHRONOLOGICAL ORDER (955 trackable quests)
-# Format: (quest_id, quest_name) tuples
-# Progress is calculated by finding the HIGHEST position MSQ quest the character has
-# This approach works even if XA Database only tracks partial quest history
-#
-# Quest IDs sourced from FFXIV game data
-# Note: ~40 quests from quests.txt are not in quest_cache.json and cannot be tracked
-# Total expected MSQ: ~993 | Trackable: 955 (938 base + 17 patch 7.x)
-#
-# Covers: ARR -> Seventh Astral Era -> Heavensward -> Dragonsong War ->
-#         Stormblood -> Post-Ala Mhigan -> Shadowbringers -> Endwalker ->
-#         Newfound Adventure -> Dawntrail -> Crossroads -> Into the Mist
-MSQ_QUEST_DATA = [
-    (66060, "The Ultimate Weapon"),
-    (66729, "Build on the Stone"),
-    (66899, "Through the Maelstrom"),
-    (66996, "Brave New Companions"),
-    (65625, "Let Us Cling Together"),
-    (65965, "In Memory of Moenbryda"),
-    (65964, "Before the Dawn"),
-    (67205, "Heavensward"),
-    (67699, "As Goes Light, So Goes Darkness"),
-    (67777, "Causes and Costs"),
-    (67783, "Litany of Peace"),
-    (67886, "An Ending to Mark a New Beginning"),
-    (67891, "Louisoix's Finest Student"),
-    (67895, "The Far Edge of Fate"),
-    (68089, "Stormblood"),
-    (68508, "Return of the Bull"),
-    (68565, "Rise of a New Sun"),
-    (68612, "Emissary of the Dawn"),
-    (68685, "Prelude in Violet"),
-    (68719, "The Face of War"),
-    (68721, "A Requiem for Heroes"),
-    (69190, "Shadowbringers"),
-    (69218, "Vows of Virtue, Deeds of Cruelty"),
-    (69306, "Echoes of a Fallen Star"),
-    (69318, "Reflections in Crystal"),
-    (69552, "Futures Rewritten"),
-    (69599, "When the Dust Settles"),
-    (69602, "Death Unto Dawn"),
-    (70000, "Endwalker"),
-    (70062, "A Satrap's Duty"),
-    (70136, "Buried Memory"),
-    (70214, "Gods Revel, Lands Tremble"),
-    (70279, "The Dark Throne"),
-    (70286, "Growing Light"),
-    (70289, "The Coming Dawn"),
-    (70495, "Dawntrail"),
-    (70786, "Crossroads"),
-    (70842, "Seekers of Eternity"),
-    (70909, "The Promise of Tomorrow"),
-    (70970, "The Mist"),
-]
-# Total: 40 MSQ milestone quests (ARR through Patch 7.x)
 
-# Build lookup maps for O(1) access
-MSQ_POSITION_MAP = {qid: pos for pos, (qid, name) in enumerate(MSQ_QUEST_DATA, 1)}
-MSQ_NAME_MAP = {qid: name for qid, name in MSQ_QUEST_DATA}
-
-# Load quest level requirements from cache (for validation)
-MSQ_LEVEL_MAP = {}
+# DPI awareness
 try:
-    import json as _json
-    _cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'quest_cache.json')
-    if os.path.exists(_cache_path):
-        with open(_cache_path, 'r', encoding='utf-8') as _f:
-            _cache = _json.load(_f)
-            for qid, _ in MSQ_QUEST_DATA:
-                _quest = _cache.get(str(qid), {})
-                MSQ_LEVEL_MAP[qid] = _quest.get('class_level', 0)
+    ctypes.windll.shcore.SetProcessDpiAwareness(2)
 except Exception:
-    pass
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
 
+SW_RESTORE = 9
+SetWindowPos = ctypes.windll.user32.SetWindowPos
+SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND,
+                         ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint]
 
-def calculate_msq_progress(quest_ids, max_job_level=100):
+HWND_TOP = wintypes.HWND(0)
+HWND_TOPMOST = wintypes.HWND(-1)
+HWND_NOTOPMOST = wintypes.HWND(-2)
+
+SWP_NOSIZE = 0x0001
+SWP_NOMOVE = 0x0002
+SWP_NOZORDER = 0x0004
+SWP_NOACTIVATE = 0x0010
+SWP_FRAMECHANGED = 0x0020
+SWP_SHOWWINDOW = 0x0040
+
+GWL_STYLE = -16
+GWL_EXSTYLE = -20
+WS_MAXIMIZE = 0x01000000
+WS_MINIMIZE = 0x20000000
+
+# Window message constants for responsiveness checking
+SMTO_ABORTIFHUNG = 0x0002
+WM_NULL = 0x0000
+
+def read_window_layout_config():
+    """Read window layout JSON config based on WINDOW_LAYOUT setting"""
+    layout_file = f"window_layout_{WINDOW_LAYOUT}.json"
+    config_path = Path(WINDOW_MOVER_DIR) / layout_file
+    
+    if not config_path.exists():
+        print(f"[ERROR] Window layout file not found: {config_path}")
+        return None
+    
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[ERROR] Failed to read window layout: {e}")
+        return None
+
+def is_visible_top_window(hwnd):
+    return win32gui.IsWindow(hwnd) and win32gui.IsWindowVisible(hwnd)
+
+def restore_if_minimized(hwnd):
+    style = win32gui.GetWindowLong(hwnd, GWL_STYLE)
+    if style & WS_MINIMIZE:
+        win32gui.ShowWindow(hwnd, SW_RESTORE)
+        time.sleep(0.05)
+
+def remove_maximize_state(hwnd):
+    style = win32gui.GetWindowLong(hwnd, GWL_STYLE)
+    if style & WS_MAXIMIZE:
+        win32gui.ShowWindow(hwnd, SW_RESTORE)
+        time.sleep(0.05)
+
+def find_all_windows():
+    wins = []
+    def _enum(hwnd, extra):
+        if is_visible_top_window(hwnd):
+            title = win32gui.GetWindowText(hwnd)
+            if title.strip():
+                wins.append((hwnd, title))
+    win32gui.EnumWindows(_enum, None)
+    return wins
+
+def is_window_responding(hwnd):
     """
-    Calculate MSQ progress by finding the HIGHEST chronological position
-    of any MSQ quest the character has tracked.
-    
-    This works even if XA Database only tracks partial quest history -
-    we just need ONE MSQ quest to determine where they are in the story.
-    
-    Args:
-        quest_ids: List of completed quest IDs
-        max_job_level: Character's highest job level (for validation)
-    
-    Returns: (percentage, highest_position, total_count, quest_name)
+    Check if a window is responding using SendMessageTimeout.
+    Returns True if window is responding, False if frozen/not responding.
     """
-    if not quest_ids:
-        return 0, 0, 0, ""
-    
-    total_msq = len(MSQ_QUEST_DATA)
-    if total_msq == 0:
-        return 0, 0, 0, ""
-    
-    # Find the highest MSQ position from the character's quests
-    # Only count quests where character's level meets the requirement
-    highest_pos = 0
-    highest_name = ""
-    for qid in quest_ids:
-        pos = MSQ_POSITION_MAP.get(qid, 0)
-        if pos > 0:
-            # Validate: character must be high enough level for this quest
-            required_level = MSQ_LEVEL_MAP.get(qid, 0)
-            if required_level > 0 and max_job_level < required_level:
-                continue  # Skip - character can't have done this quest
-            if pos > highest_pos:
-                highest_pos = pos
-                highest_name = MSQ_NAME_MAP.get(qid, "Unknown")
-    
-    if highest_pos == 0:
-        return 0, 0, total_msq, ""
-    
-    percentage = round((highest_pos / total_msq) * 100, 1)
-    return percentage, highest_pos, total_msq, highest_name
-
-
-def scan_xa_db(db_path):
-    """
-    Scan XA Database (xa.db) and return comprehensive character data.
-    Replaces Altoholic - reads from pluginConfigs/XADatabase/xa.db.
-    Returns: { content_id: {
-        "treasure_value": int, "coffer_dye_value": int, "coffer_count": int,
-        "dye_count": int, "dye_pure_white": int, "dye_jet_black": int,
-        "dye_pastel_pink": int, "mb_dye_count": int, "venture_coins": int,
-        "current_job": str, "current_level": int, "fc_gil": int,
-        "highest_job": str, "highest_level": int,
-        "lowest_job": str, "lowest_level": int,
-        "all_jobs": dict, "all_currencies": dict, "completed_quests": list,
-    }}
-    """
-    result = {}
-    if not os.path.isfile(db_path):
-        return result
-
-    def _load_json_list(raw_value):
-        if not raw_value or raw_value == "null":
-            return []
-        try:
-            parsed = json.loads(raw_value)
-        except Exception:
-            return []
-        return parsed if isinstance(parsed, list) else []
-
-    def _read_fc_gil(raw_value):
-        if not raw_value or raw_value == "null":
-            return 0
-        try:
-            parsed = json.loads(raw_value)
-        except Exception:
-            return 0
-        if isinstance(parsed, dict):
-            return _read_int(parsed, "FcGil", "fc_gil")
-        if isinstance(parsed, list):
-            total = 0
-            for entry in parsed:
-                if isinstance(entry, dict):
-                    total += _read_int(entry, "FcGil", "fc_gil")
-            return total
-        return 0
-
-    def _read_int(entry, *keys):
-        for key in keys:
-            if key in entry and entry[key] is not None:
-                try:
-                    return int(entry[key])
-                except Exception:
-                    continue
-        return 0
-
-    def _read_bool(entry, *keys):
-        for key in keys:
-            if key in entry:
-                return bool(entry[key])
+    try:
+        # Use SendMessageTimeout to check if window responds within 5 seconds
+        SendMessageTimeout = ctypes.windll.user32.SendMessageTimeoutW
+        SendMessageTimeout.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM, wintypes.UINT, wintypes.UINT, ctypes.POINTER(wintypes.DWORD)]
+        
+        result = wintypes.DWORD()
+        ret = SendMessageTimeout(hwnd, WM_NULL, 0, 0, SMTO_ABORTIFHUNG, 5000, ctypes.byref(result))
+        
+        # ret == 0 means the window is not responding
+        return ret != 0
+    except Exception as e:
+        if DEBUG:
+            print(f"[WINDOW-MOVER] Error checking window responsiveness: {e}")
         return False
 
-    def _read_text(entry, *keys):
-        for key in keys:
-            value = entry.get(key)
-            if value is not None:
-                return str(value)
-        return ""
+def get_window_position(hwnd):
+    """
+    Get the current position and size of a window.
+    Returns dict with x, y, width, height or None if failed.
+    """
+    try:
+        rect = win32gui.GetWindowRect(hwnd)
+        return {
+            'x': rect[0],
+            'y': rect[1],
+            'width': rect[2] - rect[0],
+            'height': rect[3] - rect[1]
+        }
+    except Exception as e:
+        if DEBUG:
+            print(f"[WINDOW-MOVER] Error getting window position: {e}")
+        return None
+
+def verify_window_position(hwnd, expected_x, expected_y, expected_w, expected_h, tolerance=10):
+    """
+    Verify that a window moved to the expected position.
+    Returns True if position matches within tolerance, False otherwise.
+    tolerance: pixels of acceptable difference (default 10px for window borders/decorations)
     
-    def _tally_item(r, item_id, qty, is_marketboard=False):
-        """Process a single item for treasure/coffer/dye tracking."""
-        if item_id in TREASURE_IDS:
-            r["treasure_value"] += qty * TREASURE_VALUES[item_id]
-        if item_id in COFFER_DYE_IDS:
-            if item_id == 32161:  # Venture Coffer
-                r["coffer_dye_value"] += qty * item_values.get("venture_coffer", COFFER_DYE_VALUES[item_id])
-                r["coffer_count"] += qty
-            elif item_id == 13114:  # Pure White Dye
-                r["coffer_dye_value"] += qty * item_values.get("pure_white_dye", COFFER_DYE_VALUES[item_id])
-                r["dye_count"] += qty
-                r["dye_pure_white"] += qty
-                if is_marketboard:
-                    r["mb_dye_count"] += qty
-            elif item_id == 13115:  # Jet Black Dye
-                r["coffer_dye_value"] += qty * item_values.get("jet_black_dye", COFFER_DYE_VALUES[item_id])
-                r["dye_count"] += qty
-                r["dye_jet_black"] += qty
-                if is_marketboard:
-                    r["mb_dye_count"] += qty
-            elif item_id == 13708:  # Pastel Pink Dye
-                r["coffer_dye_value"] += qty * item_values.get("pastel_pink_dye", COFFER_DYE_VALUES[item_id])
-                r["dye_count"] += qty
-                r["dye_pastel_pink"] += qty
-                if is_marketboard:
-                    r["mb_dye_count"] += qty
-            else:
-                r["coffer_dye_value"] += qty * COFFER_DYE_VALUES.get(item_id, 0)
+    Note: Only verifies position (x,y), not size, as FFXIV windows control their own size
+    via internal graphics settings and cannot be resized programmatically.
+    """
+    actual = get_window_position(hwnd)
+    if not actual:
+        return False
+    
+    x_match = abs(actual['x'] - expected_x) <= tolerance
+    y_match = abs(actual['y'] - expected_y) <= tolerance
+    
+    # FFXIV windows control their own size via graphics settings, so we only verify position
+    if DEBUG:
+        if not (x_match and y_match):
+            print(f"[WINDOW-MOVER] Position mismatch: Expected ({expected_x},{expected_y}), Got ({actual['x']},{actual['y']})")
+        elif actual['width'] != expected_w or actual['height'] != expected_h:
+            print(f"[WINDOW-MOVER] Note: Window size ({actual['width']}x{actual['height']}) differs from config ({expected_w}x{expected_h}) - FFXIV controls its own size via graphics settings")
+    
+    return x_match and y_match
+
+def move_window_to_position(hwnd, x, y, w=None, h=None, topmost=False, activate=False):
+    try:
+        # Get current window style
+        style = win32gui.GetWindowLong(hwnd, GWL_STYLE)
+        
+        # Set topmost state
+        insert_after = HWND_TOPMOST if topmost else HWND_NOTOPMOST
+        flags = SWP_FRAMECHANGED | SWP_SHOWWINDOW
+        if not activate:
+            flags |= SWP_NOACTIVATE
+        
+        SetWindowPos(hwnd, insert_after, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | flags)
+        time.sleep(0.05)
+        
+        # Only resize if width/height provided, otherwise just move
+        if w is not None and h is not None:
+            # Remove styles that might prevent resizing
+            new_style = style | 0x00040000  # Ensure WS_THICKFRAME (resizable border) is set
+            win32gui.SetWindowLong(hwnd, GWL_STYLE, new_style)
+            
+            # Use MoveWindow for resize control
+            win32gui.MoveWindow(hwnd, x, y, w, h, True)  # True = repaint
+            time.sleep(0.1)
+            
+            # Restore original style
+            win32gui.SetWindowLong(hwnd, GWL_STYLE, style)
+        else:
+            # Just move without resizing
+            SetWindowPos(hwnd, HWND_TOP, x, y, 0, 0, SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW | SWP_NOSIZE)
+            time.sleep(0.05)
+        
+        # Force redraw
+        win32gui.RedrawWindow(hwnd, None, None, 0x0001 | 0x0004)
+    except Exception as e:
+        if DEBUG:
+            print(f"[WINDOW-MOVER] Error in move_window_to_position: {e}")
+
+def arrange_ffxiv_windows():
+    """
+    Arrange all FFXIV game windows according to the configured layout.
+    
+    If DISABLE_GRID is True: Uses fixed positions from config (legacy mode).
+    If DISABLE_GRID is False: Uses dynamic grid placement - windows fill positions
+    sequentially based on which accounts are actually open, maintaining compact grid layout.
+    
+    Includes responsiveness checking, retry logic, and position verification.
+    """
+    layout = read_window_layout_config()
+    if not layout:
+        return False
+    
+    if DEBUG:
+        print(f"\n[WINDOW-MOVER] Arranging windows with '{WINDOW_LAYOUT}' layout...")
+        if DISABLE_GRID:
+            print("[WINDOW-MOVER] Using legacy fixed-position mode (DISABLE_GRID=True)")
+        else:
+            print("[WINDOW-MOVER] Using dynamic grid placement mode (DISABLE_GRID=False)")
+    
+    windows = find_all_windows()
+    
+    if DISABLE_GRID:
+        # Legacy mode: Match windows directly to config rules (fixed positions)
+        rules = []
+        for rule in layout.get("rules", []):
+            rx = re.compile(rule["title_regex"], re.IGNORECASE)
+            rules.append((rx, rule))
+        rules.sort(key=lambda r: r[1].get("order", 0))
+        
+        assigned = []
+        for rx, rule in rules:
+            for hwnd, title in windows:
+                normalized_title = normalize_window_title_for_layout_matching(title)
+                if rx.match(title) or (normalized_title != title and rx.match(normalized_title)):
+                    assigned.append((rule, hwnd, title))
+                    windows = [(h, t) for (h, t) in windows if h != hwnd]
+                    break
+    else:
+        # Dynamic grid mode: Parse config and fill positions sequentially
+        account_order, grid_positions = parse_config_rules(layout)
+        
+        if not account_order:
+            if DEBUG:
+                print(f"[WINDOW-MOVER] No valid rules found in layout config")
+            return False
+        
+        # Find all FFXIV windows matching pattern: "PID - nickname" or "PID - nickname - Character"
+        ffxiv_pattern = re.compile(r"^\d+\s+-\s+.+$", re.IGNORECASE)
+        
+        # Collect all FFXIV windows with their nicknames. Only enabled accounts
+        # from config should participate in automatic window arrangement.
+        enabled_account_nicknames = {acc["nickname"] for acc in account_locations}
+        ffxiv_windows = []
+        skipped_disabled_windows = []
+        for hwnd, title in windows:
+            normalized_title = normalize_window_title_for_layout_matching(title)
+            if ffxiv_pattern.match(normalized_title):
+                nickname = extract_nickname_from_title(title)
+                if nickname:
+                    if nickname not in enabled_account_nicknames:
+                        skipped_disabled_windows.append(title)
+                        continue
+                    ffxiv_windows.append({
+                        "hwnd": hwnd,
+                        "title": title,
+                        "nickname": nickname,
+                        "priority": get_account_priority(nickname, account_order)
+                    })
+
+        if DEBUG and skipped_disabled_windows:
+            print(f"[WINDOW-MOVER] Ignoring {len(skipped_disabled_windows)} disabled-account window(s)")
+            for title in skipped_disabled_windows:
+                print(f"  Skipped: {title}")
+        
+        # Sort by priority (config order)
+        ffxiv_windows.sort(key=lambda w: w["priority"])
+        
+        # Limit to available grid positions
+        ffxiv_windows = ffxiv_windows[:len(grid_positions)]
+        
+        if not ffxiv_windows:
+            if DEBUG:
+                print(f"[WINDOW-MOVER] No FFXIV windows found to arrange")
+            return False
+        
+        if DEBUG:
+            print(f"[WINDOW-MOVER] Found {len(ffxiv_windows)} FFXIV window(s):")
+            for i, win in enumerate(ffxiv_windows, 1):
+                print(f"  Position {i}: {win['title']} (nickname: {win['nickname']})")
+        
+        # Build assigned list with grid positions from config
+        assigned = []
+        for i, win in enumerate(ffxiv_windows):
+            if i < len(grid_positions):
+                pos = grid_positions[i]
+                rule = {
+                    "x": pos["x"],
+                    "y": pos["y"],
+                    "width": pos["width"],
+                    "height": pos["height"],
+                    "topmost": pos.get("topmost", False),
+                    "activate": pos.get("activate", True),
+                    "order": 80 - (i * 10)
+                }
+                assigned.append((rule, win["hwnd"], win["title"]))
+    
+    # Track successful and failed moves
+    successful_moves = []
+    failed_moves = []
+    
+    # Apply moves with retry logic and verification
+    for rule, hwnd, title in assigned:
+        x = int(rule["x"])
+        y = int(rule["y"])
+        # Only resize if width/height specified in config
+        w = int(rule["width"]) if rule.get("width") is not None else None
+        h = int(rule["height"]) if rule.get("height") is not None else None
+        activate = bool(rule.get("activate", False))
+        
+        move_success = False
+        
+        # Check if window is responding before attempting move
+        if not is_window_responding(hwnd):
+            print(f"[WINDOW-MOVER] WARNING: Window '{title}' is not responding, skipping move")
+            failed_moves.append((hwnd, title, "not responding"))
+            continue
+        
+        # Attempt window move with retry logic
+        for attempt in range(1, MAX_WINDOW_MOVE_ATTEMPTS + 1):
+            try:
+                if DEBUG:
+                    print(f"[WINDOW-MOVER] Attempt {attempt}/{MAX_WINDOW_MOVE_ATTEMPTS} for '{title}'")
+                
+                restore_if_minimized(hwnd)
+                remove_maximize_state(hwnd)
+                move_window_to_position(hwnd, x, y, w, h, topmost=True, activate=activate)
+                
+                # Wait for window to settle
+                time.sleep(WINDOW_MOVE_VERIFICATION_DELAY)
+                
+                # Verify window moved correctly (pass 0,0 for size if not resizing)
+                verify_w = w if w is not None else 0
+                verify_h = h if h is not None else 0
+                if verify_window_position(hwnd, x, y, verify_w, verify_h):
+                    size_info = f" {w}x{h}" if w and h else ""
+                    print(f"[WINDOW-MOVER] SUCCESS: Moved '{title}' -> ({x},{y}){size_info} on attempt {attempt}")
+                    successful_moves.append((hwnd, title))
+                    move_success = True
+                    break
+                else:
+                    if attempt < MAX_WINDOW_MOVE_ATTEMPTS:
+                        print(f"[WINDOW-MOVER] Position verification failed for '{title}', retrying...")
+                    else:
+                        print(f"[WINDOW-MOVER] FAILED: Could not verify position for '{title}' after {MAX_WINDOW_MOVE_ATTEMPTS} attempts")
+                        failed_moves.append((hwnd, title, "position verification failed"))
+                
+            except Exception as e:
+                if attempt < MAX_WINDOW_MOVE_ATTEMPTS:
+                    print(f"[WINDOW-MOVER] Error moving '{title}' (attempt {attempt}): {e}, retrying...")
+                else:
+                    print(f"[WINDOW-MOVER] FAILED: Could not move '{title}' after {MAX_WINDOW_MOVE_ATTEMPTS} attempts: {e}")
+                    failed_moves.append((hwnd, title, str(e)))
+        
+        # Small delay between window moves
+        if move_success:
+            time.sleep(0.03)
+    
+    # Remove topmost from windows that shouldn't have it (only for successful moves)
+    time.sleep(0.1)
+    for hwnd, title in successful_moves:
+        # Find the rule for this window
+        rule = None
+        for r, h, t in assigned:
+            if h == hwnd:
+                rule = r
+                break
+        
+        if rule:
+            topmost = bool(rule.get("topmost", False))
+            try:
+                if not topmost:
+                    flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED
+                    SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags)
+            except Exception as e:
+                if DEBUG:
+                    print(f"[WINDOW-MOVER] Failed to set final topmost for '{title}': {e}")
+    
+    # Force crash failed windows if enabled
+    if failed_moves and MAX_FAILED_FORCE_CRASH:
+        for hwnd, title, reason in failed_moves:
+            try:
+                # Extract PID from window title (format: "ProcessID - nickname")
+                pid_match = re.match(r'^(\d+)\s*-\s*.+', title)
+                if pid_match:
+                    pid = int(pid_match.group(1))
+                    print(f"[WINDOW-MOVER] Force crashing failed window '{title}' (PID: {pid}) - {reason}")
+                    log_error(f"WINDOW_FORCE_CRASH: {title} (PID: {pid}) - {reason}")
+                    kill_process_by_pid(pid)
+                else:
+                    print(f"[WINDOW-MOVER] Could not extract PID from '{title}' for force crash")
+                    log_error(f"WINDOW_FORCE_CRASH_FAILED: Could not extract PID from '{title}'")
+            except Exception as e:
+                print(f"[WINDOW-MOVER] Error force crashing '{title}': {e}")
+                log_error(f"WINDOW_FORCE_CRASH_ERROR: {title} - {e}")
+    
+    # Summary
+    print(f"[WINDOW-MOVER] Window arrangement complete: {len(successful_moves)} successful, {len(failed_moves)} failed")
+    if failed_moves and DEBUG:
+        for hwnd, title, reason in failed_moves:
+            print(f"[WINDOW-MOVER]   Failed: '{title}' - {reason}")
+    
+    return len(successful_moves) > 0
+
+def compact_dynamic_window_grid_after_auto_close():
+    """
+    Wait briefly after an AUTO_CLOSE_THRESHOLD shutdown, then compact the
+    remaining windows only when dynamic grid mode is active.
+    """
+    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME or not ENABLE_WINDOW_LAYOUT:
+        return False
+
+    # DISABLE_GRID=True uses legacy fixed positions, which intentionally keep
+    # account slots stable instead of compacting the grid.
+    if DISABLE_GRID:
+        return False
+
+    print("[AUTO-CLOSE] Waiting 3 seconds for the closed client to exit before compacting the dynamic grid...")
+    time.sleep(3)
+    return arrange_ffxiv_windows()
+
+def kill_process_by_pid(pid, error_tag="PROCESS"):
+    """
+    Kill a process by its Process ID using taskkill command.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        result = subprocess.run(
+            ["taskkill", "/F", "/PID", str(pid)],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return result.returncode == 0
+    except Exception as e:
+        print(f"[ERROR] Failed to kill process {pid}: {e}")
+        log_error(f"{error_tag}_KILL_FAILED: PID {pid} - {e}")
+        return False
+
+def kill_process_by_image_name(image_name, error_tag="PROCESS"):
+    """
+    Kill a process by its image name using taskkill command.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        result = subprocess.run(
+            ["taskkill", "/F", "/IM", image_name],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return result.returncode == 0
+    except Exception as e:
+        print(f"[ERROR] Failed to kill {image_name}: {e}")
+        log_error(f"{error_tag}_KILL_FAILED: {e}")
+        return False
+
+def cleanup_batch_launcher_processes(batch_file_path):
+    """
+    Clean up any lingering cmd.exe processes that were spawned to run a batch file.
+    Finds cmd.exe processes with the batch file path in their command line and terminates them.
+    This prevents accumulation of idle cmd.exe processes after game launches.
+    
+    Args:
+        batch_file_path: Full path to the batch file that was launched
+    """
+    if not PSUTIL_AVAILABLE:
+        return
     
     try:
-        conn = sqlite3.connect(db_path)
-        c = conn.cursor()
-        tables = {row[0] for row in c.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
-
-        if "xa_characters" in tables:
-            xa_character_columns = {row[1] for row in c.execute("PRAGMA table_info(xa_characters)").fetchall()}
-            select_parts = [
-                "content_id",
-                "currencies_json",
-                "jobs_json",
-                "items_json",
-                "listings_json",
-                "retainer_items_json",
-                "msq_milestones_json",
-                "personal_estate" if "personal_estate" in xa_character_columns else "'' AS personal_estate",
-                "fc_estate" if "fc_estate" in xa_character_columns else "'' AS fc_estate",
-                "free_company_json" if "free_company_json" in xa_character_columns else "'null' AS free_company_json",
-            ]
-            rows = c.execute(f"SELECT {', '.join(select_parts)} FROM xa_characters").fetchall()
-            for row in rows:
-                cid = row[0]
-                result[cid] = {
-                    "treasure_value": 0, "coffer_dye_value": 0, "coffer_count": 0,
-                    "dye_count": 0, "dye_pure_white": 0, "dye_jet_black": 0,
-                    "dye_pastel_pink": 0, "mb_dye_count": 0, "venture_coins": 0, "fc_gil": 0,
-                    "current_job": "", "current_level": 0,
-                    "highest_job": "", "highest_level": 0,
-                    "lowest_job": "", "lowest_level": 0,
-                    "all_jobs": {}, "all_currencies": {}, "completed_quests": [],
-                    "personal_estate": row[7] or "",
-                    "fc_estate": row[8] or "",
-                }
-                result[cid]["fc_gil"] = _read_fc_gil(row[9])
-
-                for item in _load_json_list(row[3]):
-                    item_id = _read_int(item, "ItemId", "item_id")
-                    qty = _read_int(item, "Quantity", "quantity")
-                    if item_id > 0 and qty > 0:
-                        _tally_item(result[cid], item_id, qty)
-
-                for item in _load_json_list(row[5]):
-                    item_id = _read_int(item, "ItemId", "item_id")
-                    qty = _read_int(item, "Quantity", "quantity")
-                    if item_id > 0 and qty > 0:
-                        _tally_item(result[cid], item_id, qty)
-
-                for item in _load_json_list(row[4]):
-                    item_id = _read_int(item, "ItemId", "item_id")
-                    qty = _read_int(item, "Quantity", "quantity")
-                    if item_id > 0 and qty > 0:
-                        _tally_item(result[cid], item_id, qty, is_marketboard=True)
-
-                for currency in _load_json_list(row[1]):
-                    name = _read_text(currency, "Name", "currency_name")
-                    amount = _read_int(currency, "Amount", "amount")
-                    if not name or amount <= 0:
-                        continue
-                    result[cid]["all_currencies"][name] = amount
-                    if name == "Venture Coins":
-                        result[cid]["venture_coins"] = amount
-
-                for job in _load_json_list(row[2]):
-                    level = _read_int(job, "Level", "level")
-                    if level <= 0:
-                        continue
-                    abbr = _read_text(job, "Abbreviation", "abbreviation")
-                    name = _read_text(job, "Name", "name")
-                    r = result[cid]
-                    job_key = XA_JOB_NAME_TO_KEY.get(name, name)
-                    r["all_jobs"][job_key] = level
-                    if level > r["highest_level"]:
-                        r["highest_level"] = level
-                        r["highest_job"] = abbr
-                    if r["lowest_level"] == 0 or level < r["lowest_level"]:
-                        r["lowest_level"] = level
-                        r["lowest_job"] = abbr
-
-                if result[cid]["highest_job"]:
-                    result[cid]["current_job"] = result[cid]["highest_job"]
-                    result[cid]["current_level"] = result[cid]["highest_level"]
-
-                for milestone in _load_json_list(row[6]):
-                    if not _read_bool(milestone, "IsComplete", "is_complete"):
-                        continue
-                    quest_id = _read_int(milestone, "QuestRowId", "quest_row_id")
-                    if quest_id > 0:
-                        result[cid]["completed_quests"].append(quest_id)
-
-            conn.close()
-            return result
+        # Normalize the batch file path for comparison
+        batch_path_lower = batch_file_path.lower()
+        batch_filename = os.path.basename(batch_file_path).lower()
+        killed_count = 0
         
-        # Get all character content_ids
-        char_rows = c.execute("SELECT content_id FROM characters").fetchall()
-        for (cid,) in char_rows:
-            result[cid] = {
-                "treasure_value": 0, "coffer_dye_value": 0, "coffer_count": 0,
-                "dye_count": 0, "dye_pure_white": 0, "dye_jet_black": 0,
-                "dye_pastel_pink": 0, "mb_dye_count": 0, "venture_coins": 0, "fc_gil": 0,
-                "current_job": "", "current_level": 0,
-                "highest_job": "", "highest_level": 0,
-                "lowest_job": "", "lowest_level": 0,
-                "all_jobs": {}, "all_currencies": {}, "completed_quests": [],
-                "personal_estate": "", "fc_estate": "",
-            }
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                # Only check cmd.exe processes
+                if proc.info['name'].lower() != 'cmd.exe':
+                    continue
+                
+                cmdline = proc.info.get('cmdline', [])
+                if not cmdline:
+                    continue
+                
+                # Join command line and check if it contains the batch file path
+                cmdline_str = ' '.join(cmdline).lower()
+                
+                # Check if this cmd.exe was spawned for our batch file
+                if batch_path_lower in cmdline_str or batch_filename in cmdline_str:
+                    proc.terminate()
+                    killed_count += 1
+                    if DEBUG:
+                        print(f"[DEBUG] Cleaned up lingering cmd.exe (PID {proc.info['pid']}) for {batch_filename}")
+                        
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
         
-        # Build retainer_id -> content_id map
-        retainer_map = {}
-        for row in c.execute("SELECT retainer_id, content_id FROM retainers").fetchall():
-            retainer_map[row[0]] = row[1]
-        
-        # Scan container_items (character inventory, saddlebag, armory)
-        for row in c.execute("SELECT content_id, item_id, quantity FROM container_items").fetchall():
-            cid, item_id, qty = row[0], row[1], row[2]
-            if cid in result:
-                _tally_item(result[cid], item_id, qty)
-        
-        # Scan retainer_items (retainer inventory - not on MB)
-        for row in c.execute("SELECT retainer_id, item_id, quantity FROM retainer_items").fetchall():
-            cid = retainer_map.get(row[0])
-            if cid and cid in result:
-                _tally_item(result[cid], row[1], row[2])
-        
-        # Scan retainer_listings (items listed on marketboard)
-        for row in c.execute("SELECT retainer_id, item_id, quantity FROM retainer_listings").fetchall():
-            cid = retainer_map.get(row[0])
-            if cid and cid in result:
-                _tally_item(result[cid], row[1], row[2], is_marketboard=True)
-        
-        # Currency balances (Gil, Venture Coins, Tomestones, etc.)
-        for row in c.execute("SELECT content_id, currency_name, amount FROM currency_balances WHERE amount > 0").fetchall():
-            cid, name, amount = row[0], row[1], row[2]
-            if cid in result:
-                result[cid]["all_currencies"][name] = amount
-                if name == "Venture Coins":
-                    result[cid]["venture_coins"] = amount
-        
-        # Job levels (all jobs with level > 0)
-        for row in c.execute("SELECT content_id, abbreviation, name, level FROM job_levels WHERE level > 0").fetchall():
-            cid, abbr, name, level = row[0], row[1], row[2], row[3]
-            if cid in result:
-                r = result[cid]
-                job_key = XA_JOB_NAME_TO_KEY.get(name, name)
-                r["all_jobs"][job_key] = level
-                if level > r["highest_level"]:
-                    r["highest_level"] = level
-                    r["highest_job"] = abbr
-                if r["lowest_level"] == 0 or level < r["lowest_level"]:
-                    r["lowest_level"] = level
-                    r["lowest_job"] = abbr
-        
-        # Set current_job/current_level to highest (xa.db doesn't track "last played" like Altoholic)
-        for cid, r in result.items():
-            if r["highest_job"]:
-                r["current_job"] = r["highest_job"]
-                r["current_level"] = r["highest_level"]
-        
-        # MSQ milestones (completed quests)
-        for row in c.execute("SELECT content_id, quest_row_id FROM msq_milestones WHERE is_complete = 1").fetchall():
-            cid, quest_id = row[0], row[1]
-            if cid in result:
-                result[cid]["completed_quests"].append(quest_id)
-        
-        conn.close()
+        if killed_count > 0 and DEBUG:
+            print(f"[DEBUG] Cleaned up {killed_count} lingering cmd.exe process(es) for batch file launcher")
+            
     except Exception as e:
-        print(f"[WARNING] Failed to scan XA Database '{db_path}': {e}")
+        if DEBUG:
+            print(f"[DEBUG] Error cleaning up batch launcher processes: {e}")
+
+def is_process_running_with_visible_windows(process_name, return_pid=False):
+    """
+    Check if a process is running with visible windows (active app state).
+    Background processes (no visible windows) are ignored.
+    
+    Args:
+        process_name: Process name to check (e.g., 'XIVLauncher.exe')
+        return_pid: If True, returns PID of first match; if False, returns bool
+    
+    Returns:
+        If return_pid=False: True if process has visible windows, False otherwise
+        If return_pid=True: PID of process with visible windows, or None if not found
+    """
+    if not PSUTIL_AVAILABLE:
+        return None if return_pid else False
+    
+    try:
+        process_pids = []
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                if proc.info['name'].lower() == process_name.lower():
+                    process_pids.append(proc.info['pid'])
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        if not process_pids:
+            return None if return_pid else False
+        
+        for pid in process_pids:
+            if has_visible_windows(pid):
+                if DEBUG:
+                    print(f"[DEBUG] {process_name} (PID {pid}) detected as ACTIVE APP with visible windows")
+                return pid if return_pid else True
+        
+        if DEBUG:
+            print(f"[DEBUG] {process_name} found as BACKGROUND PROCESS (no visible windows) - normal state")
+        return None if return_pid else False
+        
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Error checking for {process_name}: {e}")
+        return None if return_pid else False
+
+def kill_ffxiv_process():
+    """
+    Kill FFXIV process by terminating ffxiv_dx11.exe.
+    Used when USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME is True.
+    Returns True if successful, False otherwise.
+    """
+    return kill_process_by_image_name("ffxiv_dx11.exe", "FFXIV")
+
+def kill_game_client_and_cleanup(nickname, process_id, success_msg, fail_msg,
+                                  closed_pids, game_status_dict, client_start_times,
+                                  last_launch_time=None, set_launch_time=None,
+                                  game_launch_timestamp=None, last_sub_processed=None,
+                                  retainer_mode_active=None):
+    """
+    Kill a game client and perform cleanup of tracking dictionaries.
+    Consolidates repeated kill/cleanup logic throughout main loop.
+    
+    Args:
+        nickname: Account nickname
+        process_id: Process ID (or None for single client mode)
+        success_msg: Message to print on successful kill
+        fail_msg: Message to print on failed kill
+        closed_pids: Set to add process_id to on success
+        game_status_dict: Dict to update with (False, None) on success
+        client_start_times: Dict to clean up start time tracking
+        last_launch_time: Dict to delete nickname from (if provided and not set_launch_time)
+        set_launch_time: Tuple of (dict, value) to set last_launch_time[nickname] = value
+        game_launch_timestamp: Dict to delete nickname from (if provided)
+        last_sub_processed: Dict to delete nickname from (if provided)
+        retainer_mode_active: Dict to delete nickname from (if provided)
+    
+    Returns:
+        True if kill succeeded, False otherwise
+    """
+    # Use appropriate kill method based on mode
+    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+        kill_success = kill_ffxiv_process()
+    else:
+        kill_success = kill_process_by_pid(process_id)
+    
+    if kill_success:
+        if process_id:
+            closed_pids.add(process_id)
+        print(success_msg)
+        
+        # Update game status immediately
+        game_status_dict[nickname] = (False, None)
+        
+        # Handle last_launch_time (either set or delete)
+        if set_launch_time:
+            launch_dict, launch_value = set_launch_time
+            launch_dict[nickname] = launch_value
+        elif last_launch_time is not None and nickname in last_launch_time:
+            del last_launch_time[nickname]
+        
+        # Clear force-crash tracking if provided
+        if game_launch_timestamp is not None and nickname in game_launch_timestamp:
+            del game_launch_timestamp[nickname]
+        if last_sub_processed is not None and nickname in last_sub_processed:
+            del last_sub_processed[nickname]
+        if retainer_mode_active is not None and nickname in retainer_mode_active:
+            del retainer_mode_active[nickname]
+        
+        # Clean up start time tracking
+        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+            if 'ffxiv_single' in client_start_times:
+                del client_start_times['ffxiv_single']
+        elif process_id and process_id in client_start_times:
+            del client_start_times[process_id]
+    else:
+        print(fail_msg)
+    
+    return kill_success
+
+def is_xivlauncher_running():
+    """
+    Check if XIVLauncher.exe is running as an ACTIVE APP (with visible windows).
+    This is a problem state - indicates launcher UI is stuck/waiting for input.
+    Background XIVLauncher process (no visible windows) is normal and ignored.
+    Returns True if launcher has visible windows, False otherwise.
+    """
+    return is_process_running_with_visible_windows("XIVLauncher.exe", return_pid=False)
+
+def has_visible_windows(pid):
+    """
+    Check if a process has any visible windows.
+    Returns True if process has visible windows (is an active app), False if background only.
+    """
+    visible_windows = []
+    all_windows_for_pid = []
+    
+    def enum_callback(hwnd, results):
+        try:
+            # Get window's process ID
+            _, window_pid = win32process.GetWindowThreadProcessId(hwnd)
+            
+            # Check if this window belongs to our target process
+            if window_pid == pid:
+                # Get window info
+                is_visible = win32gui.IsWindowVisible(hwnd)
+                title = win32gui.GetWindowText(hwnd)
+                class_name = win32gui.GetClassName(hwnd)
+                
+                # Track all windows for this PID (for debug)
+                all_windows_for_pid.append({
+                    'hwnd': hwnd,
+                    'visible': is_visible,
+                    'title': title,
+                    'class': class_name
+                })
+                
+                # Check if window is visible (don't require title - some windows may not have titles yet)
+                if is_visible:
+                    results.append({
+                        'title': title if title else '<no title>',
+                        'class': class_name,
+                        'hwnd': hwnd
+                    })
+        except Exception as e:
+            if DEBUG:
+                print(f"[DEBUG] Error enumerating window: {e}")
+    
+    try:
+        win32gui.EnumWindows(enum_callback, visible_windows)
+        
+        if DEBUG and len(all_windows_for_pid) > 0:
+            print(f"[DEBUG] Found {len(all_windows_for_pid)} total windows for PID {pid}")
+            print(f"[DEBUG] Found {len(visible_windows)} visible windows for PID {pid}")
+            for w in visible_windows:
+                print(f"[DEBUG]   - Title: '{w['title']}', Class: {w['class']}, HWND: {w['hwnd']}")
+        
+        return len(visible_windows) > 0
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Error in has_visible_windows: {e}")
+        return False
+
+def kill_xivlauncher_process():
+    """
+    Kill XIVLauncher.exe process.
+    Returns True if successful, False otherwise.
+    """
+    return kill_process_by_image_name("XIVLauncher.exe", "LAUNCHER")
+
+def is_dalamud_crash_handler_running():
+    """
+    Check if DalamudCrashHandler.exe is running as an ACTIVE APP (with visible windows).
+    This is a problem state - indicates a game crash occurred with crash handler UI open.
+    Background DalamudCrashHandler processes (no visible windows) are normal and ignored.
+    Returns PID of crash handler with visible windows, or None if no active window found.
+    """
+    return is_process_running_with_visible_windows("DalamudCrashHandler.exe", return_pid=True)
+
+def kill_dalamud_crash_handler_process(pid):
+    """
+    Kill a specific DalamudCrashHandler.exe process by PID.
+    Only kills the crash handler with visible window, not background processes.
+    Returns True if successful, False otherwise.
+    """
+    return kill_process_by_pid(pid, "CRASH_HANDLER")
+
+def launch_game(nickname):
+    """
+    Launch the game for a specific account using the configured launcher path.
+    If 2FA is enabled for the account, automatically sends the OTP code after launch.
+    Returns True if successfully launched, False otherwise.
+    """
+    # Validate and fix launcher config BEFORE launching
+    # This ensures AutologinEnabled and OtpServerEnabled are set correctly
+    if ENABLE_AUTOLOGIN_UPDATER:
+        validate_launcher_config_before_launch(nickname)
+    
+    launcher_path = GAME_LAUNCHERS.get(nickname)
+    
+    if not launcher_path:
+        print(f"[ERROR] No launcher path configured for {nickname}")
+        log_error(f"LAUNCH_FAILED_NO_PATH: {nickname} - No launcher path configured in GAME_LAUNCHERS")
+        return False
+    
+    if not os.path.exists(launcher_path):
+        print(f"[ERROR] Launcher not found: {launcher_path}")
+        log_error(f"LAUNCH_FAILED_NOT_FOUND: {nickname} - Launcher not found at {launcher_path}")
+        return False
+    
+    try:
+        # Check if it's a batch file
+        is_batch_file = launcher_path.lower().endswith('.bat')
+        
+        if is_batch_file:
+            # For batch files, run via cmd.exe /c which closes after execution
+            # DETACHED_PROCESS ensures the cmd.exe doesn't stay attached to Python
+            # After a short delay, cleanup any lingering cmd.exe processes for this batch file
+            DETACHED_PROCESS = 0x00000008
+            subprocess.Popen(
+                f'cmd.exe /c "{launcher_path}"',
+                shell=False,
+                creationflags=DETACHED_PROCESS | subprocess.CREATE_NO_WINDOW,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            # Schedule cleanup of any lingering cmd.exe processes after game starts
+            # This runs in a separate thread to not block the main script
+            def delayed_cleanup():
+                time.sleep(30)  # Wait for game to fully launch
+                cleanup_batch_launcher_processes(launcher_path)
+            cleanup_thread = threading.Thread(target=delayed_cleanup, daemon=True)
+            cleanup_thread.start()
+        else:
+            # For executables, use normal Popen
+            subprocess.Popen(
+                [launcher_path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
+
+        # Check if 2FA is enabled for this account
+        account_config = None
+        for acc_item in account_locations:
+            if acc_item["nickname"] == nickname:
+                account_config = acc_item
+                break
+
+        if account_config and account_config.get("enable_2fa", False):
+            if not PYOTP_AVAILABLE:
+                print(f"[WARNING] 2FA enabled for {nickname} but pyotp/keyring not installed - skipping OTP")
+                log_error(f"2FA_NOT_AVAILABLE: {nickname} - pyotp/keyring not installed")
+                return True  # Continue launch, let user manually enter OTP
+
+            keyring_name = account_config.get("keyring_name")
+            if not keyring_name:
+                print(f"[WARNING] 2FA enabled for {nickname} but no keyring_name specified - skipping OTP")
+                log_error(f"2FA_CONFIG_ERROR: {nickname} - no keyring_name specified")
+                return True  # Continue launch, let user manually enter OTP
+
+            # Wait for launcher to initialize
+            print(f"[2FA] Waiting {OTP_LAUNCH_DELAY} seconds for launcher to initialize...")
+            time.sleep(OTP_LAUNCH_DELAY)
+
+            # Get OTP secret from keyring
+            otp_secret = keyring.get_password(keyring_name, "otp_secret")
+            if not otp_secret:
+                print(f"[WARNING] OTP secret not found in keyring '{keyring_name}' for {nickname}")
+                print(f"[WARNING] Aborting launch - please run Set_2FA_Key.py to store your OTP secret")
+                log_error(f"2FA_KEYRING_ERROR: {nickname} - no OTP secret in keyring '{keyring_name}'")
+                return False
+
+            # Generate OTP code
+            totp = pyotp.TOTP(otp_secret)
+            code = totp.now()
+            url = f"http://localhost:4646/ffxivlauncher/{code}"
+
+            print(f"[2FA] Sending OTP code to XIVLauncher...")
+            try:
+                resp = requests.get(url, timeout=5)
+                resp.raise_for_status()
+
+                if resp.status_code == 200:
+                    print(f"[2FA] OTP code accepted for {nickname}")
+                else:
+                    print(f"[2FA] Unexpected response: {resp.status_code}")
+                    log_error(f"2FA_UNEXPECTED_RESPONSE: {nickname} - Status {resp.status_code}")
+            except requests.exceptions.RequestException as e:
+                print(f"[2FA] Failed to send OTP code: {e}")
+                log_error(f"2FA_SEND_FAILED: {nickname} - {e}")
+                # Don't return False - launcher may still accept manual input
+
+        return True
+    except Exception as e:
+        print(f"[ERROR] Failed to launch game for {nickname}: {e}")
+        log_error(f"LAUNCH_FAILED_EXCEPTION: {nickname} - {e}")
+        return False
+
+def get_process_start_time(pid):
+    """
+    Get the actual start time of a process from Windows using psutil.
+    Returns the start time as a timestamp (seconds since epoch) or None if unavailable.
+    """
+    if not PSUTIL_AVAILABLE:
+        return None
+    
+    try:
+        process = psutil.Process(int(pid))
+        # create_time() returns seconds since epoch
+        return process.create_time()
+    except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError) as e:
+        if DEBUG:
+            print(f"[DEBUG] Could not get start time for PID {pid}: {e}")
+        return None
+
+def get_process_start_time_by_name(process_name):
+    """
+    Get the start time of a process by its name using psutil.
+    Returns the start time as a timestamp (seconds since epoch) or None if unavailable.
+    """
+    if not PSUTIL_AVAILABLE:
+        return None
+    
+    try:
+        for proc in psutil.process_iter(['name', 'create_time']):
+            try:
+                if proc.info['name'].lower() == process_name.lower():
+                    return proc.info['create_time']
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        return None
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Could not find {process_name} process: {e}")
+        return None
+
+def get_ffxiv_process_start_time():
+    """
+    Get the start time of the ffxiv_dx11.exe process for single client mode.
+    Returns the start time as a timestamp (seconds since epoch) or None if unavailable.
+    Used when USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME is True.
+    """
+    return get_process_start_time_by_name("ffxiv_dx11.exe")
+
+
+def match_account_window_title(title, nickname):
+    """
+    Match a multi-client FFXIV window title for a specific nickname.
+
+    Accepted formats:
+      - "ProcessID - nickname"
+      - "ProcessID - nickname - character firstlastname"
+
+    Returns a regex match with PID in group 1, or None if the title does not belong to the nickname.
+    """
+    return re.match(rf"^(\d+)\s-\s{re.escape(nickname)}(?:\s-\s.+)?$", title.strip(), re.IGNORECASE)
+
+
+def normalize_window_title_for_layout_matching(title):
+    """
+    Normalize a renamed FFXIV window title for legacy layout regex rules.
+
+    Existing layout JSON files typically match "PID - nickname" exactly. When the game title includes an
+    optional trailing character suffix, strip only that final " - character" segment so old title_regex
+    rules can continue matching without needing immediate JSON changes.
+    """
+    normalized_title = title.strip()
+    if re.match(r"^\d+\s-\s.+\s-\s.+$", normalized_title):
+        return normalized_title.rsplit(" - ", 1)[0]
+    return normalized_title
+
+
+def extract_nickname_from_title(title):
+    """Extract the nickname from window title like '1234 - Acc1' or '1234 - Acc1 - Character'."""
+    normalized = normalize_window_title_for_layout_matching(title.strip())
+    # Pattern: PID - nickname
+    match = re.match(r"^\d+\s+-\s+(.+)$", normalized, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    return None
+
+
+def parse_config_rules(layout):
+    """
+    Parse config file to extract account priority order and grid positions.
+    Returns tuple: (account_order, grid_positions)
+    - account_order: list of nicknames in order from config rules
+    - grid_positions: list of dicts with x, y, width, height for each position
+    """
+    account_order = []
+    grid_positions = []
+    
+    for rule in layout.get("rules", []):
+        # Extract nickname from title_regex like "^\\d+\\s-\\sAcc1$" (JSON)
+        # After JSON parsing becomes: ^\d+\s-\sAcc1$
+        regex = rule.get("title_regex", "")
+        # Match pattern: ^\d+\s-\s(nickname)$
+        match = re.search(r"^\^?\\d\+\\s-\\s(.+?)\$?$", regex, re.IGNORECASE)
+        if match:
+            nickname = match.group(1)
+            account_order.append(nickname)
+            grid_positions.append({
+                "x": rule.get("x", 0),
+                "y": rule.get("y", 0),
+                "width": rule.get("width"),  # No default - only resize if specified
+                "height": rule.get("height"),  # No default - only resize if specified
+                "topmost": rule.get("topmost", False),
+                "activate": rule.get("activate", True)
+            })
+    
+    return account_order, grid_positions
+
+
+def get_account_priority(nickname, account_order):
+    """Get the priority for a nickname based on config order. Unknown nicknames go to end."""
+    try:
+        return account_order.index(nickname)
+    except ValueError:
+        return 999  # Unknown accounts go to the end
+
+
+def is_ffxiv_running_for_account(nickname):
+    """
+    Check if FFXIV is running for a specific account.
+    
+    If USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME is True:
+        - Looks for window with title "FINAL FANTASY XIV"
+        - Returns (is_running, None) - process_id is always None
+    
+    If USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME is False:
+        - Looks for windows with titles matching pattern: 'ProcessID - nickname'
+          or 'ProcessID - nickname - character'
+        - Returns (is_running, process_id) - process_id extracted from window title
+    
+    Returns tuple: (is_running, process_id)
+    - is_running: True if a matching window is found, False otherwise
+    - process_id: The process ID if running (or None in single client mode)
+    """
+    try:
+        found_windows = []
+        
+        def enum_callback(hwnd, extra):
+            if win32gui.IsWindow(hwnd) and win32gui.IsWindowVisible(hwnd):
+                title = win32gui.GetWindowText(hwnd)
+                if title.strip():
+                    found_windows.append(title)
+        
+        win32gui.EnumWindows(enum_callback, None)
+        
+        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+            # Single client mode: Check if any window title is exactly "FINAL FANTASY XIV"
+            for title in found_windows:
+                if title.strip() == "FINAL FANTASY XIV":
+                    return (True, None)
+            return (False, None)
+        else:
+            # Multi-client mode: Check if any window title matches either:
+            #   "ProcessID - nickname"
+            #   "ProcessID - nickname - character"
+            for title in found_windows:
+                match = match_account_window_title(title, nickname)
+                if match:
+                    process_id = match.group(1)  # Extract the process ID
+                    return (True, process_id)
+            
+            return (False, None)
+    except Exception as e:
+        # If we can't check window status, assume not running
+        return (False, None)
+
+def is_expected_ffxiv_window_process(pid):
+    """Return True when the PID belongs to the FFXIV game client, if psutil can verify it."""
+    if not PSUTIL_AVAILABLE:
+        return True
+
+    try:
+        return psutil.Process(int(pid)).name().lower() == "ffxiv_dx11.exe"
+    except psutil.NoSuchProcess:
+        return False
+    except (psutil.AccessDenied, psutil.ZombieProcess):
+        # The visible title is already exact; do not ignore the PID just because metadata is blocked.
+        return True
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Could not verify process name for PID {pid}: {e}")
+        return True
+
+
+def get_default_ffxiv_window_pids():
+    """
+    Return PIDs for visible FFXIV game windows still using the default title.
+    In multi-client mode this usually means the title-renamer plugin did not load.
+    """
+    try:
+        default_pids = []
+        seen_pids = set()
+
+        def enum_callback(hwnd, extra):
+            if not (win32gui.IsWindow(hwnd) and win32gui.IsWindowVisible(hwnd)):
+                return
+
+            title = win32gui.GetWindowText(hwnd)
+            if title.strip() != "FINAL FANTASY XIV":
+                return
+
+            try:
+                _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            except Exception as e:
+                if DEBUG:
+                    print(f"[DEBUG] Error reading PID for default FFXIV title window: {e}")
+                return
+
+            if not pid or pid in seen_pids:
+                return
+
+            if is_expected_ffxiv_window_process(pid):
+                default_pids.append(pid)
+                seen_pids.add(pid)
+
+        win32gui.EnumWindows(enum_callback, None)
+        return default_pids
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Error checking for default FFXIV window PIDs: {e}")
+        return []
+
+
+def get_newest_default_ffxiv_window_pid():
+    """Return the newest default-title FFXIV window PID, or None if none are visible."""
+    default_pids = get_default_ffxiv_window_pids()
+    if not default_pids:
+        return None
+
+    if not PSUTIL_AVAILABLE:
+        return default_pids[-1]
+
+    def process_start_time(pid):
+        try:
+            return psutil.Process(int(pid)).create_time()
+        except Exception:
+            return 0
+
+    return max(default_pids, key=process_start_time)
+
+
+def check_for_default_ffxiv_window():
+    """
+    Check if any window has the default "FINAL FANTASY XIV" title.
+    This indicates the plugin hasn't updated the window title yet.
+    
+    Returns True if default title found, False otherwise.
+    """
+    return bool(get_default_ffxiv_window_pids())
+
+def wait_for_window_title_update(nickname, launcher_retry_count):
+    """
+    Wait for a launched game's window title to update from "FINAL FANTASY XIV" to an account-matched title.
+    Accepted multi-client formats:
+      - "ProcessID - nickname"
+      - "ProcessID - nickname - character"
+    This ensures plugins have loaded and the window can be properly identified.
+    Also monitors for XIVLauncher.exe opening instead of the game.
+    
+    Args:
+        nickname: The account nickname to wait for
+        launcher_retry_count: Current launcher retry attempt count
+    
+    Returns: Tuple (success, needs_launcher_retry, stale_default_pid)
+        - success: True when title successfully updates, False if max attempts reached
+        - needs_launcher_retry: True if launcher detected and retry is needed
+        - stale_default_pid: FFXIV PID to force-close when the default title stayed active too long
+    """
+    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+        # Single client mode: still check for launcher even though we use default title
+        check_count = 0
+        while check_count < MAX_WINDOW_TITLE_RESCAN:
+            # Check if launcher opened instead of game
+            if is_xivlauncher_running():
+                print(f"[LAUNCHER-CHECK] XIVLauncher.exe detected instead of game for {nickname}")
+                return (False, True, None)  # Needs launcher retry
+            
+            # Check if game window exists (default title in single mode)
+            has_default_title = check_for_default_ffxiv_window()
+            if has_default_title:
+                if DEBUG:
+                    print(f"[WINDOW-TITLE] {nickname} game window detected (single client mode)")
+                return (True, False, None)
+            
+            # Check if game process is running
+            is_running, _ = is_ffxiv_running_for_account(nickname)
+            if is_running:
+                if DEBUG:
+                    print(f"[WINDOW-TITLE] {nickname} game process detected")
+                return (True, False, None)
+            
+            time.sleep(WINDOW_TITLE_RESCAN)
+            check_count += 1
+        
+        # Max attempts reached - check one more time for launcher
+        if is_xivlauncher_running():
+            print(f"[LAUNCHER-CHECK] XIVLauncher.exe detected instead of game for {nickname}")
+            return (False, True, None)
+        
+        print(f"[WINDOW-TITLE] Max attempts ({MAX_WINDOW_TITLE_RESCAN}) reached for {nickname}, will restart launch")
+        return (False, False, None)
+    
+    # Multi-client mode
+    check_count = 0
+    
+    while check_count < MAX_WINDOW_TITLE_RESCAN:
+        # Check if launcher opened instead of game
+        if is_xivlauncher_running():
+            print(f"[LAUNCHER-CHECK] XIVLauncher.exe detected instead of game for {nickname}")
+            return (False, True, None)  # Needs launcher retry
+        
+        # Check for this account's renamed title first. A stale default-title window from a
+        # different failed launch should not block a successful title update for this account.
+        is_running, process_id = is_ffxiv_running_for_account(nickname)
+        if is_running and process_id:
+            if DEBUG:
+                print(f"[WINDOW-TITLE] {nickname} window title updated and matched account title (PID {process_id})")
+            return (True, False, None)
+
+        # Check if any default-title FFXIV windows remain.
+        default_title_pids = get_default_ffxiv_window_pids()
+        has_default_title = bool(default_title_pids)
+        
+        if not has_default_title:
+            if DEBUG:
+                print(f"[WINDOW-TITLE] Check #{check_count + 1}: Default title gone but custom title not found yet for {nickname}")
+        else:
+            if DEBUG:
+                pid_list = ", ".join(str(pid) for pid in default_title_pids)
+                print(f"[WINDOW-TITLE] Check #{check_count + 1}: Default 'FINAL FANTASY XIV' title still active (PID(s): {pid_list}), waiting for plugin update...")
+        
+        # Wait before next check
+        time.sleep(WINDOW_TITLE_RESCAN)
+        check_count += 1
+    
+    # Max attempts reached - check one more time for launcher
+    if is_xivlauncher_running():
+        print(f"[LAUNCHER-CHECK] XIVLauncher.exe detected instead of game for {nickname}")
+        return (False, True, None)
+    
+    # Max attempts reached without successful title update
+    stale_default_pid = get_newest_default_ffxiv_window_pid()
+    if stale_default_pid:
+        print(f"[WINDOW-TITLE] Default 'FINAL FANTASY XIV' title still active for {nickname} (PID {stale_default_pid}) after {MAX_WINDOW_TITLE_RESCAN} attempts")
+        return (False, False, stale_default_pid)
+
+    print(f"[WINDOW-TITLE] Max attempts ({MAX_WINDOW_TITLE_RESCAN}) reached for {nickname}, will restart launch")
+    return (False, False, None)
+
+def get_submarine_timers_for_account(account_entry):
+    """
+    Get all submarine timers for a single account.
+    Returns dict with account info and submarine data.
+    """
+    nickname = account_entry["nickname"]
+    auto_path = account_entry["auto_path"]
+    include_subs = account_entry.get("include_submarines", True)
+    
+    result = {
+        "nickname": nickname,
+        "include_submarines": include_subs,
+        "total_subs": 0,
+        "ready_subs": 0,
+        "soonest_hours": None,
+        "characters": [],
+        "sub_builds": [],  # Track submarine builds for gil calculation
+        "sub_plans": [],   # Track submarine plan names for plan-based gil calculation
+        "total_ceruleum": 0,  # Total tanks across all characters
+        "total_repair_kits": 0,  # Total repair kits across all characters
+        "days_until_restocking": None,  # Minimum days until restocking needed
+        "lowest_inventory_space": None,  # Lowest inventory space among sub-only farmer characters
+        "lowest_retainer_inventory_space": None,  # Lowest inventory space among retainer farmer characters
+        "ready_retainers": 0,  # Count of retainers with completed ventures
+        "total_retainers": 0,  # Total retainers on ventures
+        "soonest_retainer_hours": None,  # Soonest retainer venture completion time
+        "disabled_ready_subs": 0,  # Ready subs that AR won't process (Workshop off or sub not in EnabledSubs)
+        "disabled_chars_with_ready_subs": []  # Character names with non-processable ready subs
+    }
+    
+    if not include_subs:
+        return result
+    
+    if not os.path.isfile(auto_path):
+        return result
+    
+    try:
+        with open(auto_path, "r", encoding="utf-8-sig") as f:
+            data = json.load(f)
+        
+        # Build plan name cache from this config
+        build_plan_name_cache(data)
+        
+        chars = collect_characters(data, account_nickname=nickname)
+        current_time = datetime.datetime.now().timestamp()
+        
+        all_return_times = []
+        
+        # Collect inventory data for restocking calculation
+        character_days_remaining = []
+        farmer_inventory_spaces = []  # Track inventory spaces for characters with submarines (no retainers)
+        retainer_farmer_inventory_spaces = []  # Track inventory spaces for characters with retainers
+        all_retainer_times = []  # Track retainer venture completion times
+        
+        for char in chars:
+            # Check if character has workshop (submarine) processing enabled in AutoRetainer
+            # WorkshopEnabled controls whether AR processes submarines for this character
+            # Enabled controls retainer Multi rotation (separate from submarine processing)
+            char_enabled = char.get("WorkshopEnabled", True)
+            
+            # Collect inventory from character
+            ceruleum = char.get("Ceruleum", 0)
+            repair_kits = char.get("RepairKits", 0)
+            result["total_ceruleum"] += ceruleum
+            result["total_repair_kits"] += repair_kits
+            
+            # Get submarine build data from AdditionalSubmarineData
+            # Process all submarines (including renamed ones) by matching via OfflineSubmarineData
+            sub_info = char.get("AdditionalSubmarineData", {})
+            offline_sub_data = char.get("OfflineSubmarineData", [])
+            
+            # Collect builds for this character
+            char_builds = []
+            
+            # First pass: Collect submarine builds and plan names from all submarines
+            for offline_sub in offline_sub_data:
+                sub_name = offline_sub.get("Name", "")
+                # Look up build data using the submarine's actual name
+                if sub_name in sub_info:
+                    parts_str = get_sub_parts_string(sub_info[sub_name])
+                    if parts_str:
+                        result["sub_builds"].append(parts_str)
+                        char_builds.append(parts_str)
+                        # Get plan name for this submarine (only when build is found)
+                        plan_name = get_submarine_plan_name(sub_info[sub_name])
+                        result["sub_plans"].append(plan_name)
+            
+            # Calculate consumption rates for this character's submarines
+            if char_builds:
+                total_tanks_per_day = 0
+                total_kits_per_day = 0
+                for build in char_builds:
+                    if build in build_consumption_rates:
+                        total_tanks_per_day += build_consumption_rates[build]["tanks_per_day"]
+                        total_kits_per_day += build_consumption_rates[build]["kits_per_day"]
+                    else:
+                        # Default consumption for unlisted builds (leveling submarines, etc.)
+                        # Use basic OJ route consumption: 9 tanks/day, 1.33 kits/day
+                        total_tanks_per_day += 9.0
+                        total_kits_per_day += 1.33
+                
+                # Calculate days remaining for this character
+                if total_tanks_per_day > 0 and total_kits_per_day > 0:
+                    days_from_tanks = ceruleum / total_tanks_per_day if ceruleum > 0 else 0
+                    days_from_kits = repair_kits / total_kits_per_day if repair_kits > 0 else 0
+                    days_for_char = int(min(days_from_tanks, days_from_kits))  # Round down to lowest solid number
+                    character_days_remaining.append(days_for_char)
+                
+                # Track inventory space for submarine-only farmers (excludes characters with retainers)
+                # Characters with retainers have fluctuating inventory due to retainer item collection
+                # InventorySpace is total 140, value shows remaining available slots
+                retainer_data = char.get("RetainerData", [])
+                inventory_space = char.get("InventorySpace", 0)
+                if not retainer_data:  # Track sub-only farmers (no retainers)
+                    farmer_inventory_spaces.append(inventory_space)
+                else:  # Track retainer farmers
+                    retainer_farmer_inventory_spaces.append(inventory_space)
+            
+            # Collect retainer venture data (retainer_data already fetched above if char_builds exists)
+            if not char_builds:
+                retainer_data = char.get("RetainerData", [])
+            for ret in retainer_data:
+                has_venture = ret.get("HasVenture", False)
+                venture_ends_at = ret.get("VentureEndsAt", 0)
+                
+                if has_venture and venture_ends_at > 0:
+                    result["total_retainers"] += 1
+                    # Convert to hours remaining (can be negative if already returned)
+                    hours_remaining = (venture_ends_at - current_time) / 3600
+                    all_retainer_times.append(hours_remaining)
+                    
+                    # Count ready retainers (negative hours means venture completed)
+                    if hours_remaining < 0:
+                        result["ready_retainers"] += 1
+            
+            # Second pass: Get submarine return times
+            # AR only processes subs where: WorkshopEnabled=true AND sub name is in EnabledSubs
+            enabled_subs_list = char.get("EnabledSubs", [])
+            char_disabled_ready = 0
+            for sub_dict in offline_sub_data:
+                sub_name = sub_dict.get("Name", "")
+                return_timestamp = sub_dict.get("ReturnTime", 0)
+                
+                if return_timestamp > 0:
+                    # Convert to hours remaining (can be negative if already returned)
+                    hours_remaining = (return_timestamp - current_time) / 3600
+                    result["total_subs"] += 1
+                    
+                    # Sub is processable only if Workshop is enabled AND this specific sub is enabled
+                    sub_processable = char_enabled and sub_name in enabled_subs_list
+                    
+                    if sub_processable:
+                        # Only count processable subs toward launch decisions
+                        all_return_times.append(hours_remaining)
+                        
+                        # Count ready submarines (negative hours means already returned)
+                        if hours_remaining < 0:
+                            result["ready_subs"] += 1
+                    else:
+                        # Track non-processable subs with ready status for warning
+                        if hours_remaining < 0:
+                            char_disabled_ready += 1
+            
+            # Record disabled character/sub info for warning display
+            if char_disabled_ready > 0:
+                char_name = char.get("Name", "Unknown")
+                result["disabled_ready_subs"] += char_disabled_ready
+                result["disabled_chars_with_ready_subs"].append(char_name)
+        
+        # Find the soonest submarine (minimum time)
+        if all_return_times:
+            result["soonest_hours"] = min(all_return_times)
+        
+        # Calculate minimum days until restocking across all characters
+        if character_days_remaining:
+            result["days_until_restocking"] = min(character_days_remaining)
+        
+        # Calculate lowest inventory space among farmer characters
+        if farmer_inventory_spaces:
+            result["lowest_inventory_space"] = min(farmer_inventory_spaces)
+        
+        # Calculate lowest inventory space among retainer farmer characters
+        if retainer_farmer_inventory_spaces:
+            result["lowest_retainer_inventory_space"] = min(retainer_farmer_inventory_spaces)
+        
+        # Find the soonest retainer venture completion
+        if all_retainer_times:
+            result["soonest_retainer_hours"] = min(all_retainer_times)
+    
+    except Exception as e:
+        print(f"[ERROR] Failed to process {nickname}: {e}")
     
     return result
 
-
-def extract_fc_data(full_data):
-    """Extract Free Company data from AutoRetainer config"""
-    fc_data = {}
+def detect_retainer_processing(account_entry, retainer_state_cache, current_time):
+    """
+    Detect retainer processing by comparing cached retainer venture times to current times.
+    Similar to submarine processing detection - tracks changes in ready count and nearest timer.
     
-    def recursive_search(obj):
-        if isinstance(obj, dict):
-            if "HolderChara" in obj:
-                holder_id = obj["HolderChara"]
-                fc_data[holder_id] = {
-                    "Name": obj.get("Name", "Unknown FC"),
-                    "FCPoints": obj.get("FCPoints", 0)
-                }
-            for v in obj.values():
-                recursive_search(v)
-        elif isinstance(obj, list):
-            for item in obj:
-                recursive_search(item)
+    Args:
+        account_entry: Dictionary with account information including auto_path
+        retainer_state_cache: Dictionary caching previous retainer state by nickname
+        current_time: Current timestamp for calculating venture times
     
-    recursive_search(full_data)
-    return fc_data
-
-
-def collect_characters(full_data, account_nickname):
-    """Extract characters from AutoRetainer JSON data"""
-    all_chars = []
+    Returns:
+        int: Number of retainers processed (detected by ready count decrease or timer change)
+    """
+    nickname = account_entry["nickname"]
+    auto_path = account_entry["auto_path"]
     
-    def assign_nickname(chara):
-        chara["AccountNickname"] = account_nickname
-        return chara
+    if not os.path.isfile(auto_path):
+        return 0
     
-    if isinstance(full_data, dict):
-        if "OfflineData" in full_data and isinstance(full_data["OfflineData"], list):
-            for c in full_data["OfflineData"]:
-                if isinstance(c, dict) and "CID" in c:
-                    all_chars.append(assign_nickname(c))
-    
-    return all_chars
-
-
-def parse_submarine_data(char_data):
-    """Parse submarine data from character"""
-    submarines = []
-    
-    # Get offline submarine data for return times
-    offline_subs = char_data.get("OfflineSubmarineData", [])
-    offline_by_name = {}
-    for sub in offline_subs:
-        if isinstance(sub, dict):
-            name = sub.get("Name", "")
-            offline_by_name[name] = sub
-    
-    # Get additional submarine data for builds
-    additional_subs = char_data.get("AdditionalSubmarineData", {})
-    
-    for sub_key, sub_data in additional_subs.items():
-        if not isinstance(sub_data, dict):
-            continue
+    try:
+        with open(auto_path, "r", encoding="utf-8-sig") as f:
+            data = json.load(f)
         
-        name = sub_data.get("Name", sub_key)
+        chars = collect_characters(data, account_nickname=nickname)
+        current_retainer_times = []  # List of (retainer_name, hours_remaining) tuples
         
-        # Skip stale submarines that no longer exist in OfflineSubmarineData
-        # OfflineSubmarineData is the source of truth for active submarines (max 4)
-        if name not in offline_by_name and sub_key not in offline_by_name:
-            continue
+        for char in chars:
+            retainer_data = char.get("RetainerData", [])
+            
+            for ret in retainer_data:
+                ret_name = ret.get("Name", "")
+                has_venture = ret.get("HasVenture", False)
+                venture_ends_at = ret.get("VentureEndsAt", 0)
+                
+                if has_venture and venture_ends_at > 0:
+                    # Convert to hours remaining (can be negative if already returned)
+                    hours_remaining = (venture_ends_at - current_time) / 3600
+                    current_retainer_times.append((ret_name, hours_remaining))
         
-        level = sub_data.get("Level", 0)
-        build = get_sub_build_string(sub_data)
-        vessel_behavior = sub_data.get("VesselBehavior", 0)
+        # Count current retainer states
+        ready_retainers = sum(1 for _, hours in current_retainer_times if hours < 0)
+        on_venture_retainers = sum(1 for _, hours in current_retainer_times if hours > 0)
         
-        # Get plan info from config-based detection
-        is_leveling, is_farming, plan_name, plan_earnings = get_submarine_plan_info(sub_data, build)
+        # Find the nearest timer (soonest retainer)
+        nearest_timer = min([hours for _, hours in current_retainer_times], default=None)
         
-        # If no plan match and no VesselBehavior detection, use level/build fallbacks
-        if not plan_name and vessel_behavior == 0:
-            if level >= 100:
-                is_leveling = False
-                is_farming = True
-            elif build and build in BUILD_GIL_RATES:
-                is_leveling = False
-                is_farming = True
-            else:
-                is_leveling = True
-                is_farming = False
+        # Get cached state for this account
+        cached_state = retainer_state_cache.get(nickname, {})
         
-        # Get return time from offline data
-        return_time = None
-        if name in offline_by_name:
-            return_time = offline_by_name[name].get("ReturnTime", 0)
+        # If cache is empty, initialize it but don't count anything as processed
+        if not cached_state:
+            retainer_state_cache[nickname] = {
+                'ready_count': ready_retainers,
+                'on_venture_count': on_venture_retainers,
+                'nearest_timer': nearest_timer
+            }
+            if DEBUG:
+                print(f"[DEBUG] {nickname}: Initializing retainer cache - {ready_retainers} ready, {on_venture_retainers} on venture")
+            return 0
         
-        # Determine if submarine is ready (docked or returned)
-        now_ts = datetime.datetime.now().timestamp()
-        is_ready = (not return_time) or (return_time <= now_ts)
+        # Calculate processed count using multiple metrics:
+        # 1. Decrease in ready retainers (retainers sent without new returns)
+        # 2. Increase in on-venture retainers (retainers sent even if others returned)
+        # 3. Change in nearest timer to a different character (indicates processing even if counts same)
+        previous_ready = cached_state.get('ready_count', ready_retainers)
+        previous_on_venture = cached_state.get('on_venture_count', on_venture_retainers)
+        previous_nearest = cached_state.get('nearest_timer', nearest_timer)
         
-        # Calculate gil rate - use plan earnings if available, otherwise use build rates
-        if plan_earnings > 0:
-            gil_rate = plan_earnings
-        else:
-            gil_rate = BUILD_GIL_RATES.get(build, 0)
+        ready_decreased = max(0, previous_ready - ready_retainers)
+        on_venture_increased = max(0, on_venture_retainers - previous_on_venture)
         
-        consumption = BUILD_CONSUMPTION_RATES.get(build, DEFAULT_CONSUMPTION)
+        # Detect timer change: if the nearest timer changed significantly (more than expected from time passing)
+        # This catches cases where 20 retainers are processed and 20 come in (count stays same but timer changes)
+        timer_change_detected = 0
+        if previous_nearest is not None and nearest_timer is not None:
+            # Expected change is just time passing (should be negative as time progresses)
+            time_elapsed_hours = (current_time - cached_state.get('last_check_time', current_time)) / 3600
+            expected_nearest = previous_nearest - time_elapsed_hours
+            
+            # If the nearest timer is significantly higher than expected, retainers were processed
+            # (new retainer became the nearest, meaning previous nearest was sent out)
+            if nearest_timer > expected_nearest + 0.1:  # 0.1 hour tolerance (6 min)
+                timer_change_detected = 1
+                if DEBUG:
+                    print(f"[DEBUG] {nickname}: Retainer timer change detected - expected {expected_nearest:.2f}h, got {nearest_timer:.2f}h")
         
-        submarines.append({
-            "name": name,
-            "level": level,
-            "build": build if build else "Leveling",
-            "plan_name": plan_name,
-            "return_time": return_time,
-            "return_formatted": format_time_remaining(return_time) if return_time else "Docked",
-            "is_ready": is_ready,
-            "is_leveling": is_leveling,
-            "is_farming": is_farming,
-            "vessel_behavior": vessel_behavior,
-            "daily_gil": gil_rate,
-            "monthly_gil": gil_rate * 30,
-            "tanks_per_day": consumption["tanks_per_day"],
-            "kits_per_day": consumption["kits_per_day"],
-            "daily_cost": (consumption["tanks_per_day"] * CERULEUM_TANK_COST) + 
-                         (consumption["kits_per_day"] * REPAIR_KIT_COST),
-        })
-    
-    return submarines
-
-
-def parse_retainer_data(char_data):
-    """Parse retainer data from character"""
-    retainers = []
-    retainer_data = char_data.get("RetainerData", [])
-    
-    for ret in retainer_data:
-        if not isinstance(ret, dict):
-            continue
+        # Use the LARGER of the metrics to detect activity
+        processed_count = max(ready_decreased, on_venture_increased, timer_change_detected)
         
-        venture_ends = ret.get("VentureEndsAt", 0)
-        
-        # Determine if retainer is ready (no venture or venture complete)
-        now_ts = datetime.datetime.now().timestamp()
-        is_ready = (not venture_ends) or (venture_ends <= now_ts)
-        
-        retainers.append({
-            "name": ret.get("Name", "Unknown"),
-            "level": ret.get("Level", 0),
-            "job": ret.get("Job", 0),
-            "gil": ret.get("Gil", 0),
-            "mb_items": ret.get("MBItems", 0),
-            "has_venture": ret.get("HasVenture", False),
-            "venture_ends": venture_ends,
-            "venture_formatted": format_time_remaining(venture_ends) if venture_ends else "None",
-            "is_ready": is_ready,
-        })
-    
-    return retainers
-
-
-def get_all_data():
-    """Load and parse all account data"""
-    all_accounts = []
-    total_gil = 0
-    total_subs = 0
-    total_retainers = 0
-    ready_subs = 0
-    ready_retainers = 0
-    total_mb_items = 0
-    total_daily_income = 0
-    total_daily_cost = 0
-    total_treasure = 0
-    total_coffer_dye_value = 0
-    total_coffer_count = 0
-    total_dye_count = 0
-    total_mb_dye_count = 0
-    total_venture_coins = 0
-    total_fc_points = 0
-    total_subs_leveling = 0
-    total_subs_farming = 0
-    total_idle_subs = 0
-    total_retainers_leveling = 0
-    total_retainers_farming = 0
-    total_idle_retainers = 0
-    total_excluded_retainers = 0
-    total_excluded_subs = 0
-    total_sleeping_retainers = 0
-    total_sleeping_subs = 0
-    total_potential_subs = 0  # Characters with potential subs (lv 25+ not in FC)
-    total_enabled_retainers = 0  # Enabled retainers (not excluded, not sleeping)
-    total_enabled_subs = 0  # Enabled subs (not excluded, not sleeping)
-    total_all_max_mb = 0  # Characters with ALL retainers maxed
-    min_restock_days = None  # Track lowest restock days across all accounts (excluding 0)
-    total_ceruleum = 0  # Total ceruleum tanks across all accounts
-    total_repair_kits = 0  # Total repair kits across all accounts
-    total_tanks_per_day_all = 0.0  # Total tank consumption per day
-    total_kits_per_day_all = 0.0  # Total kit consumption per day
-    
-    # Character stats tracking
-    total_chars_lv25_plus = 0
-    total_chars_lv100 = 0
-    unique_personal_plots = set()  # Track unique plots by world+district+ward+plot
-    unique_fc_plots = set()  # Track unique FC plots by world+district+ward+plot
-    
-    # MSQ Progress tracking
-    total_characters_with_msq = 0
-    msq_100_count = 0  # Characters at 100% MSQ
-    msq_90_count = 0   # Characters at 90%+ MSQ
-    msq_50_count = 0   # Characters at 50%+ MSQ
-    total_msq_percent = 0  # For calculating average
-    
-    for account in account_locations:
-        account_data = {
-            "nickname": account["nickname"],
-            "characters": [],
-            "total_gil": 0,
-            "total_subs": 0,
-            "total_retainers": 0,
-            "ready_subs": 0,
-            "ready_retainers": 0,
-            "total_mb_items": 0,
-            "total_treasure": 0,
-            "total_coffer_dye_value": 0,
-            "total_coffer_count": 0,
-            "total_dye_count": 0,
-            "total_mb_dye_count": 0,
-            "total_venture_coins": 0,
-            "total_fc_points": 0,
-            "subs_leveling": 0,
-            "subs_farming": 0,
-            "idle_subs": 0,
-            "has_idle_sub": False,
-            "retainers_leveling": 0,
-            "retainers_farming": 0,
-            "idle_retainers": 0,
-            "has_idle_retainer": False,
-            "msq_100_count": 0,
-            "msq_90_count": 0,
-            "msq_50_count": 0,
-            "characters_with_msq": 0,
-            "has_max_mb_retainer": False,  # Track if any character has ALL retainers with 20 MB items
-            "max_mb_retainer_count": 0,  # Count of retainers with 20 MB items
-            "all_max_mb_count": 0,  # Count of characters with ALL retainers maxed
-            "excluded_retainers": 0,  # Count of excluded retainers
-            "excluded_subs": 0,  # Count of excluded submarines
-            "sleeping_retainers": 0,  # Count of sleeping (disabled) retainers
-            "sleeping_subs": 0,  # Count of sleeping (disabled) submarines
-            "has_sleeping_retainer": False,
-            "has_sleeping_sub": False,
-            "potential_subs_count": 0,  # Count of characters with potential subs (lv 25+ not in FC)
-            "enabled_retainers": 0,  # Count of enabled retainers (not excluded, not sleeping)
-            "enabled_subs": 0,  # Count of enabled subs (not excluded, not sleeping)
+        # Update cache with current state
+        retainer_state_cache[nickname] = {
+            'ready_count': ready_retainers,
+            'on_venture_count': on_venture_retainers,
+            'nearest_timer': nearest_timer,
+            'last_check_time': current_time
         }
         
-        auto_path = account["auto_path"]
+        # Enhanced debug output
+        if DEBUG and processed_count > 0:
+            print(f"[DEBUG] {nickname}: {ready_retainers} ret. ready, {on_venture_retainers} on venture, {processed_count} processed this scan")
         
-        if not os.path.isfile(auto_path):
-            account_data["error"] = f"Config not found: {auto_path}"
-            all_accounts.append(account_data)
-            continue
-        
-        try:
-            with open(auto_path, 'r', encoding='utf-8-sig') as f:
-                data = json.load(f)
-        except Exception as e:
-            account_data["error"] = f"Failed to load: {e}"
-            all_accounts.append(account_data)
-            continue
-        
-        # Build plan name lookup from this config
-        build_plan_name_lookup(data)
-        
-        fc_data = extract_fc_data(data)
-        characters = collect_characters(data, account["nickname"])
-        
-        # Scan XA Database for treasure values, currencies, jobs, MSQ
-        alto_map = {}
-        xa_db_path = account.get("xa_db_path", "")
-        if xa_db_path:
-            alto_map = scan_xa_db(xa_db_path)
-        
-        # Load Lifestream housing data
-        housing_map = {}
-        lfstrm_path = account.get("lfstrm_path", "")
-        if lfstrm_path:
-            housing_map = load_lifestream_data(lfstrm_path)
-        
-        for char in characters:
-            cid = char.get("CID", 0)
-            char_gil = char.get("Gil", 0)
-            
-            # Check AR exclusion settings for this character
-            exclude_retainer = char.get("ExcludeRetainer", False) if HONOR_AR_EXCLUSIONS else False
-            exclude_workshop = char.get("ExcludeWorkshop", False) if HONOR_AR_EXCLUSIONS else False
-            
-            # Check AR enabled/disabled (sleeping) settings for this character
-            # Enabled=false means retainers are sleeping (not rotating)
-            # WorkshopEnabled=false means subs are sleeping (not rotating)
-            retainers_sleeping = not char.get("Enabled", True)  # Default True = enabled
-            subs_sleeping = not char.get("WorkshopEnabled", True)  # Default True = enabled
-            
-            # Parse submarines (always parse, but hide in display if excluded)
-            submarines = parse_submarine_data(char)
-            sub_daily_income = sum(s["daily_gil"] for s in submarines) if not exclude_workshop else 0
-            sub_daily_cost = sum(s["daily_cost"] for s in submarines) if not exclude_workshop else 0
-            
-            # Calculate days until restocking needed
-            total_tanks_per_day = sum(s.get("tanks_per_day", 0) for s in submarines)
-            total_kits_per_day = sum(s.get("kits_per_day", 0) for s in submarines)
-            ceruleum = char.get("Ceruleum", 0)
-            repair_kits = char.get("RepairKits", 0)
-            
-            days_until_restock = None
-            if submarines and total_tanks_per_day > 0 and total_kits_per_day > 0:
-                days_from_tanks = ceruleum / total_tanks_per_day if ceruleum > 0 else 0
-                days_from_kits = repair_kits / total_kits_per_day if repair_kits > 0 else 0
-                days_until_restock = int(min(days_from_tanks, days_from_kits))
-            
-            # Accumulate supply totals for sublord snapshot
-            if not exclude_workshop:
-                total_ceruleum += ceruleum
-                total_repair_kits += repair_kits
-                total_tanks_per_day_all += total_tanks_per_day
-                total_kits_per_day_all += total_kits_per_day
-            
-            # Count leveling vs farming submarines
-            char_subs_leveling = sum(1 for s in submarines if s.get("is_leveling", False))
-            char_subs_farming = sum(1 for s in submarines if s.get("is_farming", False))
-            
-            # Count idle submarines (no plan, not leveling, not farming)
-            char_idle_subs = sum(1 for s in submarines if not s.get("plan_name") and not s.get("is_farming", False) and not s.get("is_leveling", False))
-            # Idle sub = has idle subs AND not excluded AND not sleeping (must be enabled)
-            has_idle_sub = char_idle_subs > 0 and not exclude_workshop and not subs_sleeping
-            
-            # Parse retainers (always parse, but hide in display if excluded)
-            retainers = parse_retainer_data(char)
-            retainer_gil = sum(r["gil"] for r in retainers) if not exclude_retainer else 0
-            mb_items = sum(r["mb_items"] for r in retainers) if not exclude_retainer else 0
-            # Override max MB highlight if excluded
-            # Only highlight if ALL retainers have max MB items (20)
-            has_max_mb_retainer = len(retainers) > 0 and all(r["mb_items"] >= 20 for r in retainers) and not exclude_retainer
-            # Count retainers with max MB items (for summary)
-            char_max_mb_count = sum(1 for r in retainers if r["mb_items"] >= 20) if not exclude_retainer else 0
-            
-            # Count leveling vs farming retainers (< 100 = leveling, 100 = farming)
-            char_retainers_leveling = sum(1 for r in retainers if r["level"] < 100)
-            char_retainers_farming = sum(1 for r in retainers if r["level"] >= 100)
-            
-            # Count idle retainers (no venture assigned)
-            char_idle_retainers = sum(1 for r in retainers if not r["has_venture"])
-            # Idle retainer = has idle retainers AND not excluded AND not sleeping (must be enabled)
-            has_idle_retainer = char_idle_retainers > 0 and not exclude_retainer and not retainers_sleeping
-            
-            # Get FC info and FC points
-            fc_name = ""
-            fc_points = 0
-            fc_gil = 0
-            if cid in fc_data:
-                fc_name = fc_data[cid].get("Name", "")
-                fc_points = fc_data[cid].get("FCPoints", 0)
-            
-            # Get XA Database data (treasure, coffers, dyes, job, etc.)
-            treasure_value = 0
-            coffer_dye_value = 0
-            coffer_count = 0
-            dye_count = 0
-            dye_pure_white = 0
-            dye_jet_black = 0
-            dye_pastel_pink = 0
-            mb_dye_count = 0
-            venture_coins = 0
-            current_job = ""
-            current_level = 0
-            highest_job = ""
-            highest_level = 0
-            lowest_job = ""
-            lowest_level = 0
-            all_jobs = {}
-            all_currencies = {}
-            completed_quests = []
-            if cid in alto_map:
-                treasure_value = alto_map[cid].get("treasure_value", 0)
-                coffer_dye_value = alto_map[cid].get("coffer_dye_value", 0)
-                coffer_count = alto_map[cid].get("coffer_count", 0)
-                dye_count = alto_map[cid].get("dye_count", 0)
-                dye_pure_white = alto_map[cid].get("dye_pure_white", 0)
-                dye_jet_black = alto_map[cid].get("dye_jet_black", 0)
-                dye_pastel_pink = alto_map[cid].get("dye_pastel_pink", 0)
-                mb_dye_count = alto_map[cid].get("mb_dye_count", 0)
-                venture_coins = alto_map[cid].get("venture_coins", 0)
-                fc_gil = alto_map[cid].get("fc_gil", 0)
-                current_job = alto_map[cid].get("current_job", "")
-                current_level = alto_map[cid].get("current_level", 0)
-                highest_job = alto_map[cid].get("highest_job", "")
-                highest_level = alto_map[cid].get("highest_level", 0)
-                lowest_job = alto_map[cid].get("lowest_job", "")
-                lowest_level = alto_map[cid].get("lowest_level", 0)
-                all_jobs = alto_map[cid].get("all_jobs", {})
-                all_currencies = alto_map[cid].get("all_currencies", {})
-                completed_quests = alto_map[cid].get("completed_quests", [])
-            
-            # Get venture coffers from AutoRetainer if XA Database doesn't have it
-            venture_coffers_ar = char.get("VentureCoffers", 0)
-            if coffer_count == 0 and venture_coffers_ar > 0:
-                coffer_count = venture_coffers_ar
-                coffer_dye_value += venture_coffers_ar * COFFER_DYE_VALUES.get(32161, 18000)
-            
-            # Get housing data from Lifestream
-            private_house = None
-            fc_house = None
-            if cid in housing_map:
-                private_data = housing_map[cid].get('private')
-                fc_data_house = housing_map[cid].get('fc')
-                if private_data:
-                    private_house = f"{private_data['district']} W{private_data['ward']} P{private_data['plot']}"
-                if fc_data_house:
-                    fc_house = f"{fc_data_house['district']} W{fc_data_house['ward']} P{fc_data_house['plot']}"
-            
-            char_data = {
-                "cid": cid,
-                "name": char.get("Name", "Unknown"),
-                "world": char.get("World", "Unknown"),
-                "region": region_from_world(char.get("World", "")),
-                "gil": char_gil,
-                "retainer_gil": retainer_gil,
-                "fc_gil": fc_gil,
-                "total_gil": char_gil + retainer_gil + fc_gil,
-                "treasure_value": treasure_value,
-                "coffer_dye_value": coffer_dye_value,
-                "coffer_count": coffer_count,
-                "dye_count": dye_count,
-                "dye_pure_white": dye_pure_white,
-                "dye_jet_black": dye_jet_black,
-                "dye_pastel_pink": dye_pastel_pink,
-                "mb_dye_count": mb_dye_count,
-                "venture_coins": venture_coins,
-                "total_with_treasure": char_gil + retainer_gil + fc_gil + treasure_value,
-                "submarines": submarines,
-                "retainers": retainers,
-                "fc_name": fc_name,
-                "fc_points": fc_points,
-                "ceruleum": char.get("Ceruleum", 0),
-                "repair_kits": char.get("RepairKits", 0),
-                "ventures": char.get("Ventures", 0),
-                "inventory_space": char.get("InventorySpace", 0),
-                "gc_seals": char.get("GCSeals", 0),
-                "daily_income": sub_daily_income,
-                "monthly_income": sub_daily_income * 30,
-                "daily_cost": sub_daily_cost,
-                "mb_items": mb_items,
-                "current_job": current_job,
-                "current_level": current_level,
-                "subs_leveling": char_subs_leveling,
-                "subs_farming": char_subs_farming,
-                "idle_subs": char_idle_subs,
-                "has_idle_sub": has_idle_sub,
-                "retainers_leveling": char_retainers_leveling,
-                "retainers_farming": char_retainers_farming,
-                "idle_retainers": char_idle_retainers,
-                "has_idle_retainer": has_idle_retainer,
-                "days_until_restock": days_until_restock,
-                "private_house": private_house,
-                "fc_house": fc_house,
-                "all_jobs": all_jobs,
-                "all_currencies": all_currencies,
-                "categorized_currencies": categorize_currencies(all_currencies) if all_currencies else {},
-            }
-            
-            # Add highest/lowest job (already extracted from alto_map)
-            char_data["highest_job"] = highest_job
-            char_data["highest_level"] = highest_level
-            char_data["lowest_job"] = lowest_job
-            char_data["lowest_level"] = lowest_level
-            
-            # Calculate MSQ progress (returns percentage, position, total, quest_name)
-            # Get max COMBAT job level for validation (MSQ requires combat jobs, not crafters)
-            max_combat_level = max((lv for job, lv in all_jobs.items() if job in COMBAT_JOBS), default=0) if all_jobs else 0
-            # Fallback to current_level only if it's a combat job
-            if max_combat_level == 0 and current_job in COMBAT_JOBS:
-                max_combat_level = current_level
-            msq_pct, msq_pos, msq_total, msq_quest_name = calculate_msq_progress(completed_quests, max_combat_level)
-            char_data["msq_percent"] = msq_pct
-            char_data["msq_completed"] = msq_pos
-            char_data["msq_total"] = msq_total
-            char_data["msq_quest_name"] = msq_quest_name
-            
-            # Count ready submarines and retainers
-            char_ready_subs = sum(1 for s in submarines if s["is_ready"])
-            char_ready_retainers = sum(1 for r in retainers if r["is_ready"])
-            
-            # Get max levels for sorting
-            max_retainer_level = max((r["level"] for r in retainers), default=0)
-            max_sub_level = max((s["level"] for s in submarines), default=0)
-            # Get min levels for sorting (lowest level sub/retainer)
-            min_retainer_level = min((r["level"] for r in retainers), default=0)
-            min_sub_level = min((s["level"] for s in submarines), default=0)
-            
-            # Get minimum return time in seconds for sorting (soonest return first)
-            # For ready items, use 0 (already ready). For non-ready, use seconds until return.
-            # VentureEndsAt and ReturnTime are Unix timestamps (integers)
-            now_ts = datetime.datetime.now().timestamp()
-            retainer_return_times = []
-            for r in retainers:
-                if r["is_ready"]:
-                    retainer_return_times.append(0)
-                elif r["venture_ends"] and r["venture_ends"] > 0:
-                    # venture_ends is Unix timestamp, subtract current timestamp
-                    delta = r["venture_ends"] - now_ts
-                    retainer_return_times.append(max(0, delta))
-                else:
-                    retainer_return_times.append(999999)  # No venture = sort last
-            min_retainer_return = min(retainer_return_times) if retainer_return_times else 999999
-            
-            sub_return_times = []
-            for s in submarines:
-                if s["is_ready"]:
-                    sub_return_times.append(0)
-                elif s["return_time"] and s["return_time"] > 0:
-                    # return_time is Unix timestamp, subtract current timestamp
-                    delta = s["return_time"] - now_ts
-                    sub_return_times.append(max(0, delta))
-                else:
-                    sub_return_times.append(999999)  # No voyage = sort last
-            min_sub_return = min(sub_return_times) if sub_return_times else 999999
-            
-            # Add ready counts and max levels to character data
-            char_data["ready_subs"] = char_ready_subs
-            char_data["total_subs"] = len(submarines)
-            char_data["ready_retainers"] = char_ready_retainers
-            char_data["total_retainers"] = len(retainers)
-            char_data["max_retainer_level"] = max_retainer_level
-            char_data["max_sub_level"] = max_sub_level
-            char_data["min_retainer_level"] = min_retainer_level
-            char_data["min_sub_level"] = min_sub_level
-            char_data["min_retainer_return"] = int(min_retainer_return)
-            char_data["min_sub_return"] = int(min_sub_return)
-            char_data["has_max_mb_retainer"] = has_max_mb_retainer
-            
-            # Add exclusion flags for template display
-            char_data["exclude_retainer"] = exclude_retainer
-            char_data["exclude_workshop"] = exclude_workshop
-            
-            # Add sleeping flags for template display
-            char_data["retainers_sleeping"] = retainers_sleeping
-            char_data["subs_sleeping"] = subs_sleeping
-            # Add processing flag - character is processing if Enabled=true OR WorkshopEnabled=true
-            char_data["is_processing"] = not retainers_sleeping or not subs_sleeping
-            # Count sleeping retainers/subs for this character
-            char_sleeping_retainers = len(retainers) if retainers_sleeping else 0
-            char_sleeping_subs = len(submarines) if subs_sleeping else 0
-            char_data["sleeping_retainer_count"] = char_sleeping_retainers
-            char_data["sleeping_sub_count"] = char_sleeping_subs
-            
-            # Check if character has potential for retainers (MSQ 66060 completed but 0 retainers)
-            # Override if retainers are excluded
-            # Only set if SHOW_MSQ_PROGRESSION is enabled (otherwise we can't determine MSQ status)
-            char_data["has_potential_retainer"] = SHOW_MSQ_PROGRESSION and (66060 in completed_quests) and (len(retainers) == 0) and not exclude_retainer
-            
-            # Check if character has potential for subs (Lv 25+ but not in FC)
-            # Use highest_level to check if any job is 25+
-            char_data["has_potential_subs"] = highest_level >= 25 and not fc_name
-            
-            # Track max MB count for this character
-            char_data["max_mb_count"] = char_max_mb_count
-            
-            # Track idle flags for asterisk descriptions
-            char_data["has_idle_retainer"] = has_idle_retainer
-            char_data["has_idle_sub"] = has_idle_sub
-            
-            account_data["characters"].append(char_data)
-            account_data["total_gil"] += char_data["total_gil"]
-            # Don't count excluded subs/retainers in account totals
-            account_data["total_subs"] += len(submarines) if not exclude_workshop else 0
-            account_data["total_retainers"] += len(retainers) if not exclude_retainer else 0
-            # Don't count sleeping or excluded subs/retainers as ready
-            account_data["ready_subs"] += char_ready_subs if not exclude_workshop and not subs_sleeping else 0
-            account_data["ready_retainers"] += char_ready_retainers if not exclude_retainer and not retainers_sleeping else 0
-            # Track excluded counts
-            if exclude_retainer and len(retainers) > 0:
-                account_data["excluded_retainers"] += len(retainers)
-            if exclude_workshop and len(submarines) > 0:
-                account_data["excluded_subs"] += len(submarines)
-            # Track sleeping counts (Enabled=false or WorkshopEnabled=false)
-            # Don't count excluded retainers/subs in sleeping totals
-            if char_sleeping_retainers > 0 and not exclude_retainer:
-                account_data["sleeping_retainers"] += char_sleeping_retainers
-                account_data["has_sleeping_retainer"] = True
-            if char_sleeping_subs > 0 and not exclude_workshop:
-                account_data["sleeping_subs"] += char_sleeping_subs
-                account_data["has_sleeping_sub"] = True
-            account_data["total_mb_items"] += mb_items
-            account_data["total_treasure"] += treasure_value
-            account_data["total_coffer_dye_value"] += coffer_dye_value
-            account_data["total_coffer_count"] += coffer_count
-            account_data["total_dye_count"] += dye_count
-            account_data["total_mb_dye_count"] += mb_dye_count
-            account_data["total_venture_coins"] += venture_coins
-            account_data["total_fc_points"] += fc_points
-            
-            # Track minimum restock days (excluding 0 and None)
-            if days_until_restock is not None and days_until_restock > 0:
-                if min_restock_days is None or days_until_restock < min_restock_days:
-                    min_restock_days = days_until_restock
-            
-            account_data["subs_leveling"] += char_subs_leveling
-            account_data["subs_farming"] += char_subs_farming
-            # Only count idle subs if not excluded AND not sleeping (must be enabled)
-            if not exclude_workshop and not subs_sleeping:
-                account_data["idle_subs"] += char_idle_subs
-            if has_idle_sub:
-                account_data["has_idle_sub"] = True
-            account_data["retainers_leveling"] += char_retainers_leveling
-            account_data["retainers_farming"] += char_retainers_farming
-            # Only count idle retainers if not excluded AND not sleeping (must be enabled)
-            if not exclude_retainer and not retainers_sleeping:
-                account_data["idle_retainers"] += char_idle_retainers
-            if has_idle_retainer:
-                account_data["has_idle_retainer"] = True
-            
-            # Track max MB retainers (only when ALL retainers are maxed)
-            if has_max_mb_retainer:
-                account_data["has_max_mb_retainer"] = True
-                account_data["all_max_mb_count"] += 1  # Count characters with ALL retainers maxed
-            # Count individual retainers at max MB (for summary)
-            account_data["max_mb_retainer_count"] += char_max_mb_count
-            
-            # Track potential subs (lv 25+ not in FC)
-            if char_data["has_potential_subs"]:
-                account_data["potential_subs_count"] += 1
-            
-            # Track enabled retainers/subs (not excluded, not sleeping)
-            if not exclude_retainer and not retainers_sleeping:
-                account_data["enabled_retainers"] += len(retainers)
-            if not exclude_workshop and not subs_sleeping:
-                account_data["enabled_subs"] += len(submarines)
-            
-            # Track MSQ progress stats
-            if char_data["msq_percent"] > 0:
-                account_data["characters_with_msq"] += 1
-                total_characters_with_msq += 1
-                total_msq_percent += char_data["msq_percent"]
-                if char_data["msq_percent"] >= 100:
-                    account_data["msq_100_count"] += 1
-                    msq_100_count += 1
-                if char_data["msq_percent"] >= 90:
-                    account_data["msq_90_count"] += 1
-                    msq_90_count += 1
-                if char_data["msq_percent"] >= 50:
-                    account_data["msq_50_count"] += 1
-                    msq_50_count += 1
-            
-            # Track character level stats and housing plots
-            if highest_level >= 25:
-                total_chars_lv25_plus += 1
-            if highest_level >= 100:
-                total_chars_lv100 += 1
-            # Track unique plots (world+location to avoid counting shared houses)
-            char_world = char.get("World", "")
-            if cid in housing_map:
-                private_data = housing_map[cid].get('private')
-                fc_data_house = housing_map[cid].get('fc')
-                if private_data:
-                    plot_key = f"{char_world}_{private_data['district']}_W{private_data['ward']}_P{private_data['plot']}"
-                    unique_personal_plots.add(plot_key)
-                if fc_data_house:
-                    plot_key = f"{char_world}_{fc_data_house['district']}_W{fc_data_house['ward']}_P{fc_data_house['plot']}"
-                    unique_fc_plots.add(plot_key)
-            
-            total_daily_income += sub_daily_income
-            total_daily_cost += sub_daily_cost
-        
-        # Calculate max MB items for this account (20 per retainer)
-        account_data["max_mb_items"] = account_data["total_retainers"] * 20
-        
-        total_gil += account_data["total_gil"]
-        total_subs += account_data["total_subs"]
-        total_retainers += account_data["total_retainers"]
-        ready_subs += account_data["ready_subs"]
-        ready_retainers += account_data["ready_retainers"]
-        total_mb_items += account_data["total_mb_items"]
-        total_treasure += account_data["total_treasure"]
-        total_coffer_dye_value += account_data["total_coffer_dye_value"]
-        total_coffer_count += account_data["total_coffer_count"]
-        total_dye_count += account_data["total_dye_count"]
-        total_mb_dye_count += account_data["total_mb_dye_count"]
-        total_venture_coins += account_data["total_venture_coins"]
-        total_fc_points += account_data["total_fc_points"]
-        total_subs_leveling += account_data["subs_leveling"]
-        total_subs_farming += account_data["subs_farming"]
-        total_idle_subs += account_data["idle_subs"]
-        total_retainers_leveling += account_data["retainers_leveling"]
-        total_retainers_farming += account_data["retainers_farming"]
-        total_idle_retainers += account_data["idle_retainers"]
-        total_excluded_retainers += account_data["excluded_retainers"]
-        total_excluded_subs += account_data["excluded_subs"]
-        total_sleeping_retainers += account_data["sleeping_retainers"]
-        total_sleeping_subs += account_data["sleeping_subs"]
-        total_potential_subs += account_data["potential_subs_count"]
-        total_enabled_retainers += account_data["enabled_retainers"]
-        total_enabled_subs += account_data["enabled_subs"]
-        total_all_max_mb += account_data["all_max_mb_count"]
-        
-        all_accounts.append(account_data)
+        return processed_count
     
-    return {
-        "accounts": all_accounts,
-        "summary": {
-            "total_gil": total_gil,
-            "total_subs": total_subs,
-            "total_retainers": total_retainers,
-            "ready_subs": ready_subs,
-            "ready_retainers": ready_retainers,
-            "total_mb_items": total_mb_items,
-            "max_mb_items": total_retainers * 20,
-            "total_treasure": total_treasure,
-            "total_with_treasure": total_gil + total_treasure,
-            "total_coffer_dye_value": total_coffer_dye_value,
-            "total_coffer_count": total_coffer_count,
-            "total_dye_count": total_dye_count,
-            "total_mb_dye_count": total_mb_dye_count,
-            "total_venture_coins": total_venture_coins,
-            "total_fc_points": total_fc_points,
-            "subs_leveling": total_subs_leveling,
-            "subs_farming": total_subs_farming,
-            "idle_subs": total_idle_subs,
-            "retainers_leveling": total_retainers_leveling,
-            "retainers_farming": total_retainers_farming,
-            "idle_retainers": total_idle_retainers,
-            "excluded_retainers": total_excluded_retainers,
-            "excluded_subs": total_excluded_subs,
-            "sleeping_retainers": total_sleeping_retainers,
-            "sleeping_subs": total_sleeping_subs,
-            "potential_subs_count": total_potential_subs,
-            "enabled_retainers": total_enabled_retainers,
-            "enabled_subs": total_enabled_subs,
-            "all_max_mb_count": total_all_max_mb,
-            "daily_income": total_daily_income,
-            "monthly_income": total_daily_income * 30,
-            "annual_income": total_daily_income * 365,
-            "daily_cost": total_daily_cost,
-            "monthly_cost": total_daily_cost * 30,
-            "daily_profit": total_daily_income - total_daily_cost,
-            "monthly_profit": (total_daily_income - total_daily_cost) * 30,
-            "annual_profit": (total_daily_income - total_daily_cost) * 365,
-            "min_restock_days": min_restock_days,
-            # MSQ Progress stats
-            "msq_100_count": msq_100_count,
-            "msq_90_count": msq_90_count,
-            "msq_50_count": msq_50_count,
-            "characters_with_msq": total_characters_with_msq,
-            "msq_avg_percent": round(total_msq_percent / total_characters_with_msq, 1) if total_characters_with_msq > 0 else 0,
-            "msq_total_quests": len(MSQ_QUEST_DATA),
-            "total_characters": sum(len(acc.get("characters", [])) for acc in all_accounts),
-            # Character stats
-            "chars_lv25_plus": total_chars_lv25_plus,
-            "chars_lv100": total_chars_lv100,
-            "personal_plots": len(unique_personal_plots),
-            "fc_plots": len(unique_fc_plots),
-            # Max MB retainer tracking
-            "max_mb_retainer_count": sum(acc.get("max_mb_retainer_count", 0) for acc in all_accounts),
-            # Supply totals for sublord snapshot
-            "total_ceruleum": total_ceruleum,
-            "total_kits": total_repair_kits,
-            "total_tanks_per_day": round(total_tanks_per_day_all, 2),
-            "total_kits_per_day": round(total_kits_per_day_all, 2),
-        },
-        "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Error detecting retainer processing for {nickname}: {e}")
+        return 0
+
+def detect_submarine_processing(account_entry, submarine_state_cache, current_time):
+    """
+    Detect submarine processing by comparing cached submarine return times to current times.
+    Returns the number of submarines that transitioned from negative (ready) to positive (sent out) since last scan.
+    
+    Args:
+        account_entry: Dictionary with account information including auto_path
+        submarine_state_cache: Dictionary caching previous submarine return times by nickname
+        current_time: Current timestamp for calculating return times
+    
+    Returns:
+        int: Number of submarines processed (negative -> positive transitions)
+    """
+    nickname = account_entry["nickname"]
+    activity_cache = submarine_state_cache.get("__activity__", {})
+    if nickname in activity_cache:
+        return activity_cache[nickname]
+    return sync_farmer_snapshots(account_entry, submarine_state_cache, current_time)
+
+def _parse_snapshot_timestamp(timestamp_value):
+    if not timestamp_value:
+        return None
+
+    try:
+        return datetime.datetime.strptime(timestamp_value, '%Y-%m-%d %H:%M:%S').timestamp()
+    except Exception:
+        return None
+
+def get_vessel_waiting_state(account_entry, submarine_state_cache, current_time):
+    state = {
+        "active": False,
+        "disable_window_minutes": 0,
+        "character_name": None,
+        "content_id": None,
+        "sub_name": None,
+        "next_sub_hours": None,
+        "last_sent_timestamp": None,
     }
+    auto_path = account_entry.get("auto_path", "")
+    if not auto_path or not os.path.isfile(auto_path):
+        return state
 
+    try:
+        with open(auto_path, "r", encoding="utf-8-sig") as f:
+            data = json.load(f)
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] Error reading vessel-wait settings for {account_entry['nickname']}: {e}")
+        return state
 
-# ===============================================
-# HTML Template
-# ===============================================
-HTML_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoRetainer Dashboard</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
-    <style>
-        :root, [data-theme="default"] {
-            --bg-primary: #1a1a2e;
-            --bg-secondary: #16213e;
-            --bg-card: #0f3460;
-            --bg-hover: #1a4a7a;
-            --text-primary: #e8e8e8;
-            --text-secondary: #a0a0a0;
-            --accent: #3a7aaa;
-            --accent-light: #4a9aca;
-            --accent-highlight: #e94560;
-            --success: #00d26a;
-            --warning: #ffc107;
-            --border: #2a2a4a;
-            --gold: #ffd700;
-            --theme-btn: #3a7aaa;
-        }
-        
-        [data-theme="dark-gray"] {
-            --bg-primary: #1a1a1a;
-            --bg-secondary: #252525;
-            --bg-card: #2d2d2d;
-            --bg-hover: #3a3a3a;
-            --text-primary: #e8e8e8;
-            --text-secondary: #a0a0a0;
-            --accent: #808080;
-            --accent-light: #a0a0a0;
-            --success: #00d26a;
-            --warning: #ffc107;
-            --border: #404040;
-            --gold: #ffd700;
-            --theme-btn: #606060;
-        }
-        
-        [data-theme="ocean-blue"] {
-            --bg-primary: #0a1628;
-            --bg-secondary: #0d1f3c;
-            --bg-card: #132744;
-            --bg-hover: #1a3a5c;
-            --text-primary: #e8f4fc;
-            --text-secondary: #8eb8d8;
-            --accent: #00b4d8;
-            --accent-light: #48cae4;
-            --success: #00d26a;
-            --warning: #ffc107;
-            --border: #1e4976;
-            --gold: #ffd700;
-            --theme-btn: #0077b6;
-        }
-        
-        [data-theme="forest-green"] {
-            --bg-primary: #0d1f0d;
-            --bg-secondary: #142814;
-            --bg-card: #1a3a1a;
-            --bg-hover: #2d5a2d;
-            --text-primary: #e8f5e8;
-            --text-secondary: #a0c8a0;
-            --accent: #2ecc71;
-            --accent-light: #58d68d;
-            --success: #00d26a;
-            --warning: #ffc107;
-            --border: #2d5a2d;
-            --gold: #ffd700;
-            --theme-btn: #27ae60;
-        }
-        
-        [data-theme="crimson-red"] {
-            --bg-primary: #1a0a0a;
-            --bg-secondary: #2d1414;
-            --bg-card: #3d1a1a;
-            --bg-hover: #5a2d2d;
-            --text-primary: #f5e8e8;
-            --text-secondary: #c8a0a0;
-            --accent: #dc3545;
-            --accent-light: #e74c5c;
-            --success: #00d26a;
-            --warning: #ffc107;
-            --border: #5a2d2d;
-            --gold: #ffd700;
-            --theme-btn: #c82333;
-        }
-        
-        [data-theme="purple-haze"] {
-            --bg-primary: #1a0a2e;
-            --bg-secondary: #251440;
-            --bg-card: #2d1a4a;
-            --bg-hover: #3d2a5a;
-            --text-primary: #f0e8f8;
-            --text-secondary: #b8a0d0;
-            --accent: #9b59b6;
-            --accent-light: #bb77d6;
-            --success: #00d26a;
-            --warning: #ffc107;
-            --border: #4a2d6a;
-            --gold: #ffd700;
-            --theme-btn: #8e44ad;
-        }
-        
-        [data-theme="dark-orange"] {
-            --bg-primary: #1a1008;
-            --bg-secondary: #2a1a0a;
-            --bg-card: #3a2510;
-            --bg-hover: #4a3520;
-            --text-primary: #f8f0e8;
-            --text-secondary: #d0b8a0;
-            --accent: #e67e22;
-            --accent-light: #f39c12;
-            --success: #00d26a;
-            --warning: #ffc107;
-            --border: #5a4020;
-            --gold: #ffd700;
-            --theme-btn: #d35400;
-        }
-        
-        [data-theme="pastel-pink"] {
-            --bg-primary: #2e1a2a;
-            --bg-secondary: #3d2538;
-            --bg-card: #4a2d42;
-            --bg-hover: #5a3d52;
-            --text-primary: #fff0f5;
-            --text-secondary: #e8c0d0;
-            --accent: #ff69b4;
-            --accent-light: #ffb6c1;
-            --success: #00d26a;
-            --warning: #ffc107;
-            --border: #6a4d5a;
-            --gold: #ffd700;
-            --theme-btn: #ff1493;
-        }
-        
-        [data-theme="brown"] {
-            --bg-primary: #1a1410;
-            --bg-secondary: #2a2018;
-            --bg-card: #3a2d20;
-            --bg-hover: #4a3d30;
-            --text-primary: #f5f0e8;
-            --text-secondary: #c8b8a0;
-            --accent: #8b4513;
-            --accent-light: #a0522d;
-            --success: #00d26a;
-            --warning: #ffc107;
-            --border: #5a4a38;
-            --gold: #ffd700;
-            --theme-btn: #6b3410;
-        }
-        
-        [data-theme="ultra-dark"] {
-            --bg-primary: #0a0a0a;
-            --bg-secondary: #0f0f0f;
-            --bg-card: #141414;
-            --bg-hover: #1a1a1a;
-            --text-primary: #c0c0c0;
-            --text-secondary: #808080;
-            --accent: #404040;
-            --accent-light: #505050;
-            --success: #00d26a;
-            --warning: #ffc107;
-            --border: #252525;
-            --gold: #ffd700;
-            --theme-btn: #303030;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            line-height: 1.6;
-        }
-        
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        /* Sticky top section wrapper - height ~125px */
-        .sticky-top-section {
-            position: sticky;
-            top: 0;
-            z-index: 500;
-            background: var(--bg-primary);
-            padding-bottom: 8px;
-            margin: -20px -20px 10px -20px;
-            padding: 15px 20px 8px 20px;
-        }
-        
-        header {
-            background: var(--bg-card);
-            padding: 12px 20px;
-            border-radius: 10px;
-            margin-bottom: 8px;
-            border: 1px solid var(--border);
-        }
-        
-        header h1 {
-            color: var(--accent);
-            font-size: 2em;
-            margin-bottom: 5px;
-        }
-        
-        header .subtitle {
-            color: var(--text-secondary);
-            font-size: 0.9em;
-        }
-        
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        
-        .header-left {
-            flex: 1;
-        }
-        
-        .header-right {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 5px;
-        }
-        
-        .search-container {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-        }
-        
-        .search-error {
-            color: var(--danger);
-            font-size: 0.85em;
-            margin-bottom: 5px;
-            display: none;
-        }
-        
-        .search-error.visible {
-            display: block;
-        }
-        
-        .search-input {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 8px 12px;
-            color: var(--text-primary);
-            font-size: 0.9em;
-            width: 200px;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        
-        .search-input:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 8px rgba(0, 180, 216, 0.3);
-        }
-        
-        .search-input::placeholder {
-            color: var(--text-secondary);
-        }
-        
-        .search-hidden {
-            display: none !important;
-        }
-        
-        /* Theme selector */
-        .theme-selector {
-            display: flex;
-            gap: 4px;
-            margin-top: 8px;
-        }
-        
-        .global-filters {
-            display: flex;
-            gap: 4px;
-            margin-top: 6px;
-        }
-        
-        .theme-btn {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            border: 2px solid transparent;
-            cursor: pointer;
-            transition: transform 0.2s, border-color 0.2s;
-            font-size: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 1;
-        }
-        
-        .theme-btn:hover {
-            transform: scale(1.15);
-        }
-        
-        .theme-btn.active {
-            /* No visual indicator for active theme */
-        }
-        
-        .theme-btn[data-theme="default"] { background: linear-gradient(135deg, #1a1a2e, #3a7aaa); }
-        .theme-btn[data-theme="ultra-dark"] { background: linear-gradient(135deg, #0a0a0a, #303030); }
-        .theme-btn[data-theme="dark-gray"] { background: linear-gradient(135deg, #1a1a1a, #606060); }
-        .theme-btn[data-theme="ocean-blue"] { background: linear-gradient(135deg, #0a1628, #00b4d8); }
-        .theme-btn[data-theme="forest-green"] { background: linear-gradient(135deg, #0d1f0d, #2ecc71); }
-        .theme-btn[data-theme="crimson-red"] { background: linear-gradient(135deg, #1a0a0a, #dc3545); }
-        .theme-btn[data-theme="purple-haze"] { background: linear-gradient(135deg, #1a0a2e, #9b59b6); }
-        .theme-btn[data-theme="pastel-pink"] { background: linear-gradient(135deg, #2e1a2a, #ff69b4); }
-        .theme-btn[data-theme="dark-orange"] { background: linear-gradient(135deg, #1a1008, #e67e22); }
-        .theme-btn[data-theme="brown"] { background: linear-gradient(135deg, #1a1410, #8b4513); }
-        
-        /* Loading overlay */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--bg-primary);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            transition: opacity 0.5s ease;
-        }
-        
-        .loading-overlay.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-        
-        .loading-text {
-            color: var(--accent);
-            font-size: 1.5em;
-            margin-bottom: 20px;
-        }
-        
-        .loading-subtext {
-            color: var(--text-secondary);
-            font-size: 0.9em;
-            margin-bottom: 30px;
-        }
-        
-        .progress-container {
-            width: 300px;
-            height: 8px;
-            background: var(--bg-secondary);
-            border-radius: 4px;
-            overflow: hidden;
-            border: 1px solid var(--border);
-        }
-        
-        .progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, var(--accent), #00d4ff);
-            border-radius: 4px;
-            animation: loading 2s ease-in-out infinite;
-            width: 30%;
-        }
-        
-        @keyframes loading {
-            0% { transform: translateX(-100%); }
-            50% { transform: translateX(250%); }
-            100% { transform: translateX(-100%); }
-        }
-        
-        .loading-hint {
-            color: var(--text-secondary);
-            font-size: 0.8em;
-            margin-top: 15px;
-            font-style: italic;
-        }
-        
-        .summary-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-bottom: 0;
-        }
-        
-        .summary-card {
-            background: var(--bg-card);
-            padding: 6px 10px;
-            border-radius: 8px;
-            text-align: center;
-            border: 1px solid var(--border);
-            transition: transform 0.2s, box-shadow 0.2s;
-            flex: 1 1 auto;
-            min-width: 90px;
-        }
-        
-        .summary-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-        }
-        
-        .summary-card .value {
-            font-size: 1.1em;
-            font-weight: bold;
-            color: var(--gold);
-        }
-        
-        .summary-card .value.profit {
-            color: var(--success);
-        }
-        
-        .summary-card .value.cost {
-            color: var(--accent);
-        }
-        
-        .summary-card .label {
-            color: var(--text-secondary);
-            font-size: 0.7em;
-            margin-top: 2px;
-        }
-        
-        .summary-card .sublabel {
-            color: var(--text-secondary);
-            font-size: 0.6em;
-            margin-top: 1px;
-            opacity: 0.8;
-        }
-        
-        .account-section {
-            background: var(--bg-card);
-            border-radius: 12px;
-            margin-bottom: 25px;
-            border: 1px solid var(--border);
-        }
-        
-        .account-header {
-            background: linear-gradient(90deg, var(--bg-card) 0%, var(--accent) 100%);
-            padding: 12px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            user-select: none;
-            transition: opacity 0.2s;
-            position: sticky;
-            top: 115px;
-            z-index: 400;
-            border-radius: 12px 12px 0 0;
-            overflow: hidden;
-        }
-        
-        .account-header:hover {
-            opacity: 0.9;
-        }
-        
-        .account-header h2 {
-            font-size: 1.3em;
-            color: white;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .account-header h2::before {
-            content: '▼';
-            font-size: 0.7em;
-            transition: transform 0.3s;
-        }
-        
-        .account-header.collapsed h2::before {
-            transform: rotate(-90deg);
-        }
-        
-        .account-header.collapsed {
-            border-radius: 12px;
-        }
-        
-        .account-content {
-            overflow: hidden;
-            transition: max-height 0.4s ease-out;
-        }
-        
-        .account-content.collapsed {
-            max-height: 0 !important;
-        }
-        
-        .account-stats {
-            display: flex;
-            gap: 20px;
-            color: white;
-            font-size: 0.9em;
-        }
-        
-        .account-stats span {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .sort-bar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            padding: 8px;
-            margin-top: 5px;
-            background: var(--bg-secondary);
-            border-radius: 8px;
-            align-items: center;
-            position: sticky;
-            top: 164px;
-            z-index: 300;
-        }
-        
-        .sort-bar.collapsed {
-            display: none;
-        }
-        
-        .sort-label {
-            color: var(--text-secondary);
-            font-size: 0.85em;
-            margin-right: 5px;
-        }
-        
-        .sort-btn {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.75em;
-            transition: all 0.2s;
-        }
-        
-        .sort-btn:hover {
-            background: var(--border);
-            color: var(--text-primary);
-        }
-        
-        .sort-btn.active {
-            background: var(--accent);
-            color: white;
-            border-color: var(--accent);
-        }
-        
-        .filter-btn {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            padding: 3px 3px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 0.75em;
-            transition: all 0.2s;
-        }
-        
-        .filter-btn:hover {
-            background: var(--border);
-            color: var(--text-primary);
-        }
-        
-        .filter-btn.active {
-            background: var(--warning);
-            color: white;
-            border-color: var(--warning);
-        }
-        
-        .region-btn {
-            font-weight: bold;
-            min-width: 32px;
-            text-align: center;
-        }
-        
-        .region-btn.active {
-            background: var(--accent);
-            color: white;
-            border-color: var(--accent);
-        }
-        
-        .character-card.filtered-hidden {
-            display: none;
-        }
-        
-        .character-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
-            gap: 20px;
-            padding: 20px;
-            align-items: start;
-        }
-        
-        .character-card {
-            background: var(--bg-card);
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            overflow: hidden;
-        }
-        
-        .character-card.expanded {
-            background: var(--bg-secondary);
-        }
-        
-        .character-header {
-            background: var(--bg-hover);
-            padding: 10px 15px;
-            cursor: pointer;
-            user-select: none;
-        }
-        
-        .character-header:hover {
-            background: #2a3a4a;
-        }
-        
-        {% if highlight_ready_items %}
-        .character-header.has-available {
-            background: rgba(233, 69, 96, 0.25);
-        }
-        
-        .character-header.has-available:hover {
-            background: rgba(233, 69, 96, 0.35);
-        }
-        {% endif %}
-        
-        .account-stats .stat-ready {
-            color: #000000 !important;
-        }
-        
-        /* Max MB listings indicators */
-        .account-stats .mb-max,
-        .account-stats .mb-max span {
-            color: var(--danger) !important;
-            font-weight: 600;
-        }
-        
-        {% if highlight_max_mb %}
-        .character-card.has-max-mb {
-            outline: 4px solid {{ highlight_color_max_mb }};
-            outline-offset: -4px;
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.7), inset 0 0 10px rgba(255, 215, 0, 0.2);
-        }
-        {% endif %}
-        
-        {% if highlight_idle_retainers %}
-        .character-card.has-idle-retainer {
-            outline: 4px solid {{ highlight_color_idle_retainers }};
-            outline-offset: -4px;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.7), inset 0 0 10px rgba(0, 255, 255, 0.2);
-        }
-        {% endif %}
-        
-        {% if highlight_idle_subs %}
-        .character-card.has-idle-sub {
-            outline: 4px solid {{ highlight_color_idle_subs }};
-            outline-offset: -4px;
-            box-shadow: 0 0 20px rgba(255, 182, 193, 0.7), inset 0 0 10px rgba(255, 182, 193, 0.2);
-        }
-        {% endif %}
-        
-        {% if highlight_potential_retainer %}
-        .character-card.has-potential-retainer {
-            outline: 4px solid {{ highlight_color_potential_retainer }};
-            outline-offset: -4px;
-            box-shadow: 0 0 20px rgba(139, 69, 19, 0.7), inset 0 0 10px rgba(139, 69, 19, 0.2);
-        }
-        {% endif %}
-        
-        {% if highlight_potential_subs %}
-        .character-card.has-potential-subs {
-            outline: 4px solid {{ highlight_color_potential_subs }};
-            outline-offset: -4px;
-            box-shadow: 0 0 20px rgba(26, 26, 26, 0.7), inset 0 0 10px rgba(26, 26, 26, 0.2);
-        }
-        {% endif %}
-        
-        .char-header-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.85em;
-            line-height: 1.4;
-        }
-        
-        .char-header-row.name-row {
-            font-size: 0.95em;
-        }
-        
-        .character-name {
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .character-name::before {
-            content: '▼';
-            font-size: 0.7em;
-            transition: transform 0.3s;
-        }
-        
-        .character-header.collapsed .character-name::before {
-            transform: rotate(-90deg);
-        }
-        
-        .character-world {
-            color: var(--text-secondary);
-        }
-        
-        .character-gil {
-            color: var(--gold);
-            font-weight: bold;
-        }
-        
-        .char-status {
-            font-size: 0.8em;
-        }
-        
-        .char-status.available {
-            color: #e94560 !important;
-        }
-        
-        .char-status.all-sent {
-            color: var(--success) !important;
-        }
-        
-        .character-body {
-            padding: 10px 15px;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-            font-size: 0.85em;
-        }
-        
-        .character-body.collapsed {
-            max-height: 0 !important;
-            padding: 0 20px;
-        }
-        
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 1px 0;
-            border-bottom: 1px solid var(--border);
-            align-items: flex-start;
-        }
-        
-        .info-row:last-child {
-            border-bottom: none;
-        }
-        
-        .info-label {
-            color: var(--text-secondary);
-            flex-shrink: 0;
-            margin-right: 10px;
-        }
-        
-        .info-value {
-            font-weight: 500;
-            text-align: right;
-        }
-        
-        .info-value.success {
-            color: var(--success);
-        }
-        
-        .info-value.warning {
-            color: var(--warning);
-        }
-        
-        .section-title {
-            font-size: 0.9em;
-            color: var(--accent);
-            margin: 8px 0 5px 0;
-            padding-bottom: 3px;
-            border-bottom: 1px solid var(--accent);
-        }
-        
-        .sub-table, .ret-table {
-            width: 100%;
-            font-size: 0.85em;
-        }
-        
-        .sub-table th, .ret-table th {
-            text-align: left;
-            color: var(--text-secondary);
-            padding: 3px 8px;
-            font-weight: normal;
-        }
-        
-        .sub-table td, .ret-table td {
-            padding: 1px 8px;
-        }
-        
-        .sub-table tr:nth-child(even), .ret-table tr:nth-child(even) {
-            background: rgba(255, 255, 255, 0.03);
-        }
-        
-        .job-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            padding: 10px 0;
-        }
-        
-        .job-column {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-        
-        .job-category-title {
-            font-size: 0.85em;
-            color: var(--text-secondary);
-            padding: 4px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            margin-bottom: 4px;
-        }
-        
-        .job-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 2px 0;
-            font-size: 0.85em;
-        }
-        
-        .job-level {
-            min-width: 28px;
-            text-align: right;
-            color: var(--gold);
-            font-weight: bold;
-        }
-        
-        .job-level-zero {
-            color: var(--text-secondary);
-            font-weight: normal;
-        }
-        
-        .job-name {
-            color: var(--text-primary);
-        }
-        
-        .currency-section {
-            padding: 3px 0 20px 0;
-        }
-        
-        .currency-row-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 6px;
-            align-items: flex-start;
-        }
-        
-        .currency-row-group:last-child {
-            margin-bottom: 5px;
-            padding-bottom: 3px;
-        }
-        
-        .currency-category {
-            flex: 1;
-            min-width: 130px;
-            max-width: 180px;
-        }
-        
-        .currency-category-title {
-            color: var(--accent);
-            font-size: 0.75em;
-            font-weight: bold;
-            margin-bottom: 4px;
-            padding-bottom: 2px;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .currency-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1px 0;
-            font-size: 0.75em;
-        }
-        
-        .currency-name {
-            color: var(--text-secondary);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 100px;
-        }
-        
-        .currency-value {
-            color: var(--gold);
-            font-weight: bold;
-            margin-left: 5px;
-        }
-        
-        .currency-value-zero {
-            color: var(--text-secondary);
-            margin-left: 5px;
-        }
-        
-        .crystal-container {
-            width: fit-content;
-            margin-bottom: 6px;
-        }
-        
-        .crystal-container .currency-category-title {
-            width: 100%;
-        }
-        
-        .crystal-grid {
-            display: grid;
-            grid-template-columns: 60px repeat(3, 70px);
-            gap: 1px 5px;
-            font-size: 0.75em;
-        }
-        
-        .crystal-header {
-            color: var(--accent);
-            font-weight: bold;
-            text-align: right;
-            padding: 2px 0;
-        }
-        
-        .crystal-element {
-            color: var(--text-secondary);
-            padding: 1px 0;
-        }
-        
-        .crystal-value {
-            color: var(--gold);
-            font-weight: bold;
-            text-align: right;
-            padding: 1px 0;
-        }
-        
-        .crystal-value-zero {
-            color: var(--text-secondary);
-            text-align: right;
-            padding: 1px 0;
-        }
-        
-        .status-ready {
-            color: var(--success);
-            font-weight: bold;
-        }
-        
-        .status-none {
-            color: var(--danger) !important;
-            font-weight: bold;
-        }
-        
-        td.status-none {
-            color: var(--danger) !important;
-            font-weight: bold;
-        }
-        
-        .status-voyaging {
-            color: var(--warning);
-        }
-        
-        .footer {
-            text-align: center;
-            padding: 20px;
-            color: var(--text-secondary);
-            font-size: 0.85em;
-        }
-        
-        .error-message {
-            background: rgba(233, 69, 96, 0.2);
-            border: 1px solid var(--accent);
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px;
-            color: var(--accent-light);
-        }
-        
-        .collapsible {
-            cursor: pointer;
-            user-select: none;
-        }
-        
-        .collapsible::after {
-            content: ' ▼';
-            font-size: 0.7em;
-        }
-        
-        .collapsible.collapsed::after {
-            content: ' ▶';
-        }
-        
-        .collapse-content {
-            max-height: 800px;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-        }
-        
-        .collapse-content.collapsed {
-            max-height: 0;
-        }
-        
-        @media (max-width: 768px) {
-            .character-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .summary-grid {
-                justify-content: center;
-            }
-            
-            .summary-card {
-                min-width: 100px;
-            }
-            
-            .account-header {
-                flex-direction: column;
-                gap: 10px;
-            }
-            
-            .account-stats {
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-        }
-    </style>
-</head>
-<body>
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loading-overlay">
-        <div class="loading-text">⚓ AutoRetainer Dashboard</div>
-        <div class="loading-subtext">Loading {{ data.summary.total_characters }} characters across {{ data.accounts|length }} account(s)...</div>
-        <div class="progress-container">
-            <div class="progress-bar"></div>
-        </div>
-        <div class="loading-hint">This may take a few seconds for large character counts</div>
-    </div>
-    
-    <div class="container">
-        <!-- Sticky Top Section: Header + Summary Cards -->
-        <div class="sticky-top-section">
-            <header>
-                <div class="header-content">
-                    <div class="header-left">
-                        <h1>⚓ AutoRetainer Dashboard <a href="/fcdata/" style="font-size:0.7rem;color:var(--accent-light);text-decoration:none;padding:3px 10px;border:1px solid var(--border);border-radius:6px;margin-left:8px;vertical-align:middle;font-weight:400;">🏨 FC Data</a><a href="/data/" style="font-size:0.7rem;color:var(--accent-light);text-decoration:none;padding:3px 10px;border:1px solid var(--border);border-radius:6px;margin-left:6px;vertical-align:middle;font-weight:400;">📝 Data</a><a href="/charts/" style="font-size:0.7rem;color:var(--accent-light);text-decoration:none;padding:3px 10px;border:1px solid var(--border);border-radius:6px;margin-left:6px;vertical-align:middle;font-weight:400;">📈 Charts</a></h1>
-                        <div class="subtitle">Last Updated: <span id="last-updated">{{ data.last_updated }}</span> | Auto-refresh: {{ auto_refresh }}s</div>
-                    </div>
-                    <div class="header-right">
-                        <div class="search-container">
-                            <div class="search-error" id="search-error">No results match your search...</div>
-                            <input type="text" class="search-input" id="character-search" placeholder="🔍 Search character..." oninput="searchCharacters(this.value)">
-                            <div class="theme-selector">
-                                <button class="filter-btn region-btn" id="region-na-btn" onclick="toggleRegionFilter('NA')" title="Show NA characters only">NA</button>
-                                <button class="filter-btn region-btn" id="region-eu-btn" onclick="toggleRegionFilter('EU')" title="Show EU characters only">EU</button>
-                                <button class="filter-btn region-btn" id="region-jp-btn" onclick="toggleRegionFilter('JP')" title="Show JP characters only">JP</button>
-                                <button class="filter-btn region-btn" id="region-oce-btn" onclick="toggleRegionFilter('OCE')" title="Show OCE characters only">OCE</button>
-                                <button class="theme-btn" data-theme="default" title="Default (Blue)" onclick="setTheme('default')">♻️</button>
-                                <button class="theme-btn" data-theme="ultra-dark" title="Ultra Dark" onclick="setTheme('ultra-dark')"></button>
-                                <button class="theme-btn" data-theme="dark-gray" title="Dark Gray" onclick="setTheme('dark-gray')"></button>
-                                <button class="theme-btn" data-theme="ocean-blue" title="Ocean Blue" onclick="setTheme('ocean-blue')"></button>
-                                <button class="theme-btn" data-theme="forest-green" title="Forest Green" onclick="setTheme('forest-green')"></button>
-                                <button class="theme-btn" data-theme="crimson-red" title="Crimson Red" onclick="setTheme('crimson-red')"></button>
-                                <button class="theme-btn" data-theme="purple-haze" title="Purple Haze" onclick="setTheme('purple-haze')"></button>
-                                <button class="theme-btn" data-theme="pastel-pink" title="Pastel Pink" onclick="setTheme('pastel-pink')"></button>
-                                <button class="theme-btn" data-theme="dark-orange" title="Dark Orange" onclick="setTheme('dark-orange')"></button>
-                                <button class="theme-btn" data-theme="brown" title="Brown" onclick="setTheme('brown')"></button>
-                            </div>
-                            <div class="global-filters">
-                                <button class="filter-btn" id="global-accounts-btn" onclick="toggleAllAccounts()" title="Expand/Collapse All Accounts">▶</button>
-                                <button class="filter-btn money-btn" id="global-money-btn" onclick="toggleHideMoneyGlobal()" title="Hide Money Stats">💰</button>
-                                <button class="filter-btn anon-btn" id="global-anon-btn" onclick="toggleAnonymizeGlobal()" title="Anonymize (if sorting after using, you may have to refresh the page to recover names.)">🔒</button>
-                                <button class="filter-btn" id="global-hide-stats-btn" onclick="toggleHidePlayerStatsGlobal()" title="Show Player Stats">✏️</button>
-                                <button class="filter-btn" id="global-hide-subs-btn" onclick="toggleHideSubsGlobal()" title="Hide Submarines">🐋</button>
-                                <button class="filter-btn" id="global-hide-retainers-btn" onclick="toggleHideRetainersGlobal()" title="Hide Retainers">🛎️</button>
-                                {% if show_classes %}<button class="filter-btn" id="global-hide-classes-btn" onclick="toggleHideClassesGlobal()" title="Show DoW/DoM & DoH/DoL">📖</button>{% endif %}
-                                {% if show_currencies %}<button class="filter-btn" id="global-hide-currencies-btn" onclick="toggleHideCurrenciesGlobal()" title="Show Currencies">🪶</button>{% endif %}
-                                <button class="filter-btn" id="global-house-btn" onclick="toggleFilterGlobal('personal-house')" title="Show only characters with Personal House">🏠</button>
-                                <button class="filter-btn" id="global-fc-btn" onclick="toggleFilterGlobal('fc-house')" title="Show only characters with FC House">🏨</button>
-                                <button class="filter-btn" id="global-coffers-btn" onclick="toggleFilterGlobal('coffers')" title="Show only characters with Coffers">📦</button>
-                                <button class="filter-btn" id="global-dyes-btn" onclick="toggleFilterGlobal('dyes')" title="Show only characters with Dyes">🎨</button>
-                                <button class="filter-btn" id="global-mb-btn" onclick="toggleFilterGlobal('mb')" title="Show only characters with MB Items">🪧</button>
-                                <button class="filter-btn" id="global-fc-gil-btn" onclick="toggleFilterGlobal('fc-gil')" title="Show only characters with FC Chest Gil">🧰</button>
-                                <button class="filter-btn" id="global-retainers-btn" onclick="toggleFilterGlobal('retainers')" title="Show only characters with Retainers">👤</button>
-                                <button class="filter-btn" id="global-treasure-btn" onclick="toggleFilterGlobal('treasure')" title="Show only characters with Treasure">💎</button>
-                                <button class="filter-btn" id="global-subs-btn" onclick="toggleFilterGlobal('subs')" title="Show only characters with Submarines">🚢</button>
-                                {% if show_msq_progression %}<button class="filter-btn" id="global-msq-btn" onclick="toggleFilterGlobal('msq')" title="Hide characters with 0% MSQ">📜</button>{% endif %}
-                                <button class="filter-btn" id="global-ready-btn" onclick="toggleFilterGlobal('ready')" title="Show only characters with Ready retainers/subs">🏁</button>
-                                <button class="filter-btn" id="global-sleeping-btn" onclick="toggleFilterGlobal('sleeping')" title="Show only characters with disabled retainers/subs">😴</button>
-                                {% if data.summary.idle_retainers > 0 or data.summary.idle_subs > 0 %}<button class="filter-btn" id="global-idle-btn" onclick="toggleFilterGlobal('idle')" title="Show only characters with idle retainers/subs">⌛</button>{% endif %}
-                                {% if highlight_potential_subs %}<button class="filter-btn" id="global-potential-subs-btn" onclick="toggleFilterGlobal('potential_subs')" title="Show only characters Lv 25+ not in FC and characters that can hire retainers.">❓</button>{% endif %}
-                                <button class="filter-btn" id="global-processing-btn" onclick="toggleFilterGlobal('processing')" title="Show only characters that are processing (Enabled or WorkshopEnabled)">✅</button>
-                                <button class="filter-btn" id="global-excluded-btn" onclick="toggleFilterGlobal('excluded')" title="Show only characters with exclusions">❌</button>
-                                <button class="filter-btn" id="global-expand-btn" onclick="expandAllCharsGlobal()" title="Expand All Characters">▼</button>
-                                <button class="filter-btn" id="global-collapse-btn" onclick="collapseAllCharsGlobal()" title="Collapse All Characters">▲</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </header>
-            
-            <!-- Summary Cards -->
-            <div class="summary-grid">
-            <div class="summary-card">
-                <div class="value" id="sum-total-chars">👥 {{ data.summary.total_characters }}</div>
-                <div class="sublabel" id="sum-char-levels">{{ data.summary.chars_lv25_plus }} Lv 25+ | {{ data.summary.chars_lv100 }} Lv 100</div>
-                <div class="sublabel" id="sum-plots">🏠 {{ data.summary.personal_plots }} | 🏨 {{ data.summary.fc_plots }}{% if highlight_potential_subs and data.summary.potential_subs_count > 0 %} | <span id="sum-potential-subs" style="color: #888;">❓ {{ data.summary.potential_subs_count }}</span>{% endif %}</div>
-            </div>
-            <div class="summary-card">
-                <div class="value" id="sum-total-gil">{{ "{:,}".format(data.summary.total_gil) }}</div>
-                <div class="label">💰 Total Gil</div>
-                <div class="sublabel" id="sum-fc-points">🪙 {{ "{:,}".format(data.summary.total_fc_points) }} FC</div>
-            </div>
-            <div class="summary-card">
-                <div class="value" id="sum-treasure">{{ "{:,}".format(data.summary.total_treasure) }}</div>
-                <div class="label">💎 Treasure Value</div>
-                <div class="sublabel">💰+💎= <span id="sum-with-treasure">{{ "{:,}".format(data.summary.total_with_treasure) }}</span></div>
-            </div>
-            <div class="summary-card">
-                <div class="value" id="sum-coffer-dye">{{ "{:,}".format(data.summary.total_coffer_dye_value) }}</div>
-                <div class="label">📦 Coffer + Dyes</div>
-                <div class="sublabel" id="sum-coffer-dye-counts">📦 {{ data.summary.total_coffer_count }} 🎨 {{ data.summary.total_dye_count }}{% if data.summary.total_mb_dye_count > 0 %} <span id="sum-mb-dye-count" style="color: var(--warning);">🪧 {{ data.summary.total_mb_dye_count }}</span>{% endif %}</div>
-            </div>
-            <div class="summary-card">
-                <div class="value">
-                    <span id="sum-ready-subs">{{ data.summary.ready_subs }}</span>/<span id="sum-total-subs">{{ data.summary.enabled_subs }}</span>
-                    <div id="sum-subs-stats" style="font-size: 0.7em; color: var(--text-secondary);">
-                        <span style="color: var(--warning);">Lvl: {{ data.summary.subs_leveling }}</span> |
-                        <span style="color: var(--success);">Farm: {{ data.summary.subs_farming }}</span>{% if data.summary.idle_subs > 0 %} |
-                        <span style="color: #FFB6C1;">Idle: {{ data.summary.idle_subs }}</span>{% endif %}
-                    </div>
-                </div>
-                <div class="label">🚢 Submarines{% if data.summary.excluded_subs > 0 %} <span id="sum-excluded-subs" style="color: var(--danger);">❌{{ data.summary.excluded_subs }}</span>{% endif %}{% if data.summary.sleeping_subs > 0 %} <span id="sum-sleeping-subs" style="color: #9370DB;">😴{{ data.summary.sleeping_subs }}</span>{% endif %}</div>
-            </div>
-            <div class="summary-card">
-                <div class="value">
-                    <span id="sum-ready-retainers">{{ data.summary.ready_retainers }}</span>/<span id="sum-total-retainers">{{ data.summary.enabled_retainers }}</span>
-                    <div id="sum-retainers-stats" style="font-size: 0.7em; color: var(--text-secondary);">
-                        <span style="color: var(--warning);">Lvl: {{ data.summary.retainers_leveling }}</span> |
-                        <span style="color: var(--success);">Farm: {{ data.summary.retainers_farming }}</span>{% if data.summary.idle_retainers > 0 %} |
-                        <span style="color: cyan;">Idle: {{ data.summary.idle_retainers }}</span>{% endif %}
-                    </div>
-                </div>
-                <div class="label">👤 Retainers{% if data.summary.excluded_retainers > 0 %} <span id="sum-excluded-retainers" style="color: var(--danger);">❌{{ data.summary.excluded_retainers }}</span>{% endif %}{% if data.summary.sleeping_retainers > 0 %} <span id="sum-sleeping-retainers" style="color: #9370DB;">😴{{ data.summary.sleeping_retainers }}</span>{% endif %}</div>
-            </div>
-            <div class="summary-card">
-                <div class="value"><span id="sum-total-mb">{{ data.summary.total_mb_items }}</span>/<span id="sum-max-mb">{{ "{:,}".format(data.summary.max_mb_items) }}</span></div>
-                <div class="label">🪧 MB Items</div>
-                {% if data.summary.all_max_mb_count > 0 %}
-                <div class="sublabel" id="sum-mb-max" style="color: var(--danger);">{{ data.summary.all_max_mb_count }} Chars Max</div>
-                {% endif %}
-            </div>
-            <div class="summary-card">
-                <div class="value profit" id="sum-monthly-income">{{ "{:,}".format(data.summary.monthly_income|int) }}</div>
-                <div class="label">📈 Monthly Income</div>
-                <div class="sublabel" id="sum-daily-income">📅 {{ "{:,}".format((data.summary.monthly_income / 30)|int) }}/day</div>
-            </div>
-            <div class="summary-card">
-                <div class="value cost" id="sum-monthly-cost">{{ "{:,}".format(data.summary.monthly_cost|int) }}</div>
-                <div class="label">📉 Monthly Cost</div>
-                <div class="sublabel" id="sum-restock" style="{% if data.summary.min_restock_days is not none and data.summary.min_restock_days < 7 %}color: var(--danger);{% elif data.summary.min_restock_days is not none and data.summary.min_restock_days < 14 %}color: var(--warning);{% endif %}">♻️ {% if data.summary.min_restock_days is not none %}{{ data.summary.min_restock_days }}d lowest{% else %}N/A{% endif %}</div>
-            </div>
-            <div class="summary-card">
-                <div class="value profit" id="sum-annual-income">{{ "{:,}".format(data.summary.annual_income|int) }}</div>
-                <div class="label">🏆 Annual Income</div>
-                <div class="sublabel profit">💎 <span id="sum-annual-profit">{{ "{:,}".format(data.summary.annual_profit|int) }}</span> Profit</div>
-            </div>
-        </div>
-        </div>
-        
-        <!-- Account Sections -->
-        {% for account in data.accounts %}
-        <div class="account-section" data-account="{{ account.nickname }}">
-            <div class="account-header collapsed" onclick="toggleAccount(this)">
-                <h2>{{ account.nickname }}</h2>
-                <div class="account-stats">
-                    <span>💰 <span class="acc-gil">{{ "{:,}".format(account.total_gil) }}</span> gil</span>
-                    <span>💎 <span class="acc-treasure">{{ "{:,}".format(account.total_treasure) }}</span> treasure</span>
-                    <span class="{% if account.ready_subs > 0 %}stat-ready{% endif %}">🚢 <span class="acc-ready-subs">{{ account.ready_subs }}</span>/<span class="acc-subs">{{ account.total_subs }}</span> subs</span>
-                    <span class="{% if account.ready_retainers > 0 %}stat-ready{% endif %}">👤 <span class="acc-ready-retainers">{{ account.ready_retainers }}</span>/<span class="acc-retainers">{{ account.total_retainers }}</span> retainers</span>
-                    <span class="{% if account.has_max_mb_retainer %}mb-max{% endif %}">🪧 <span class="acc-mb">{{ account.total_mb_items }}</span>/<span class="acc-max-mb">{{ "{:,}".format(account.max_mb_items) }}</span> MB{% if account.has_max_mb_retainer %} (<span class="acc-max-mb-count">{{ account.max_mb_retainer_count }}</span>){% endif %}</span>
-                    {% if show_msq_progression %}<span>📜 <span class="acc-msq-100">{{ account.msq_100_count }}</span>/<span class="acc-msq-tracked">{{ account.characters_with_msq }}</span> MSQ</span>{% endif %}
-                </div>
-            </div>
-            
-            {% if not account.error %}
-            <div class="sort-bar collapsed">
-                <span class="sort-label">Sort by:</span>
-                <button class="sort-btn" data-sort="level" data-order="desc" onclick="sortCharacters(this)" title="Level">🎚️ ▼</button>
-                {% if show_classes %}<button class="sort-btn" data-sort="classes" data-order="asc" onclick="sortCharacters(this)" title="Classes (Lowest → Highest)">📖 ▲</button>{% endif %}
-                <button class="sort-btn" data-sort="gil" data-order="desc" onclick="sortCharacters(this)" title="Gil">💰 ▼</button>
-                <button class="sort-btn" data-sort="treasure" data-order="desc" onclick="sortCharacters(this)" title="Treasure">💎 ▼</button>
-                <button class="sort-btn" data-sort="fc_points" data-order="desc" onclick="sortCharacters(this)" title="FC Points">🪙 ▼</button>
-                <button class="sort-btn" data-sort="venture_coins" data-order="desc" onclick="sortCharacters(this)" title="Ventures">🛒 ▼</button>
-                <button class="sort-btn" data-sort="coffers" data-order="desc" onclick="sortCharacters(this)" title="Coffers">📦 ▼</button>
-                <button class="sort-btn" data-sort="dyes" data-order="desc" onclick="sortCharacters(this)" title="Dyes">🎨 ▼</button>
-                <button class="sort-btn" data-sort="tanks" data-order="desc" onclick="sortCharacters(this)" title="Ceruleum Tanks">⛽ ▼</button>
-                <button class="sort-btn" data-sort="kits" data-order="desc" onclick="sortCharacters(this)" title="Repair Kits">🔧 ▼</button>
-                <button class="sort-btn" data-sort="restock" data-order="asc" onclick="sortCharacters(this)" title="Restock Days">♻️ ▲</button>
-                <button class="sort-btn" data-sort="inventory" data-order="desc" onclick="sortCharacters(this)" title="Inventory">🎒 ▼</button>
-                <button class="sort-btn" data-sort="mb" data-order="desc" onclick="sortCharacters(this)" title="MB Items">🪧 ▼</button>
-                <button class="sort-btn" data-sort="retainers" data-order="asc" onclick="sortCharacters(this)" title="Retainers (by return time)">👤 ▲</button>
-                <button class="sort-btn" data-sort="retainer_level" data-order="desc" onclick="sortCharacters(this)" title="Retainer Level">👤 Lv ▼</button>
-                <button class="sort-btn" data-sort="subs" data-order="asc" onclick="sortCharacters(this)" title="Submarines (by return time)">🚢 ▲</button>
-                <button class="sort-btn" data-sort="sub_level" data-order="desc" onclick="sortCharacters(this)" title="Submarine Level">🚢 Lv ▼</button>
-                {% if show_msq_progression %}<button class="sort-btn" data-sort="msq_percent" data-order="asc" onclick="sortCharacters(this)" title="MSQ Progress (least to most)">📜 ▲</button>{% endif %}
-            </div>
-            {% endif %}
-            
-            <div class="account-content collapsed">
-            {% if account.error %}
-            <div class="error-message">{{ account.error }}</div>
-            {% else %}
-            <div class="character-grid">
-                {% for char in account.characters %}
-                <div class="character-card{% if char.has_max_mb_retainer %} has-max-mb{% endif %}{% if char.has_idle_retainer and not char.retainers_sleeping %} has-idle-retainer{% endif %}{% if char.has_idle_sub and not char.subs_sleeping %} has-idle-sub{% endif %}{% if char.has_potential_retainer %} has-potential-retainer{% endif %}{% if char.has_potential_subs %} has-potential-subs{% endif %}" data-char="{{ char.cid }}" data-level="{{ char.current_level }}" data-lowest-level="{{ char.lowest_level }}" data-highest-level="{{ char.highest_level }}" data-gil="{{ char.total_gil }}" data-treasure="{{ char.treasure_value }}" data-fc-points="{{ char.fc_points }}" data-venture-coins="{{ char.venture_coins }}" data-coffers="{{ char.coffer_count }}" data-dyes="{{ char.dye_count }}" data-tanks="{{ char.ceruleum }}" data-kits="{{ char.repair_kits }}" data-restock="{{ char.days_until_restock if char.days_until_restock is not none else 9999 }}" data-retainers="{{ char.ready_retainers }}" data-total-retainers="{{ char.total_retainers }}" data-subs="{{ char.ready_subs }}" data-total-subs="{{ char.total_subs }}" data-inventory="{{ 140 - char.inventory_space }}" data-has-personal-house="{{ 'true' if char.private_house else 'false' }}" data-has-fc-house="{{ 'true' if char.fc_house else 'false' }}" data-has-fc-gil="{{ 'true' if char.fc_gil > 0 else 'false' }}" data-retainer-level="{{ char.max_retainer_level }}" data-sub-level="{{ char.min_sub_level }}" data-retainer-return="{{ char.min_retainer_return }}" data-sub-return="{{ char.min_sub_return }}" data-msq-percent="{{ char.msq_percent }}" data-has-max-mb="{{ 'true' if char.has_max_mb_retainer else 'false' }}" data-mb="{{ char.mb_items }}" data-has-mb="{{ 'true' if char.mb_items > 0 else 'false' }}" data-has-coffers="{{ 'true' if char.coffer_count > 0 else 'false' }}" data-has-dyes="{{ 'true' if char.dye_count > 0 else 'false' }}" data-has-treasure="{{ 'true' if char.treasure_value > 0 else 'false' }}" data-region="{{ char.region }}" data-has-ready="{{ 'true' if (char.ready_retainers > 0 and not char.exclude_retainer and not char.retainers_sleeping) or (char.ready_subs > 0 and not char.exclude_workshop and not char.subs_sleeping) else 'false' }}" data-has-exclusion="{{ 'true' if char.exclude_retainer or char.exclude_workshop else 'false' }}" data-is-processing="{{ 'true' if char.is_processing else 'false' }}" data-has-sleeping="{{ 'true' if (char.retainers_sleeping and char.total_retainers > 0 and not char.exclude_retainer) or (char.subs_sleeping and char.total_subs > 0 and not char.exclude_workshop) else 'false' }}" data-has-idle="{{ 'true' if (char.has_idle_retainer and not char.retainers_sleeping) or (char.has_idle_sub and not char.subs_sleeping) else 'false' }}" data-has-potential-subs="{{ 'true' if char.has_potential_subs or char.has_potential_retainer else 'false' }}">
-                    <div class="character-header collapsed {% if (char.ready_retainers > 0 and not char.exclude_retainer and not char.retainers_sleeping) or (char.ready_subs > 0 and not char.exclude_workshop and not char.subs_sleeping) %}has-available{% endif %}" onclick="toggleCharacter(this)">
-                        <div class="char-header-row name-row">
-                            <span class="character-name">{{ char.name }}{% if char.current_level > 0 %} <span style="font-size: 0.8em; color: var(--text-secondary);">(Lv {{ char.current_level }}, {{ char.current_job }})</span>{% endif %}{% if show_msq_progression and char.msq_completed > 0 %} <span style="font-size: 0.8em; {% if char.msq_percent >= 90 %}color: #4ade80;{% elif char.msq_percent >= 50 %}color: #fbbf24;{% else %}color: #94a3b8;{% endif %}" title="MSQ Progress: {{ char.msq_completed }}/{{ char.msq_total }}{% if char.msq_quest_name %} - {{ char.msq_quest_name }}{% endif %}">MSQ: {{ char.msq_percent }}%</span>{% endif %}{% if char.private_house %} <span style="font-size: 0.8em;" title="Personal House: {{ char.private_house }}">🏠</span>{% endif %}{% if char.fc_house %} <span style="font-size: 0.8em;" title="FC House: {{ char.fc_house }}">🏨</span>{% endif %}</span>
-                            <span class="char-status {% if char.ready_retainers > 0 and not char.exclude_retainer and not char.retainers_sleeping %}available{% else %}all-sent{% endif %}">👤 {% if char.exclude_retainer %}null{% else %}{{ char.ready_retainers }}/{{ char.total_retainers }}{% endif %}{% if char.sleeping_retainer_count > 0 %} <span style="color: #9370DB;">😴{{ char.sleeping_retainer_count }}</span>{% endif %}</span>
-                        </div>
-                        <div class="char-header-row">
-                            <span class="character-world">{{ char.world }}{% if char.fc_name %} • {{ char.fc_name }}{% endif %} • 🎒 {{ 140 - char.inventory_space }}/140</span>
-                            <span class="char-status {% if char.ready_subs > 0 and not char.exclude_workshop and not char.subs_sleeping %}available{% else %}all-sent{% endif %}">🚢 {% if char.exclude_workshop %}null{% else %}{{ char.ready_subs }}/{{ char.total_subs }}{% endif %}{% if char.sleeping_sub_count > 0 %} <span style="color: #9370DB;">😴{{ char.sleeping_sub_count }}</span>{% endif %}</span>
-                        </div>
-                        <div class="char-header-row">
-                            <span style="font-size: 0.8em; color: var(--text-secondary);">🪧 {{ char.mb_items }} | 📦 {{ char.coffer_count }} | 🎨 {{ char.dye_count }}{% if char.dye_count > 0 %} 🤍{{ char.dye_pure_white }} 🖤{{ char.dye_jet_black }} 🩷{{ char.dye_pastel_pink }}{% endif %}</span>
-                            <span class="character-gil">{{ "{:,}".format(char.total_gil) }} gil</span>
-                        </div>
-                        <div class="char-header-row">
-                            <span style="font-size: 0.8em; color: var(--text-secondary);">🪙 {{ "{:,}".format(char.fc_points) }} | 🛒 {{ "{:,}".format(char.venture_coins) }} | ⛽ {{ "{:,}".format(char.ceruleum) }} | 🔧 {{ "{:,}".format(char.repair_kits) }}{% if char.total_subs > 0 %} | <span style="{% if char.days_until_restock is not none and char.days_until_restock < 7 %}color: var(--danger);{% elif char.days_until_restock is not none and char.days_until_restock < 14 %}color: var(--warning);{% endif %}">♻️ {% if char.days_until_restock is not none %}{{ char.days_until_restock }}d{% else %}N/A{% endif %}</span>{% endif %}</span>
-                            {% if char.total_subs > 0 %}<span style="font-size: 0.8em; color: var(--gold);">💎 {{ "{:,}".format(char.treasure_value) }}</span>{% endif %}
-                        </div>
-                    </div>
-                    <div class="character-body collapsed">
-                        {% if highlight_idle_retainers and char.has_idle_retainer and not char.retainers_sleeping %}
-                        <div class="highlight-reason" style="font-size: 0.75em; color: cyan; padding: 5px 15px; background: rgba(0, 255, 255, 0.1);">* You have idle retainers, update your planner in game</div>
-                        {% endif %}
-                        {% if highlight_idle_subs and char.has_idle_sub and not char.subs_sleeping %}
-                        <div class="highlight-reason" style="font-size: 0.75em; color: #FFB6C1; padding: 5px 15px; background: rgba(255, 182, 193, 0.1);">* You have idle subs, update your planner in game</div>
-                        {% endif %}
-                        {% if highlight_max_mb and char.has_max_mb_retainer %}
-                        <div class="highlight-reason" style="font-size: 0.75em; color: #FFD700; padding: 5px 15px; background: rgba(255, 215, 0, 0.1);">* You have max marketboard items, go undercut or remove!</div>
-                        {% endif %}
-                        {% if highlight_potential_retainer and char.has_potential_retainer %}
-                        <div class="highlight-reason" style="font-size: 0.75em; color: #8B4513; padding: 5px 15px; background: rgba(139, 69, 19, 0.1);">* You should hire retainers, you have progressed far enough in MSQ</div>
-                        {% endif %}
-                        {% if highlight_potential_subs and char.has_potential_subs %}
-                        <div class="highlight-reason" style="font-size: 0.75em; color: #888; padding: 5px 15px; background: rgba(26, 26, 26, 0.3);">* You're lv 25+ and not in an FC, get to farming!<br>You may also just not have Lifestream registered, get on it!</div>
-                        {% endif %}
-                        {% if char.retainers_sleeping and char.total_retainers > 0 %}
-                        <div class="highlight-reason" style="font-size: 0.75em; color: #9370DB; padding: 5px 15px; background: rgba(147, 112, 219, 0.1);">* Your retainers are not enabled in AutoRetainer</div>
-                        {% endif %}
-                        {% if char.subs_sleeping and char.total_subs > 0 %}
-                        <div class="highlight-reason" style="font-size: 0.75em; color: #9370DB; padding: 5px 15px; background: rgba(147, 112, 219, 0.1);">* Your submarines are not enabled in AutoRetainer</div>
-                        {% endif %}
-                        <div class="section-title collapsible collapsed player-stats-header" onclick="toggleCollapse(this)">📊 Player Stats</div>
-                        <div class="collapse-content collapsed player-stats-content">
-                        <div class="info-row">
-                            <span class="info-label">Player</span>
-                            <span class="info-value player-name-world">{{ char.name }}@{{ char.world }}</span>
-                        </div>
-                        {% if char.current_level > 0 %}
-                        <div class="info-row">
-                            <span class="info-label">Current Class</span>
-                            <span class="info-value">{{ char.current_job }} Lv {{ char.current_level }}</span>
-                        </div>
-                        {% endif %}
-                        {% if char.lowest_level > 0 and char.lowest_level < char.current_level %}
-                        <div class="info-row">
-                            <span class="info-label">Lowest Class</span>
-                            <span class="info-value">{{ char.lowest_job }} Lv {{ char.lowest_level }}</span>
-                        </div>
-                        {% endif %}
-                        {% if char.highest_level > 0 and char.highest_level > char.current_level %}
-                        <div class="info-row">
-                            <span class="info-label">Highest Class</span>
-                            <span class="info-value">{{ char.highest_job }} Lv {{ char.highest_level }}</span>
-                        </div>
-                        {% endif %}
-                        <div class="info-row">
-                            <span class="info-label">Character Gil</span>
-                            <span class="info-value">{{ "{:,}".format(char.gil) }}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Retainer Gil</span>
-                            <span class="info-value">{{ "{:,}".format(char.retainer_gil) }}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">FC Gil</span>
-                            <span class="info-value" style="color: var(--accent-light);">{{ "{:,}".format(char.fc_gil) }}</span>
-                        </div>
-                        {% if char.treasure_value > 0 %}
-                        <div class="info-row">
-                            <span class="info-label">Treasure Value</span>
-                            <span class="info-value" style="color: var(--gold);">{{ "{:,}".format(char.treasure_value) }}</span>
-                        </div>
-                        {% endif %}
-                        {% if char.coffer_dye_value > 0 %}
-                        <div class="info-row">
-                            <span class="info-label">Coffer + Dye Value</span>
-                            <span class="info-value" style="color: var(--accent-light);">{{ "{:,}".format(char.coffer_dye_value) }}</span>
-                        </div>
-                        {% endif %}
-                        <div class="info-row">
-                            <span class="info-label">FC Points 🪙</span>
-                            <span class="info-value">{{ "{:,}".format(char.fc_points) }}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Venture Coins 🛒</span>
-                            <span class="info-value">{{ char.venture_coins }}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Coffers 📦</span>
-                            <span class="info-value">{{ char.coffer_count }}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Inventory 🎒</span>
-                            <span class="info-value" style="{% if (140 - char.inventory_space) >= 130 %}color: var(--accent);{% elif (140 - char.inventory_space) >= 100 %}color: var(--warning);{% endif %}">{{ 140 - char.inventory_space }}/140</span>
-                        </div>
-                        {% if show_msq_progression and char.msq_completed > 0 %}
-                        <div class="info-row">
-                            <span class="info-label">MSQ Progress 📜</span>
-                            <span class="info-value" style="{% if char.msq_percent >= 90 %}color: #4ade80;{% elif char.msq_percent >= 50 %}color: #fbbf24;{% else %}color: #94a3b8;{% endif %}">{{ char.msq_percent }}% ({{ char.msq_completed }}/{{ char.msq_total }}){% if char.msq_quest_name %} - {{ char.msq_quest_name }}{% endif %}</span>
-                        </div>
-                        {% endif %}
-                        {% if char.private_house %}
-                        <div class="info-row">
-                            <span class="info-label">Personal House 🏠</span>
-                            <span class="info-value">{{ char.private_house }}</span>
-                        </div>
-                        {% endif %}
-                        {% if char.fc_house %}
-                        <div class="info-row">
-                            <span class="info-label">FC House 🏨</span>
-                            <span class="info-value">{{ char.fc_house }}</span>
-                        </div>
-                        {% endif %}
-                        <div class="info-row">
-                            <span class="info-label">Ceruleum Tanks ⛽</span>
-                            <span class="info-value">{{ "{:,}".format(char.ceruleum) }}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Repair Kits 🔧</span>
-                            <span class="info-value">{{ "{:,}".format(char.repair_kits) }}</span>
-                        </div>
-                        {% if char.total_subs > 0 %}
-                        <div class="info-row">
-                            <span class="info-label">Days Until Restock ♻️</span>
-                            <span class="info-value" style="{% if char.days_until_restock is not none and char.days_until_restock < 7 %}color: var(--danger);{% elif char.days_until_restock is not none and char.days_until_restock < 14 %}color: var(--warning);{% else %}color: var(--success);{% endif %}">{% if char.days_until_restock is not none %}{{ char.days_until_restock }} days{% else %}N/A{% endif %}</span>
-                        </div>
-                        {% endif %}
-                        <div class="info-row">
-                            <span class="info-label">Daily Income</span>
-                            <span class="info-value success">+{{ "{:,}".format(char.daily_income|int) }}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Daily Cost</span>
-                            <span class="info-value warning">-{{ "{:,}".format(char.daily_cost|int) }}</span>
-                        </div>
-                        </div>
-                        
-                        {% if char.submarines %}
-                        <div class="section-title collapsible" onclick="toggleCollapse(this)">🚢 Submarines ({{ char.submarines|length }}) - <span style="color: var(--warning);">Lvl: {{ char.subs_leveling }}</span> | <span style="color: var(--success);">Farm: {{ char.subs_farming }}</span></div>
-                        <div class="collapse-content">
-                            <table class="sub-table">
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Lvl</th>
-                                    <th>Build</th>
-                                    <th>Plan</th>
-                                    <th>Status</th>
-                                </tr>
-                                {% for sub in char.submarines %}
-                                <tr>
-                                    <td>{{ sub.name }}</td>
-                                    <td>{{ sub.level }}</td>
-                                    <td>{{ sub.build }}</td>
-                                    <td class="{% if not sub.plan_name and not sub.is_farming and not sub.is_leveling %}status-none{% endif %}" style="{% if sub.plan_name == 'Finalize' %}color: #f85149;{% elif sub.plan_name == 'Redeploy' %}color: cyan;{% elif sub.is_farming %}color: var(--success);{% elif sub.is_leveling %}color: var(--warning);{% endif %}">
-                                        {% if sub.plan_name %}{{ sub.plan_name }}{% elif sub.is_farming %}Farm{% elif sub.is_leveling %}Lvl{% else %}None{% endif %}
-                                    </td>
-                                    <td class="{% if sub.return_formatted == 'Ready!' %}status-ready{% else %}status-voyaging{% endif %}">
-                                        {{ sub.return_formatted }}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </table>
-                        </div>
-                        {% endif %}
-                        
-                        {% if char.retainers %}
-                        <div class="section-title collapsible" onclick="toggleCollapse(this)">👤 Retainers ({{ char.retainers|length }}) - <span style="color: var(--warning);">Lvl: {{ char.retainers_leveling }}</span> | <span style="color: var(--success);">Farm: {{ char.retainers_farming }}</span></div>
-                        <div class="collapse-content">
-                            <table class="ret-table">
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Lvl</th>
-                                    <th>Gil</th>
-                                    <th>MB</th>
-                                    <th>Venture</th>
-                                </tr>
-                                {% for ret in char.retainers %}
-                                <tr>
-                                    <td>{{ ret.name }}</td>
-                                    <td>{{ ret.level }}</td>
-                                    <td>{{ "{:,}".format(ret.gil) }}</td>
-                                    <td>{{ ret.mb_items }}</td>
-                                    <td class="{% if ret.venture_formatted == 'Ready!' %}status-ready{% elif not ret.has_venture %}status-none{% else %}status-voyaging{% endif %}">
-                                        {{ ret.venture_formatted if ret.has_venture else "None" }}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </table>
-                        </div>
-                        {% endif %}
-                        
-                        {% if show_classes and char.all_jobs %}
-                        <div class="section-title collapsible collapsed" onclick="toggleCollapse(this)">⚔️ DoW/DoM</div>
-                        <div class="collapse-content collapsed">
-                            <div class="job-grid">
-                                <div class="job-column">
-                                    <div class="job-category-title">🛡️ Tank</div>
-                                    {% for job in job_categories.Tank %}
-                                    {% set job_level = char.all_jobs.get(job, 0) %}
-                                    {% if job_level == 0 and job in job_base_class %}
-                                    {% set job_level = char.all_jobs.get(job_base_class[job], 0) %}
-                                    {% endif %}
-                                    <div class="job-row">
-                                        <span class="job-level {% if job_level == 0 %}job-level-zero{% endif %}">{{ job_level }}</span>
-                                        <span class="job-name">{{ job_display_names.get(job, job) }}</span>
-                                    </div>
-                                    {% endfor %}
-                                    <div class="job-category-title" style="margin-top: 10px;">⚔️ Melee DPS</div>
-                                    {% for job in job_categories.MeleeDPS %}
-                                    {% set job_level = char.all_jobs.get(job, 0) %}
-                                    {% if job_level == 0 and job in job_base_class %}
-                                    {% set job_level = char.all_jobs.get(job_base_class[job], 0) %}
-                                    {% endif %}
-                                    <div class="job-row">
-                                        <span class="job-level {% if job_level == 0 %}job-level-zero{% endif %}">{{ job_level }}</span>
-                                        <span class="job-name">{{ job_display_names.get(job, job) }}</span>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                                <div class="job-column">
-                                    <div class="job-category-title">💚 Healer</div>
-                                    {% for job in job_categories.Healer %}
-                                    {% set job_level = char.all_jobs.get(job, 0) %}
-                                    {% if job_level == 0 and job in job_base_class %}
-                                    {% set job_level = char.all_jobs.get(job_base_class[job], 0) %}
-                                    {% endif %}
-                                    <div class="job-row">
-                                        <span class="job-level {% if job_level == 0 %}job-level-zero{% endif %}">{{ job_level }}</span>
-                                        <span class="job-name">{{ job_display_names.get(job, job) }}</span>
-                                    </div>
-                                    {% endfor %}
-                                    <div class="job-category-title" style="margin-top: 10px;">🏹 Physical Ranged DPS</div>
-                                    {% for job in job_categories.PhysRangedDPS %}
-                                    {% set job_level = char.all_jobs.get(job, 0) %}
-                                    {% if job_level == 0 and job in job_base_class %}
-                                    {% set job_level = char.all_jobs.get(job_base_class[job], 0) %}
-                                    {% endif %}
-                                    <div class="job-row">
-                                        <span class="job-level {% if job_level == 0 %}job-level-zero{% endif %}">{{ job_level }}</span>
-                                        <span class="job-name">{{ job_display_names.get(job, job) }}</span>
-                                    </div>
-                                    {% endfor %}
-                                    <div class="job-category-title" style="margin-top: 10px;">✨ Magical Ranged DPS</div>
-                                    {% for job in job_categories.MagicRangedDPS %}
-                                    {% set job_level = char.all_jobs.get(job, 0) %}
-                                    {% if job_level == 0 and job in job_base_class %}
-                                    {% set job_level = char.all_jobs.get(job_base_class[job], 0) %}
-                                    {% endif %}
-                                    <div class="job-row">
-                                        <span class="job-level {% if job_level == 0 %}job-level-zero{% endif %}">{{ job_level }}</span>
-                                        <span class="job-name">{{ job_display_names.get(job, job) }}</span>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="section-title collapsible collapsed" onclick="toggleCollapse(this)">🔨 DoH/DoL</div>
-                        <div class="collapse-content collapsed">
-                            <div class="job-grid">
-                                <div class="job-column">
-                                    <div class="job-category-title">🔨 Disciples of the Hand</div>
-                                    {% for job in job_categories.DoH %}
-                                    {% set job_level = char.all_jobs.get(job, 0) %}
-                                    <div class="job-row">
-                                        <span class="job-level {% if job_level == 0 %}job-level-zero{% endif %}">{{ job_level }}</span>
-                                        <span class="job-name">{{ job_display_names.get(job, job) }}</span>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                                <div class="job-column">
-                                    <div class="job-category-title">⛏️ Disciples of the Land</div>
-                                    {% for job in job_categories.DoL %}
-                                    {% set job_level = char.all_jobs.get(job, 0) %}
-                                    <div class="job-row">
-                                        <span class="job-level {% if job_level == 0 %}job-level-zero{% endif %}">{{ job_level }}</span>
-                                        <span class="job-name">{{ job_display_names.get(job, job) }}</span>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                        
-                        {% if show_currencies and char.categorized_currencies %}
-                        <div class="section-title collapsible collapsed" onclick="toggleCollapse(this)">💰 Currencies</div>
-                        <div class="collapse-content collapsed">
-                            <div class="currency-section">
-                                {% if char.categorized_currencies.crystal_grid %}
-                                <div class="crystal-container">
-                                <div class="currency-category-title">💎 Crystals</div>
-                                <div class="crystal-grid">
-                                    <div></div>
-                                    <div class="crystal-header">Shards</div>
-                                    <div class="crystal-header">Crystals</div>
-                                    <div class="crystal-header">Clusters</div>
-                                    {% for elem in char.categorized_currencies.crystal_elements %}
-                                    <div class="crystal-element">{{ elem }}</div>
-                                    <div class="{% if char.categorized_currencies.crystal_grid[elem].Shard > 0 %}crystal-value{% else %}crystal-value-zero{% endif %}">{{ "{:,}".format(char.categorized_currencies.crystal_grid[elem].Shard) }}</div>
-                                    <div class="{% if char.categorized_currencies.crystal_grid[elem].Crystal > 0 %}crystal-value{% else %}crystal-value-zero{% endif %}">{{ "{:,}".format(char.categorized_currencies.crystal_grid[elem].Crystal) }}</div>
-                                    <div class="{% if char.categorized_currencies.crystal_grid[elem].Cluster > 0 %}crystal-value{% else %}crystal-value-zero{% endif %}">{{ "{:,}".format(char.categorized_currencies.crystal_grid[elem].Cluster) }}</div>
-                                    {% endfor %}
-                                </div>
-                                </div>
-                                {% endif %}
-                                
-                                {% if char.categorized_currencies.categories.Common or char.categorized_currencies.categories.Tomestones %}
-                                <div class="currency-row-group">
-                                    {% if char.categorized_currencies.categories.Common %}
-                                    <div class="currency-category">
-                                        <div class="currency-category-title">Common</div>
-                                        {% for display_name, value in char.categorized_currencies.categories.Common %}
-                                        <div class="currency-row">
-                                            <span class="currency-name">{{ display_name }}</span>
-                                            <span class="currency-value">{{ "{:,}".format(value) }}</span>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                    {% endif %}
-                                    {% if char.categorized_currencies.categories.Tomestones %}
-                                    <div class="currency-category">
-                                        <div class="currency-category-title">Tomestones</div>
-                                        {% for display_name, value in char.categorized_currencies.categories.Tomestones %}
-                                        <div class="currency-row">
-                                            <span class="currency-name">{{ display_name }}</span>
-                                            <span class="currency-value">{{ "{:,}".format(value) }}</span>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                    {% endif %}
-                                </div>
-                                {% endif %}
-                                
-                                {% if char.categorized_currencies.categories.Battle or char.categorized_currencies.categories.Societies or char.categorized_currencies.categories.Other %}
-                                <div class="currency-row-group">
-                                    {% if char.categorized_currencies.categories.Battle %}
-                                    <div class="currency-category">
-                                        <div class="currency-category-title">Battle</div>
-                                        {% for display_name, value in char.categorized_currencies.categories.Battle %}
-                                        <div class="currency-row">
-                                            <span class="currency-name">{{ display_name }}</span>
-                                            <span class="currency-value">{{ "{:,}".format(value) }}</span>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                    {% endif %}
-                                    {% if char.categorized_currencies.categories.Societies %}
-                                    <div class="currency-category">
-                                        <div class="currency-category-title">Societies</div>
-                                        {% for display_name, value in char.categorized_currencies.categories.Societies %}
-                                        <div class="currency-row">
-                                            <span class="currency-name">{{ display_name }}</span>
-                                            <span class="currency-value">{{ "{:,}".format(value) }}</span>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                    {% endif %}
-                                    {% if char.categorized_currencies.categories.Other %}
-                                    <div class="currency-category">
-                                        <div class="currency-category-title">Other</div>
-                                        {% for display_name, value in char.categorized_currencies.categories.Other %}
-                                        <div class="currency-row">
-                                            <span class="currency-name">{{ display_name }}</span>
-                                            <span class="currency-value">{{ "{:,}".format(value) }}</span>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                    {% endif %}
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-            </div>
-        </div>
-        {% endfor %}
-        
-        <div class="footer">
-            Please wait for page to load, may take longer if importing hundreds of characters, disable classes and/or currencies to generate faster.<br>
-            AutoRetainer Dashboard {{ version }} | Data sourced from AutoRetainer, Lifestream, & XA Database<br>
-            <a href="https://github.com/xa-io/ffxiv-tools/tree/main/AutoRetainer-Dashboard" target="_blank" style="color: var(--accent); text-decoration: none;">github.com/xa-io/ffxiv-tools</a>
-        </div>
-    </div>
-    
-    <script>
-        const REFRESH_INTERVAL = {{ auto_refresh }} * 1000;
-        const DEFAULT_THEME = '{{ default_theme }}';
-        
-        // Theme switching functionality
-        function setTheme(theme) {
-            document.documentElement.setAttribute('data-theme', theme);
-            localStorage.setItem('dashboard-theme', theme);
-            updateThemeButtons(theme);
-        }
-        
-        function updateThemeButtons(activeTheme) {
-            document.querySelectorAll('.theme-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.theme === activeTheme);
-            });
-        }
-        
-        function initTheme() {
-            const savedTheme = localStorage.getItem('dashboard-theme') || DEFAULT_THEME;
-            setTheme(savedTheme);
-        }
-        
-        // Initialize theme immediately (before page fully loads)
-        initTheme();
-        
-        // Hide loading overlay when page is fully loaded
-        window.addEventListener('load', function() {
-            const loadingOverlay = document.getElementById('loading-overlay');
-            if (loadingOverlay) {
-                loadingOverlay.classList.add('hidden');
-                // Remove from DOM after fade animation
-                setTimeout(() => {
-                    loadingOverlay.remove();
-                }, 500);
-            }
-        });
-        
-        function formatNumber(num) {
-            return num.toLocaleString('en-US');
-        }
-        
-        // Character search functionality
-        let currentSearchTerm = '';
-        
-        function searchCharacters(searchTerm) {
-            currentSearchTerm = searchTerm.toLowerCase().trim();
-            const searchError = document.getElementById('search-error');
-            let totalMatches = 0;
-            
-            // Process all account sections
-            document.querySelectorAll('.account-section').forEach(accountSection => {
-                const accountHeader = accountSection.querySelector('.account-header');
-                const sortBar = accountSection.querySelector('.sort-bar');
-                const accountContent = accountSection.querySelector('.account-content');
-                const grid = accountSection.querySelector('.character-grid');
-                
-                if (!grid) return;
-                
-                const cards = grid.querySelectorAll('.character-card');
-                let accountMatches = 0;
-                
-                cards.forEach(card => {
-                    const charName = card.querySelector('.character-name');
-                    if (!charName) return;
-                    
-                    // Get the character name text (just the name part, not the level/job spans)
-                    const nameText = charName.childNodes[0].textContent.toLowerCase().trim();
-                    
-                    if (currentSearchTerm === '' || nameText.includes(currentSearchTerm)) {
-                        card.classList.remove('search-hidden');
-                        if (currentSearchTerm !== '') {
-                            accountMatches++;
-                            totalMatches++;
-                        }
-                    } else {
-                        card.classList.add('search-hidden');
-                    }
-                });
-                
-                // If searching and this account has matches, expand it
-                if (currentSearchTerm !== '' && accountMatches > 0) {
-                    accountHeader.classList.remove('collapsed');
-                    if (sortBar) sortBar.classList.remove('collapsed');
-                    if (accountContent) accountContent.classList.remove('collapsed');
-                }
-                
-                // If searching and no matches in this account, collapse it
-                if (currentSearchTerm !== '' && accountMatches === 0) {
-                    accountHeader.classList.add('collapsed');
-                    if (sortBar) sortBar.classList.add('collapsed');
-                    if (accountContent) accountContent.classList.add('collapsed');
-                }
-                
-                // If search cleared, restore original collapse state
-                if (currentSearchTerm === '') {
-                    const collapsedAccounts = JSON.parse(localStorage.getItem('collapsedAccounts') || '{}');
-                    const accountName = accountSection.dataset.account;
-                    const shouldBeCollapsed = collapsedAccounts[accountName] !== false;
-                    accountHeader.classList.toggle('collapsed', shouldBeCollapsed);
-                    if (sortBar) sortBar.classList.toggle('collapsed', shouldBeCollapsed);
-                    if (accountContent) accountContent.classList.toggle('collapsed', shouldBeCollapsed);
-                }
-            });
-            
-            // Show/hide error message
-            if (currentSearchTerm !== '' && totalMatches === 0) {
-                searchError.classList.add('visible');
-            } else {
-                searchError.classList.remove('visible');
-            }
-        }
-        
-        function toggleCollapse(element) {
-            element.classList.toggle('collapsed');
-            const content = element.nextElementSibling;
-            content.classList.toggle('collapsed');
-        }
-        
-        function toggleAccount(header) {
-            const accountSection = header.closest('.account-section');
-            const accountName = accountSection.dataset.account;
-            const isCollapsed = header.classList.toggle('collapsed');
-            
-            // Toggle sort-bar (sibling after header)
-            const sortBar = accountSection.querySelector('.sort-bar');
-            if (sortBar) {
-                sortBar.classList.toggle('collapsed', isCollapsed);
-            }
-            
-            // Toggle account-content
-            const content = accountSection.querySelector('.account-content');
-            if (content) {
-                content.classList.toggle('collapsed', isCollapsed);
-            }
-            
-            // Save state to localStorage
-            const collapsedAccounts = JSON.parse(localStorage.getItem('collapsedAccounts') || '{}');
-            collapsedAccounts[accountName] = isCollapsed;
-            localStorage.setItem('collapsedAccounts', JSON.stringify(collapsedAccounts));
-        }
-        
-        // Track global accounts expand/collapse state
-        let allAccountsExpanded = false;
-        
-        function toggleAllAccounts() {
-            const btn = document.getElementById('global-accounts-btn');
-            const accountSections = document.querySelectorAll('.account-section');
-            const collapsedAccounts = JSON.parse(localStorage.getItem('collapsedAccounts') || '{}');
-            
-            allAccountsExpanded = !allAccountsExpanded;
-            
-            accountSections.forEach(section => {
-                const accountName = section.dataset.account;
-                const header = section.querySelector('.account-header');
-                const sortBar = section.querySelector('.sort-bar');
-                const content = section.querySelector('.account-content');
-                
-                if (allAccountsExpanded) {
-                    // Expand all
-                    header.classList.remove('collapsed');
-                    if (sortBar) sortBar.classList.remove('collapsed');
-                    if (content) content.classList.remove('collapsed');
-                    collapsedAccounts[accountName] = false;
-                } else {
-                    // Collapse all
-                    header.classList.add('collapsed');
-                    if (sortBar) sortBar.classList.add('collapsed');
-                    if (content) content.classList.add('collapsed');
-                    collapsedAccounts[accountName] = true;
-                }
-            });
-            
-            // Update button arrow
-            btn.textContent = allAccountsExpanded ? '▼' : '▶';
-            btn.title = allAccountsExpanded ? 'Collapse All Accounts' : 'Expand All Accounts';
-            
-            localStorage.setItem('collapsedAccounts', JSON.stringify(collapsedAccounts));
-        }
-        
-        function toggleCharacter(header) {
-            const charCard = header.closest('.character-card');
-            const charId = charCard.dataset.char;
-            const isCollapsed = header.classList.toggle('collapsed');
-            const body = header.nextElementSibling;
-            body.classList.toggle('collapsed');
-            charCard.classList.toggle('expanded', !isCollapsed);
-            
-            // Save state to localStorage
-            const collapsedChars = JSON.parse(localStorage.getItem('collapsedChars') || '{}');
-            collapsedChars[charId] = isCollapsed;
-            localStorage.setItem('collapsedChars', JSON.stringify(collapsedChars));
-        }
-        
-        function sortCharacters(btn) {
-            const sortBar = btn.closest('.sort-bar');
-            const accountSection = btn.closest('.account-section');
-            const grid = accountSection.querySelector('.character-grid');
-            const cards = Array.from(grid.querySelectorAll('.character-card'));
-            
-            const sortKey = btn.dataset.sort;
-            let order = btn.dataset.order;
-            
-            // Toggle order if clicking same button
-            if (btn.classList.contains('active')) {
-                order = order === 'asc' ? 'desc' : 'asc';
-                btn.dataset.order = order;
-            }
-            
-            // Update button text with arrow
-            const btnText = btn.textContent.replace(/ [▲▼]$/, '');
-            btn.textContent = btnText + (order === 'asc' ? ' ▲' : ' ▼');
-            
-            // Remove active from other buttons, add to this one
-            sortBar.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            // Map sort keys to data attributes
-            const attrMap = {
-                'level': 'level',
-                'gil': 'gil',
-                'treasure': 'treasure',
-                'fc_points': 'fc-points',
-                'venture_coins': 'venture-coins',
-                'coffers': 'coffers',
-                'dyes': 'dyes',
-                'tanks': 'tanks',
-                'kits': 'kits',
-                'restock': 'restock',
-                'inventory': 'inventory',
-                'retainers': 'retainer-return',
-                'retainer_level': 'retainer-level',
-                'subs': 'sub-return',
-                'sub_level': 'sub-level',
-                'mb': 'mb',
-                'msq_percent': 'msq-percent'
-            };
-            
-            // Sort cards
-            if (sortKey === 'classes') {
-                // Special sorting for classes: sort by lowest level, then by highest level
-                cards.sort((a, b) => {
-                    const aLowest = parseFloat(a.dataset.lowestLevel) || 0;
-                    const bLowest = parseFloat(b.dataset.lowestLevel) || 0;
-                    const aHighest = parseFloat(a.dataset.highestLevel) || 0;
-                    const bHighest = parseFloat(b.dataset.highestLevel) || 0;
-                    
-                    // Primary sort by lowest level
-                    let diff = aLowest - bLowest;
-                    // Secondary sort by highest level if lowest is same
-                    if (diff === 0) {
-                        diff = aHighest - bHighest;
-                    }
-                    
-                    return order === 'asc' ? diff : -diff;
-                });
-            } else {
-                const attr = attrMap[sortKey];
-                cards.sort((a, b) => {
-                    const aVal = parseFloat(a.dataset[attr.replace(/-([a-z])/g, (g) => g[1].toUpperCase())]) || 0;
-                    const bVal = parseFloat(b.dataset[attr.replace(/-([a-z])/g, (g) => g[1].toUpperCase())]) || 0;
-                    
-                    if (order === 'asc') {
-                        return aVal - bVal;
-                    } else {
-                        return bVal - aVal;
-                    }
-                });
-            }
-            
-            // Re-append in sorted order
-            cards.forEach(card => grid.appendChild(card));
-        }
-        
-        function toggleFilter(btn) {
-            const accountSection = btn.closest('.account-section');
-            const grid = accountSection.querySelector('.character-grid');
-            const cards = grid.querySelectorAll('.character-card');
-            const sortBar = btn.closest('.sort-bar');
-            
-            // Toggle active state
-            btn.classList.toggle('active');
-            
-            // Get all filter states
-            const retainersBtn = sortBar.querySelector('.filter-btn[data-filter="retainers"]');
-            const subsBtn = sortBar.querySelector('.filter-btn[data-filter="subs"]');
-            const personalHouseBtn = sortBar.querySelector('.filter-btn[data-filter="personal-house"]');
-            const fcHouseBtn = sortBar.querySelector('.filter-btn[data-filter="fc-house"]');
-            const msqBtn = sortBar.querySelector('.filter-btn[data-filter="msq"]');
-            
-            const hideNoRetainers = retainersBtn && retainersBtn.classList.contains('active');
-            const hideNoSubs = subsBtn && subsBtn.classList.contains('active');
-            const showOnlyPersonalHouse = personalHouseBtn && personalHouseBtn.classList.contains('active');
-            const showOnlyFcHouse = fcHouseBtn && fcHouseBtn.classList.contains('active');
-            const hideNoMsq = msqBtn && msqBtn.classList.contains('active');
-            
-            // Apply all filters
-            cards.forEach(card => {
-                const totalRetainers = parseInt(card.dataset.totalRetainers) || 0;
-                const totalSubs = parseInt(card.dataset.totalSubs) || 0;
-                const hasPersonalHouse = card.dataset.hasPersonalHouse === 'true';
-                const hasFcHouse = card.dataset.hasFcHouse === 'true';
-                const msqPercent = parseFloat(card.dataset.msqPercent) || 0;
-                
-                let shouldHide = false;
-                
-                // Hide filters (hide if condition not met)
-                if (hideNoRetainers && totalRetainers === 0) shouldHide = true;
-                if (hideNoSubs && totalSubs === 0) shouldHide = true;
-                if (hideNoMsq && msqPercent === 0) shouldHide = true;
-                
-                // Show-only filters (hide if doesn't have the feature)
-                if (showOnlyPersonalHouse && !hasPersonalHouse) shouldHide = true;
-                if (showOnlyFcHouse && !hasFcHouse) shouldHide = true;
-                
-                card.classList.toggle('filtered-hidden', shouldHide);
-            });
-        }
-        
-        let isAnonymized = false;
-        let isMoneyHidden = false;
-        const originalData = new Map();
-        const originalMoneyData = new Map();
-        
-        function toggleAnonymize(btn) {
-            try {
-                isAnonymized = !isAnonymized;
-                btn.classList.toggle('active', isAnonymized);
-                btn.textContent = isAnonymized ? '🔓' : '🔒';
-                
-                // Toggle all anonymize buttons across all accounts
-                document.querySelectorAll('.anon-btn').forEach(b => {
-                    b.classList.toggle('active', isAnonymized);
-                    b.textContent = isAnonymized ? '🔓' : '🔒';
-                });
-                
-                if (isAnonymized) {
-                    anonymizeAll();
-                } else {
-                    restoreAll();
-                }
-            } catch (e) {
-                console.error('Error in toggleAnonymize:', e);
-            }
-        }
-        
-        function anonymizeAll() {
-            try {
-            // Anonymize account headers
-            document.querySelectorAll('.account-section').forEach((section, accIndex) => {
-                const header = section.querySelector('.account-header h2');
-                if (header) {
-                    if (!originalData.has(header)) {
-                        originalData.set(header, header.textContent);
-                    }
-                    header.textContent = 'Account ' + (accIndex + 1);
-                }
-            });
-            
-            // Anonymize character data
-            document.querySelectorAll('.character-card').forEach((card, cardIndex) => {
-                const charName = card.querySelector('.character-name');
-                if (charName) {
-                    if (!originalData.has(charName)) {
-                        originalData.set(charName, charName.innerHTML);
-                    }
-                    // Keep all spans (level/job info AND housing emojis) but replace the name
-                    const allSpans = charName.querySelectorAll('span');
-                    let spansHtml = '';
-                    allSpans.forEach(span => { spansHtml += ' ' + span.outerHTML; });
-                    charName.innerHTML = 'Toon ' + (cardIndex + 1) + spansHtml;
-                }
-                
-                const worldFC = card.querySelector('.character-world');
-                if (worldFC) {
-                    if (!originalData.has(worldFC)) {
-                        originalData.set(worldFC, worldFC.textContent);
-                    }
-                    // Count bullet points: 2+ means FC + inventory, 1 means just inventory (no FC)
-                    const bulletCount = (worldFC.textContent.match(/•/g) || []).length;
-                    const hasFC = bulletCount >= 2;
-                    // Extract actual inventory value to preserve it
-                    const inventoryMatch = worldFC.textContent.match(/🎒 (\\d+\\/\\d+)/);
-                    const inventoryText = inventoryMatch ? ' • 🎒 ' + inventoryMatch[1] : '';
-                    worldFC.textContent = 'Eorzea' + (hasFC ? ' • FC Name' : '') + inventoryText;
-                }
-                
-                // Anonymize retainer names in expanded content (table rows, first td is name)
-                const retTable = card.querySelector('.ret-table');
-                if (retTable) {
-                    retTable.querySelectorAll('tr').forEach((row, rowIndex) => {
-                        if (rowIndex === 0) return; // Skip header row
-                        const nameCell = row.querySelector('td:first-child');
-                        if (nameCell) {
-                            if (!originalData.has(nameCell)) {
-                                originalData.set(nameCell, nameCell.textContent);
-                            }
-                            nameCell.textContent = 'Retainer ' + rowIndex;
-                        }
-                    });
-                }
-                
-                // Anonymize submarine names and plan names in expanded content
-                const subTable = card.querySelector('.sub-table');
-                if (subTable) {
-                    subTable.querySelectorAll('tr').forEach((row, rowIndex) => {
-                        if (rowIndex === 0) return; // Skip header row
-                        const nameCell = row.querySelector('td:first-child');
-                        if (nameCell) {
-                            if (!originalData.has(nameCell)) {
-                                originalData.set(nameCell, nameCell.textContent);
-                            }
-                            nameCell.textContent = 'Submarine ' + rowIndex;
-                        }
-                        // Anonymize plan name (4th column) with TOP SECRET in red
-                        const planCell = row.querySelector('td:nth-child(4)');
-                        if (planCell) {
-                            if (!originalData.has(planCell)) {
-                                originalData.set(planCell, { html: planCell.innerHTML, style: planCell.getAttribute('style') });
-                            }
-                            planCell.innerHTML = 'TOP SECRET';
-                            planCell.style.color = 'var(--accent)';
-                        }
-                    });
-                }
-                
-                // Anonymize housing info in expanded content
-                card.querySelectorAll('.info-row').forEach(row => {
-                    const label = row.querySelector('.info-label');
-                    const value = row.querySelector('.info-value');
-                    if (label && value) {
-                        const labelText = label.textContent;
-                        if (labelText.includes('Personal House') || labelText.includes('FC House')) {
-                            if (!originalData.has(value)) {
-                                originalData.set(value, { html: value.innerHTML, style: value.getAttribute('style') });
-                            }
-                            value.innerHTML = 'TOP SECRET';
-                            value.style.color = 'var(--accent)';
-                        }
-                    }
-                });
-                
-                // Anonymize Player Name @ World
-                const playerNameWorld = card.querySelector('.player-name-world');
-                if (playerNameWorld) {
-                    if (!originalData.has(playerNameWorld)) {
-                        originalData.set(playerNameWorld, { text: playerNameWorld.textContent });
-                    }
-                    playerNameWorld.textContent = 'Toon ' + (cardIndex + 1) + '@Eorzea';
-                }
-            });
-            } catch (e) {
-                console.error('Error in anonymizeAll:', e);
-            }
-        }
-        
-        function restoreAll() {
-            originalData.forEach((value, element) => {
-                try {
-                    // Skip if element no longer exists in DOM
-                    if (!element || !document.body.contains(element)) return;
-                    
-                    if (element.classList && element.classList.contains('character-name')) {
-                        element.innerHTML = value;
-                    } else if (typeof value === 'object' && value.html !== undefined) {
-                        // Restore plan cells with original HTML and style
-                        element.innerHTML = value.html;
-                        if (value.style) {
-                            element.setAttribute('style', value.style);
-                        } else {
-                            element.removeAttribute('style');
-                        }
-                    } else if (typeof value === 'object' && value.text !== undefined) {
-                        // Restore player name with original text
-                        element.textContent = value.text;
-                    } else {
-                        element.textContent = value;
-                    }
-                } catch (e) {
-                    console.warn('Error restoring element:', e);
-                }
-            });
-            originalData.clear();
-        }
-        
-        function toggleHideMoney(btn) {
-            isMoneyHidden = !isMoneyHidden;
-            btn.classList.toggle('active', isMoneyHidden);
-            btn.textContent = isMoneyHidden ? '💸' : '💰';
-            
-            // Toggle all money buttons across all accounts
-            document.querySelectorAll('.money-btn').forEach(b => {
-                b.classList.toggle('active', isMoneyHidden);
-                b.textContent = isMoneyHidden ? '💸' : '💰';
-            });
-            
-            if (isMoneyHidden) {
-                hideMoneyAll();
-            } else {
-                restoreMoneyAll();
-            }
-        }
-        
-        function hideMoneyAll(forceRefresh = false) {
-            const HIDDEN = '*****';
-            
-            // Hide Characters summary card (preserve labels, hide numbers only)
-            const charTotal = document.querySelector('#sum-total-chars');
-            if (charTotal && (forceRefresh || !originalMoneyData.has(charTotal))) {
-                if (!forceRefresh) originalMoneyData.set(charTotal, charTotal.textContent);
-                charTotal.textContent = '👥 ***';
-            }
-            const charLevels = document.querySelector('#sum-char-levels');
-            if (charLevels && (forceRefresh || !originalMoneyData.has(charLevels))) {
-                if (!forceRefresh) originalMoneyData.set(charLevels, charLevels.textContent);
-                charLevels.textContent = '*** Lv 25+ | *** Lv 100';
-            }
-            const charPlots = document.querySelector('#sum-plots');
-            if (charPlots && (forceRefresh || !originalMoneyData.has(charPlots))) {
-                if (!forceRefresh) originalMoneyData.set(charPlots, { html: charPlots.innerHTML });
-                // Preserve structure but hide numbers (including potential subs count if present)
-                charPlots.innerHTML = '🏠 *** | 🏨 ***{% if highlight_potential_subs %} | <span id="sum-potential-subs" style="color: #888;">❓ ***</span>{% endif %}';
-            }
-            
-            // Hide summary cards (top section)
-            const summarySelectors = [
-                '#sum-total-gil', '#sum-treasure', '#sum-with-treasure', '#sum-coffer-dye',
-                '#sum-ready-subs', '#sum-total-subs', '#sum-ready-retainers', '#sum-total-retainers',
-                '#sum-total-mb', '#sum-max-mb', '#sum-monthly-income', '#sum-monthly-cost',
-                '#sum-monthly-profit', '#sum-annual-income', '#sum-annual-profit'
-            ];
-            summarySelectors.forEach(sel => {
-                const el = document.querySelector(sel);
-                if (el && (forceRefresh || !originalMoneyData.has(el))) {
-                    if (!forceRefresh) originalMoneyData.set(el, el.textContent);
-                    el.textContent = HIDDEN;
-                }
-            });
-            
-            // Hide summary card sublabels (preserve labels, hide numbers only)
-            const fcPoints = document.querySelector('#sum-fc-points');
-            if (fcPoints && (forceRefresh || !originalMoneyData.has(fcPoints))) {
-                if (!forceRefresh) originalMoneyData.set(fcPoints, fcPoints.textContent);
-                fcPoints.textContent = '🪙 *** FC';
-            }
-            const cofferDyeCounts = document.querySelector('#sum-coffer-dye-counts');
-            if (cofferDyeCounts && (forceRefresh || !originalMoneyData.has(cofferDyeCounts))) {
-                if (!forceRefresh) originalMoneyData.set(cofferDyeCounts, { html: cofferDyeCounts.innerHTML });
-                cofferDyeCounts.innerHTML = '📦 *** 🎨 *** <span id="sum-mb-dye-count" style="color: var(--warning);">🪧 ***</span>';
-            }
-            const subsStats = document.querySelector('#sum-subs-stats');
-            if (subsStats && (forceRefresh || !originalMoneyData.has(subsStats))) {
-                if (!forceRefresh) originalMoneyData.set(subsStats, { html: subsStats.innerHTML });
-                subsStats.innerHTML = '<span style="color: var(--warning);">Lvl: ***</span> | <span style="color: var(--success);">Farm: ***</span> | <span style="color: #FFB6C1;">Idle: ***</span>';
-            }
-            const retainersStats = document.querySelector('#sum-retainers-stats');
-            if (retainersStats && (forceRefresh || !originalMoneyData.has(retainersStats))) {
-                if (!forceRefresh) originalMoneyData.set(retainersStats, { html: retainersStats.innerHTML });
-                retainersStats.innerHTML = '<span style="color: var(--warning);">Lvl: ***</span> | <span style="color: var(--success);">Farm: ***</span> | <span style="color: cyan;">Idle: ***</span>';
-            }
-            const mbMax = document.querySelector('#sum-mb-max');
-            if (mbMax && (forceRefresh || !originalMoneyData.has(mbMax))) {
-                if (!forceRefresh) originalMoneyData.set(mbMax, mbMax.textContent);
-                mbMax.textContent = '*** Max';
-            }
-            const excludedSubs = document.querySelector('#sum-excluded-subs');
-            if (excludedSubs && (forceRefresh || !originalMoneyData.has(excludedSubs))) {
-                if (!forceRefresh) originalMoneyData.set(excludedSubs, excludedSubs.textContent);
-                excludedSubs.textContent = '❌***';
-            }
-            const excludedRetainers = document.querySelector('#sum-excluded-retainers');
-            if (excludedRetainers && (forceRefresh || !originalMoneyData.has(excludedRetainers))) {
-                if (!forceRefresh) originalMoneyData.set(excludedRetainers, excludedRetainers.textContent);
-                excludedRetainers.textContent = '❌***';
-            }
-            const sleepingSubs = document.querySelector('#sum-sleeping-subs');
-            if (sleepingSubs && (forceRefresh || !originalMoneyData.has(sleepingSubs))) {
-                if (!forceRefresh) originalMoneyData.set(sleepingSubs, sleepingSubs.textContent);
-                sleepingSubs.textContent = '😴***';
-            }
-            const sleepingRetainers = document.querySelector('#sum-sleeping-retainers');
-            if (sleepingRetainers && (forceRefresh || !originalMoneyData.has(sleepingRetainers))) {
-                if (!forceRefresh) originalMoneyData.set(sleepingRetainers, sleepingRetainers.textContent);
-                sleepingRetainers.textContent = '😴***';
-            }
-            const dailyIncome = document.querySelector('#sum-daily-income');
-            if (dailyIncome && (forceRefresh || !originalMoneyData.has(dailyIncome))) {
-                if (!forceRefresh) originalMoneyData.set(dailyIncome, dailyIncome.textContent);
-                dailyIncome.textContent = '📅 *****/day';
-            }
-            const restock = document.querySelector('#sum-restock');
-            if (restock && (forceRefresh || !originalMoneyData.has(restock))) {
-                if (!forceRefresh) originalMoneyData.set(restock, restock.textContent);
-                restock.textContent = '♻️ ***d lowest';
-            }
-            
-            // Hide account tab stats
-            document.querySelectorAll('.account-stats span').forEach(el => {
-                const text = el.textContent;
-                if (text.includes('💰') || text.includes('💎') || text.includes('🚢') || 
-                    text.includes('👤') || text.includes('📦')) {
-                    if (forceRefresh || !originalMoneyData.has(el)) {
-                        if (!forceRefresh) originalMoneyData.set(el, { html: el.innerHTML });
-                        // Keep emoji, hide values
-                        const emoji = text.match(/^[^\\d]*/)[0].trim();
-                        el.innerHTML = emoji + ' ' + HIDDEN;
-                    }
-                }
-                // Hide MB items (🪧) for privacy
-                if (text.includes('🪧') && text.includes('MB')) {
-                    if (forceRefresh || !originalMoneyData.has(el)) {
-                        if (!forceRefresh) originalMoneyData.set(el, { html: el.innerHTML });
-                        el.innerHTML = '🪧 ' + HIDDEN + ' MB';
-                    }
-                }
-                // Hide MSQ progress (📜) for privacy
-                if (text.includes('📜') && text.includes('MSQ')) {
-                    if (forceRefresh || !originalMoneyData.has(el)) {
-                        if (!forceRefresh) originalMoneyData.set(el, { html: el.innerHTML });
-                        el.innerHTML = '📜 ' + HIDDEN + ' MSQ';
-                    }
-                }
-            });
-            
-            // Hide character card header stats
-            document.querySelectorAll('.character-card').forEach(card => {
-                // Character gil (in header) - use shorter ** for compact display
-                const gilEl = card.querySelector('.character-gil');
-                if (gilEl && (forceRefresh || !originalMoneyData.has(gilEl))) {
-                    if (!forceRefresh) originalMoneyData.set(gilEl, gilEl.textContent);
-                    gilEl.textContent = '** gil';
-                }
-                
-                // Treasure value in header - use shorter ** for compact display
-                card.querySelectorAll('.char-header-row span').forEach(span => {
-                    const text = span.textContent;
-                    if (span.style.color && span.style.color.includes('gold') && text.includes('💎')) {
-                        if (forceRefresh || !originalMoneyData.has(span)) {
-                            if (!forceRefresh) originalMoneyData.set(span, { html: span.innerHTML });
-                            span.innerHTML = '💎 **';
-                        }
-                    }
-                    // MB items, coffers, dyes row (including individual dye counts)
-                    if (text.includes('🪧') && text.includes('📦') && text.includes('🎨') && !text.includes('🪙')) {
-                        if (forceRefresh || !originalMoneyData.has(span)) {
-                            if (!forceRefresh) originalMoneyData.set(span, { html: span.innerHTML });
-                            // Use shorter ** for compact display in character cards
-                            const SHORT = '**';
-                            // Check if individual dyes are shown (🤍🖤🩷)
-                            const hasIndividualDyes = text.includes('🤍') || text.includes('🖤') || text.includes('🩷');
-                            if (hasIndividualDyes) {
-                                span.innerHTML = '🪧 ' + SHORT + ' | 📦 ' + SHORT + ' | 🎨 ' + SHORT + ' 🤍' + SHORT + ' 🖤' + SHORT + ' 🩷' + SHORT;
-                            } else {
-                                span.innerHTML = '🪧 ' + SHORT + ' | 📦 ' + SHORT + ' | 🎨 ' + SHORT;
-                            }
-                        }
-                    }
-                    // FC points, venture coins, tanks, kits, restock row - use shorter ** for compact display
-                    if (text.includes('🪙') && text.includes('🛒') && text.includes('⛽') && text.includes('🔧')) {
-                        if (forceRefresh || !originalMoneyData.has(span)) {
-                            if (!forceRefresh) originalMoneyData.set(span, { html: span.innerHTML });
-                            const SHORT = '**';
-                            span.innerHTML = '🪙 ' + SHORT + ' | 🛒 ' + SHORT + ' | ⛽ ' + SHORT + ' | 🔧 ' + SHORT + (text.includes('♻️') ? ' | ♻️ ' + SHORT : '');
-                        }
-                    }
-                });
-                
-                // Expanded section info rows
-                card.querySelectorAll('.info-row').forEach(row => {
-                    const label = row.querySelector('.info-label');
-                    const value = row.querySelector('.info-value');
-                    if (label && value) {
-                        const labelText = label.textContent;
-                        const moneyLabels = [
-                            'Character Gil', 'Retainer Gil', 'FC Gil', 'Treasure Value', 'Coffer + Dye Value',
-                            'FC Points', 'Venture Coins', 'Coffers', 'Ceruleum Tanks', 'Repair Kits',
-                            'Days Until Restock', 'Daily Income', 'Daily Cost'
-                        ];
-                        if (moneyLabels.some(ml => labelText.includes(ml))) {
-                            if (forceRefresh || !originalMoneyData.has(value)) {
-                                if (!forceRefresh) originalMoneyData.set(value, { html: value.innerHTML, style: value.getAttribute('style') });
-                                value.innerHTML = HIDDEN;
-                            }
-                        }
-                    }
-                });
-                
-                // Retainer table - hide level, gil, and MB columns
-                const retTable = card.querySelector('.ret-table');
-                if (retTable) {
-                    retTable.querySelectorAll('tr').forEach((row, rowIndex) => {
-                        if (rowIndex === 0) return; // Skip header
-                        // Level (2nd column)
-                        const levelCell = row.querySelector('td:nth-child(2)');
-                        if (levelCell && (forceRefresh || !originalMoneyData.has(levelCell))) {
-                            if (!forceRefresh) originalMoneyData.set(levelCell, levelCell.textContent);
-                            levelCell.textContent = HIDDEN;
-                        }
-                        // Gil (3rd column)
-                        const gilCell = row.querySelector('td:nth-child(3)');
-                        if (gilCell && (forceRefresh || !originalMoneyData.has(gilCell))) {
-                            if (!forceRefresh) originalMoneyData.set(gilCell, gilCell.textContent);
-                            gilCell.textContent = HIDDEN;
-                        }
-                        // MB items (4th column)
-                        const mbCell = row.querySelector('td:nth-child(4)');
-                        if (mbCell && (forceRefresh || !originalMoneyData.has(mbCell))) {
-                            if (!forceRefresh) originalMoneyData.set(mbCell, mbCell.textContent);
-                            mbCell.textContent = HIDDEN;
-                        }
-                    });
-                }
-                
-                // Submarine table - hide level, build, and status columns
-                const subTable = card.querySelector('.sub-table');
-                if (subTable) {
-                    subTable.querySelectorAll('tr').forEach((row, rowIndex) => {
-                        if (rowIndex === 0) return; // Skip header
-                        // Level (2nd column)
-                        const levelCell = row.querySelector('td:nth-child(2)');
-                        if (levelCell && (forceRefresh || !originalMoneyData.has(levelCell))) {
-                            if (!forceRefresh) originalMoneyData.set(levelCell, levelCell.textContent);
-                            levelCell.textContent = HIDDEN;
-                        }
-                        // Build (3rd column)
-                        const buildCell = row.querySelector('td:nth-child(3)');
-                        if (buildCell && (forceRefresh || !originalMoneyData.has(buildCell))) {
-                            if (!forceRefresh) originalMoneyData.set(buildCell, buildCell.textContent);
-                            buildCell.textContent = HIDDEN;
-                        }
-                        // Status (5th column)
-                        const statusCell = row.querySelector('td:nth-child(5)');
-                        if (statusCell && (forceRefresh || !originalMoneyData.has(statusCell))) {
-                            if (!forceRefresh) originalMoneyData.set(statusCell, { html: statusCell.innerHTML, className: statusCell.className });
-                            statusCell.textContent = HIDDEN;
-                            statusCell.className = '';
-                        }
-                    });
-                }
-            });
-        }
-        
-        function restoreMoneyAll() {
-            originalMoneyData.forEach((value, element) => {
-                if (typeof value === 'object' && value.html !== undefined) {
-                    element.innerHTML = value.html;
-                    if (value.style) {
-                        element.setAttribute('style', value.style);
-                    } else if (value.style === null) {
-                        element.removeAttribute('style');
-                    }
-                    if (value.className !== undefined) {
-                        element.className = value.className;
-                    }
-                } else {
-                    element.textContent = value;
-                }
-            });
-            originalMoneyData.clear();
-        }
-        
-        function expandAllChars(btn) {
-            const accountSection = btn.closest('.account-section');
-            const cards = accountSection.querySelectorAll('.character-card');
-            const collapsedChars = JSON.parse(localStorage.getItem('collapsedChars') || '{}');
-            
-            cards.forEach(card => {
-                const charId = card.dataset.char;
-                const header = card.querySelector('.character-header');
-                const body = header.nextElementSibling;
-                
-                header.classList.remove('collapsed');
-                body.classList.remove('collapsed');
-                card.classList.add('expanded');
-                collapsedChars[charId] = false;
-            });
-            
-            localStorage.setItem('collapsedChars', JSON.stringify(collapsedChars));
-        }
-        
-        function collapseAllChars(btn) {
-            const accountSection = btn.closest('.account-section');
-            const cards = accountSection.querySelectorAll('.character-card');
-            const collapsedChars = JSON.parse(localStorage.getItem('collapsedChars') || '{}');
-            
-            cards.forEach(card => {
-                const charId = card.dataset.char;
-                const header = card.querySelector('.character-header');
-                const body = header.nextElementSibling;
-                
-                header.classList.add('collapsed');
-                body.classList.add('collapsed');
-                card.classList.remove('expanded');
-                collapsedChars[charId] = true;
-            });
-            
-            localStorage.setItem('collapsedChars', JSON.stringify(collapsedChars));
-        }
-        
-        // Global filter functions for header buttons
-        function toggleHideMoneyGlobal() {
-            isMoneyHidden = !isMoneyHidden;
-            // Update all money buttons including global
-            document.querySelectorAll('.money-btn').forEach(b => {
-                b.classList.toggle('active', isMoneyHidden);
-                b.textContent = isMoneyHidden ? '💸' : '💰';
-            });
-            if (isMoneyHidden) {
-                hideMoneyAll();
-            } else {
-                restoreMoneyAll();
-            }
-        }
-        
-        function toggleAnonymizeGlobal() {
-            try {
-                isAnonymized = !isAnonymized;
-                // Update all anon buttons including global
-                document.querySelectorAll('.anon-btn').forEach(b => {
-                    b.classList.toggle('active', isAnonymized);
-                    b.textContent = isAnonymized ? '🔓' : '🔒';
-                });
-                if (isAnonymized) {
-                    anonymizeAll();
-                } else {
-                    restoreAll();
-                }
-            } catch (e) {
-                console.error('Error in toggleAnonymizeGlobal:', e);
-            }
-        }
-        
-        // Global show player stats - INVERTED: active = show, inactive = hide (default collapsed)
-        let isPlayerStatsShown = false;
-        
-        function toggleHidePlayerStatsGlobal() {
-            isPlayerStatsShown = !isPlayerStatsShown;
-            const btn = document.getElementById('global-hide-stats-btn');
-            if (btn) {
-                btn.classList.toggle('active', isPlayerStatsShown);
-            }
-            
-            // Toggle all player stats sections
-            document.querySelectorAll('.player-stats-header').forEach(header => {
-                if (isPlayerStatsShown) {
-                    // Active = show (expand)
-                    header.classList.remove('collapsed');
-                    const content = header.nextElementSibling;
-                    if (content) {
-                        content.classList.remove('collapsed');
-                    }
-                } else {
-                    // Inactive = hide (collapse)
-                    if (!header.classList.contains('collapsed')) {
-                        header.classList.add('collapsed');
-                    }
-                    const content = header.nextElementSibling;
-                    if (content && !content.classList.contains('collapsed')) {
-                        content.classList.add('collapsed');
-                    }
-                }
-            });
-        }
-        
-        // Global hide submarines
-        let isSubsHidden = false;
-        
-        function toggleHideSubsGlobal() {
-            isSubsHidden = !isSubsHidden;
-            const btn = document.getElementById('global-hide-subs-btn');
-            if (btn) {
-                btn.classList.toggle('active', isSubsHidden);
-            }
-            
-            // Toggle all submarine sections (find by content starting with 🚢)
-            document.querySelectorAll('.section-title.collapsible').forEach(header => {
-                if (header.textContent.includes('🚢 Submarines')) {
-                    if (isSubsHidden) {
-                        if (!header.classList.contains('collapsed')) {
-                            header.classList.add('collapsed');
-                        }
-                        const content = header.nextElementSibling;
-                        if (content && !content.classList.contains('collapsed')) {
-                            content.classList.add('collapsed');
-                        }
-                    } else {
-                        header.classList.remove('collapsed');
-                        const content = header.nextElementSibling;
-                        if (content) {
-                            content.classList.remove('collapsed');
-                        }
-                    }
-                }
-            });
-        }
-        
-        // Global hide retainers
-        let isRetainersHidden = false;
-        
-        function toggleHideRetainersGlobal() {
-            isRetainersHidden = !isRetainersHidden;
-            const btn = document.getElementById('global-hide-retainers-btn');
-            if (btn) {
-                btn.classList.toggle('active', isRetainersHidden);
-            }
-            
-            // Toggle all retainer sections (find by content starting with 👤)
-            document.querySelectorAll('.section-title.collapsible').forEach(header => {
-                if (header.textContent.includes('👤 Retainers')) {
-                    if (isRetainersHidden) {
-                        if (!header.classList.contains('collapsed')) {
-                            header.classList.add('collapsed');
-                        }
-                        const content = header.nextElementSibling;
-                        if (content && !content.classList.contains('collapsed')) {
-                            content.classList.add('collapsed');
-                        }
-                    } else {
-                        header.classList.remove('collapsed');
-                        const content = header.nextElementSibling;
-                        if (content) {
-                            content.classList.remove('collapsed');
-                        }
-                    }
-                }
-            });
-        }
-        
-        // Global show classes (DoW/DoM and DoH/DoL) - INVERTED: active = show, inactive = hide (default collapsed)
-        let isClassesShown = false;
-        
-        function toggleHideClassesGlobal() {
-            isClassesShown = !isClassesShown;
-            const btn = document.getElementById('global-hide-classes-btn');
-            if (btn) {
-                btn.classList.toggle('active', isClassesShown);
-            }
-            
-            // Toggle all DoW/DoM and DoH/DoL sections
-            document.querySelectorAll('.section-title.collapsible').forEach(header => {
-                if (header.textContent.includes('⚔️ DoW/DoM') || header.textContent.includes('🔨 DoH/DoL')) {
-                    if (isClassesShown) {
-                        // Active = show (expand)
-                        header.classList.remove('collapsed');
-                        const content = header.nextElementSibling;
-                        if (content) {
-                            content.classList.remove('collapsed');
-                        }
-                    } else {
-                        // Inactive = hide (collapse)
-                        if (!header.classList.contains('collapsed')) {
-                            header.classList.add('collapsed');
-                        }
-                        const content = header.nextElementSibling;
-                        if (content && !content.classList.contains('collapsed')) {
-                            content.classList.add('collapsed');
-                        }
-                    }
-                }
-            });
-        }
-        
-        // Global show currencies - INVERTED: active = show, inactive = hide (default collapsed)
-        let isCurrenciesShown = false;
-        
-        function toggleHideCurrenciesGlobal() {
-            isCurrenciesShown = !isCurrenciesShown;
-            const btn = document.getElementById('global-hide-currencies-btn');
-            if (btn) {
-                btn.classList.toggle('active', isCurrenciesShown);
-            }
-            
-            // Toggle all currencies sections
-            document.querySelectorAll('.section-title.collapsible').forEach(header => {
-                if (header.textContent.includes('💰 Currencies')) {
-                    if (isCurrenciesShown) {
-                        // Active = show (expand)
-                        header.classList.remove('collapsed');
-                        const content = header.nextElementSibling;
-                        if (content) {
-                            content.classList.remove('collapsed');
-                        }
-                    } else {
-                        // Inactive = hide (collapse)
-                        if (!header.classList.contains('collapsed')) {
-                            header.classList.add('collapsed');
-                        }
-                        const content = header.nextElementSibling;
-                        if (content && !content.classList.contains('collapsed')) {
-                            content.classList.add('collapsed');
-                        }
-                    }
-                }
-            });
-        }
-        
-        // Track global filter states
-        let globalFilters = {
-            'personal-house': false,
-            'fc-house': false,
-            'coffers': false,
-            'dyes': false,
-            'mb': false,
-            'fc-gil': false,
-            'retainers': false,
-            'treasure': false,
-            'subs': false,
-            'msq': false,
-            'ready': false,
-            'sleeping': false,
-            'idle': false,
-            'potential_subs': false,
-            'processing': false,
-            'excluded': false
-        };
-        
-        // Track region filter (only one can be active at a time, or none)
-        let activeRegion = null;
-        
-        function toggleRegionFilter(region) {
-            // If clicking the same region, toggle it off
-            if (activeRegion === region) {
-                activeRegion = null;
-            } else {
-                activeRegion = region;
-            }
-            
-            // Update button states (only one active at a time)
-            ['NA', 'EU', 'JP', 'OCE'].forEach(r => {
-                const btn = document.getElementById('region-' + r.toLowerCase() + '-btn');
-                if (btn) btn.classList.toggle('active', activeRegion === r);
-            });
-            
-            // Apply region filter to all accounts
-            applyAllFilters();
-        }
-        
-        function applyAllFilters() {
-            document.querySelectorAll('.account-section').forEach(section => {
-                const grid = section.querySelector('.character-grid');
-                if (!grid) return;
-                const cards = grid.querySelectorAll('.character-card');
-                
-                cards.forEach(card => {
-                    let shouldShow = true;
-                    
-                    // Check region filter first
-                    if (activeRegion && card.dataset.region !== activeRegion) shouldShow = false;
-                    
-                    // Check all active global filters
-                    if (globalFilters['personal-house'] && card.dataset.hasPersonalHouse !== 'true') shouldShow = false;
-                    if (globalFilters['fc-house'] && card.dataset.hasFcHouse !== 'true') shouldShow = false;
-                    if (globalFilters['coffers'] && card.dataset.hasCoffers !== 'true') shouldShow = false;
-                    if (globalFilters['dyes'] && card.dataset.hasDyes !== 'true') shouldShow = false;
-                    if (globalFilters['mb'] && card.dataset.hasMb !== 'true') shouldShow = false;
-                    if (globalFilters['fc-gil'] && card.dataset.hasFcGil !== 'true') shouldShow = false;
-                    if (globalFilters['retainers'] && parseInt(card.dataset.totalRetainers || 0) === 0) shouldShow = false;
-                    if (globalFilters['treasure'] && card.dataset.hasTreasure !== 'true') shouldShow = false;
-                    if (globalFilters['subs'] && parseInt(card.dataset.totalSubs || 0) === 0) shouldShow = false;
-                    if (globalFilters['msq'] && parseInt(card.dataset.msqPercent || 0) === 0) shouldShow = false;
-                    if (globalFilters['ready'] && card.dataset.hasReady !== 'true') shouldShow = false;
-                    if (globalFilters['sleeping'] && card.dataset.hasSleeping !== 'true') shouldShow = false;
-                    if (globalFilters['idle'] && card.dataset.hasIdle !== 'true') shouldShow = false;
-                    if (globalFilters['potential_subs'] && card.dataset.hasPotentialSubs !== 'true') shouldShow = false;
-                    if (globalFilters['processing'] && card.dataset.isProcessing !== 'true') shouldShow = false;
-                    if (globalFilters['excluded'] && card.dataset.hasExclusion !== 'true') shouldShow = false;
-                    
-                    card.style.display = shouldShow ? '' : 'none';
-                });
-            });
-        }
-        
-        function toggleFilterGlobal(filterType) {
-            globalFilters[filterType] = !globalFilters[filterType];
-            const isActive = globalFilters[filterType];
-            
-            // Update global button state
-            const btnId = {
-                'personal-house': 'global-house-btn',
-                'fc-house': 'global-fc-btn',
-                'coffers': 'global-coffers-btn',
-                'dyes': 'global-dyes-btn',
-                'mb': 'global-mb-btn',
-                'fc-gil': 'global-fc-gil-btn',
-                'retainers': 'global-retainers-btn',
-                'treasure': 'global-treasure-btn',
-                'subs': 'global-subs-btn',
-                'msq': 'global-msq-btn',
-                'ready': 'global-ready-btn',
-                'sleeping': 'global-sleeping-btn',
-                'idle': 'global-idle-btn',
-                'potential_subs': 'global-potential-subs-btn',
-                'processing': 'global-processing-btn',
-                'excluded': 'global-excluded-btn'
-            }[filterType];
-            const globalBtn = document.getElementById(btnId);
-            if (globalBtn) globalBtn.classList.toggle('active', isActive);
-            
-            // Apply all filters (including region filter)
-            applyAllFilters();
-        }
-        
-        function expandAllCharsGlobal() {
-            const collapsedChars = JSON.parse(localStorage.getItem('collapsedChars') || '{}');
-            document.querySelectorAll('.character-card').forEach(card => {
-                const charId = card.dataset.char;
-                const header = card.querySelector('.character-header');
-                const body = header.nextElementSibling;
-                header.classList.remove('collapsed');
-                body.classList.remove('collapsed');
-                card.classList.add('expanded');
-                collapsedChars[charId] = false;
-            });
-            localStorage.setItem('collapsedChars', JSON.stringify(collapsedChars));
-        }
-        
-        function collapseAllCharsGlobal() {
-            const collapsedChars = JSON.parse(localStorage.getItem('collapsedChars') || '{}');
-            document.querySelectorAll('.character-card').forEach(card => {
-                const charId = card.dataset.char;
-                const header = card.querySelector('.character-header');
-                const body = header.nextElementSibling;
-                header.classList.add('collapsed');
-                body.classList.add('collapsed');
-                card.classList.remove('expanded');
-                collapsedChars[charId] = true;
-            });
-            localStorage.setItem('collapsedChars', JSON.stringify(collapsedChars));
-        }
-        
-        function restoreCollapsedState() {
-            const collapsedAccounts = JSON.parse(localStorage.getItem('collapsedAccounts') || '{}');
-            document.querySelectorAll('.account-section').forEach(section => {
-                const accountName = section.dataset.account;
-                const header = section.querySelector('.account-header');
-                const sortBar = section.querySelector('.sort-bar');
-                const content = section.querySelector('.account-content');
-                
-                // Default to collapsed if not in localStorage
-                const shouldBeCollapsed = collapsedAccounts[accountName] !== false;
-                
-                if (shouldBeCollapsed) {
-                    header.classList.add('collapsed');
-                    if (sortBar) sortBar.classList.add('collapsed');
-                    content.classList.add('collapsed');
-                } else {
-                    header.classList.remove('collapsed');
-                    if (sortBar) sortBar.classList.remove('collapsed');
-                    content.classList.remove('collapsed');
-                }
-            });
-            
-            // Sync global accounts button state
-            const accountSections = document.querySelectorAll('.account-section');
-            let expandedCount = 0;
-            accountSections.forEach(section => {
-                const header = section.querySelector('.account-header');
-                if (!header.classList.contains('collapsed')) expandedCount++;
-            });
-            allAccountsExpanded = expandedCount === accountSections.length;
-            const accountsBtn = document.getElementById('global-accounts-btn');
-            if (accountsBtn) {
-                accountsBtn.textContent = allAccountsExpanded ? '▼' : '▶';
-                accountsBtn.title = allAccountsExpanded ? 'Collapse All Accounts' : 'Expand All Accounts';
-            }
-            
-            // Restore character card collapsed states (default to collapsed)
-            const collapsedChars = JSON.parse(localStorage.getItem('collapsedChars') || '{}');
-            document.querySelectorAll('.character-card').forEach(card => {
-                const charId = card.dataset.char;
-                const header = card.querySelector('.character-header');
-                const body = card.querySelector('.character-body');
-                
-                // Default to collapsed if not in localStorage
-                const shouldBeCollapsed = collapsedChars[charId] !== false;
-                
-                if (shouldBeCollapsed) {
-                    header.classList.add('collapsed');
-                    body.classList.add('collapsed');
-                    card.classList.remove('expanded');
-                } else {
-                    header.classList.remove('collapsed');
-                    body.classList.remove('collapsed');
-                    card.classList.add('expanded');
-                }
-            });
-        }
-        
-        async function refreshData() {
-            try {
-                const response = await fetch('/api/data');
-                const data = await response.json();
-                
-                // Update timestamp always
-                document.getElementById('last-updated').textContent = data.last_updated;
-                
-                // Only update summary cards and account stats if money is NOT hidden
-                if (!isMoneyHidden) {
-                    document.getElementById('sum-total-gil').textContent = formatNumber(data.summary.total_gil);
-                    document.getElementById('sum-treasure').textContent = formatNumber(data.summary.total_treasure);
-                    document.getElementById('sum-with-treasure').textContent = formatNumber(data.summary.total_with_treasure);
-                    document.getElementById('sum-ready-subs').textContent = data.summary.ready_subs;
-                    document.getElementById('sum-total-subs').textContent = data.summary.enabled_subs;
-                    document.getElementById('sum-ready-retainers').textContent = data.summary.ready_retainers;
-                    document.getElementById('sum-total-retainers').textContent = data.summary.enabled_retainers;
-                    document.getElementById('sum-total-mb').textContent = data.summary.total_mb_items;
-                    document.getElementById('sum-max-mb').textContent = formatNumber(data.summary.max_mb_items);
-                    // Update max MB count if element exists
-                    const maxMbCountEl = document.getElementById('sum-max-mb-count');
-                    if (maxMbCountEl) maxMbCountEl.textContent = data.summary.max_mb_retainer_count;
-                    document.getElementById('sum-monthly-income').textContent = formatNumber(Math.floor(data.summary.monthly_income));
-                    document.getElementById('sum-monthly-cost').textContent = formatNumber(Math.floor(data.summary.monthly_cost));
-                    document.getElementById('sum-annual-income').textContent = formatNumber(Math.floor(data.summary.annual_income));
-                    document.getElementById('sum-annual-profit').textContent = formatNumber(Math.floor(data.summary.annual_profit));
-                    
-                    // Update account stats
-                    data.accounts.forEach(account => {
-                        const section = document.querySelector(`[data-account="${account.nickname}"]`);
-                        if (section) {
-                            section.querySelector('.acc-gil').textContent = formatNumber(account.total_gil);
-                            section.querySelector('.acc-treasure').textContent = formatNumber(account.total_treasure);
-                            section.querySelector('.acc-ready-subs').textContent = account.ready_subs;
-                            section.querySelector('.acc-subs').textContent = account.total_subs;
-                            section.querySelector('.acc-ready-retainers').textContent = account.ready_retainers;
-                            section.querySelector('.acc-retainers').textContent = account.total_retainers;
-                            section.querySelector('.acc-mb').textContent = account.total_mb_items;
-                            section.querySelector('.acc-max-mb').textContent = formatNumber(account.max_mb_items);
-                            // Update max MB count if element exists
-                            const accMaxMbCount = section.querySelector('.acc-max-mb-count');
-                            if (accMaxMbCount) accMaxMbCount.textContent = account.max_mb_retainer_count;
-                            // Update mb-max class on account stats span
-                            const mbSpan = section.querySelector('.acc-mb').closest('span');
-                            if (mbSpan) {
-                                if (account.has_max_mb_retainer) {
-                                    mbSpan.classList.add('mb-max');
-                                } else {
-                                    mbSpan.classList.remove('mb-max');
-                                }
-                            }
-                        }
-                    });
-                    
-                    // Update character card has-max-mb class
-                    data.accounts.forEach(account => {
-                        account.characters.forEach(char => {
-                            const card = document.querySelector(`[data-char="${char.cid}"]`);
-                            if (card) {
-                                if (char.has_max_mb_retainer) {
-                                    card.classList.add('has-max-mb');
-                                } else {
-                                    card.classList.remove('has-max-mb');
-                                }
-                            }
-                        });
-                    });
-                }
-                
-                // Re-apply anonymize if active
-                if (isAnonymized) {
-                    originalData.clear();
-                    anonymizeAll();
-                }
-                
-                console.log('Data refreshed at', data.last_updated);
-            } catch (error) {
-                console.error('Failed to refresh data:', error);
-            }
-        }
-        
-        // Set dynamic sticky positions based on sticky-top-section height
-        function updateStickyPositions() {
-            const stickyTop = document.querySelector('.sticky-top-section');
-            const firstAccountHeader = document.querySelector('.account-header');
-            if (stickyTop) {
-                const stickyHeight = stickyTop.offsetHeight;
-                const accountHeaderHeight = firstAccountHeader ? firstAccountHeader.offsetHeight : 45;
-                document.querySelectorAll('.account-header').forEach(el => {
-                    el.style.top = stickyHeight + 'px';
-                });
-                document.querySelectorAll('.sort-bar').forEach(el => {
-                    el.style.top = (stickyHeight + accountHeaderHeight) + 'px';
-                });
-            }
-        }
-        
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            restoreCollapsedState();
-            updateStickyPositions();
-            window.addEventListener('resize', updateStickyPositions);
-            
-            // Start auto-refresh if enabled
-            if (REFRESH_INTERVAL > 0) {
-                setInterval(refreshData, REFRESH_INTERVAL);
-            }
-        });
-    </script>
-</body>
-</html>
-'''
+    try:
+        disable_window_minutes = int(data.get("DisableRetainerVesselReturn", 0) or 0)
+    except Exception:
+        disable_window_minutes = 0
 
+    state["disable_window_minutes"] = disable_window_minutes
+    if disable_window_minutes <= 0:
+        return state
 
-# ===============================================
-# Map Page Data Collection
-# ===============================================
-# Region character limits per account
-REGION_CHAR_LIMITS = {"NA": 40, "EU": 40, "JP": 40, "OCE": 39}
-MAX_CHARS_PER_WORLD = 8
-MAX_PLOTS_PER_WARD = 60
-DISTRICT_ORDER = ["Goblet", "LB", "Mist", "Empyreum", "Shirogane"]
+    nickname = account_entry["nickname"]
+    account_state = submarine_state_cache.get(nickname)
+    if account_state is None:
+        account_state = _load_farmer_snapshot_state(nickname)
 
+    latest_key = None
+    latest_state = None
+    latest_sent_timestamp = None
+    for key, char_state in account_state.items():
+        if not isinstance(key, tuple) or not isinstance(char_state, dict):
+            continue
+        sent_timestamp = _parse_snapshot_timestamp(char_state.get("last_sub_sent"))
+        if sent_timestamp is None:
+            continue
+        if latest_sent_timestamp is None or sent_timestamp > latest_sent_timestamp:
+            latest_key = key
+            latest_state = char_state
+            latest_sent_timestamp = sent_timestamp
 
-def get_map_data():
-    """
-    Collect all data needed for the /map/ page:
-    - Plot locations by district/ward with character details
-    - Characters not in FC grouped by account
-    - Per-account, per-region, per-world character counts
-    - Capacity calculations for FC planning
-    """
-    plot_list = []           # All individual plot entries
-    district_ward_map = {}   # district -> ward -> [plot entries]
-    seen_fc_plots = {}       # Deduplicate FC plots by world+district+ward+plot (same as main page)
-    no_fc_chars = []         # Characters not in any FC
-    account_summaries = []   # Per-account capacity info
-    account_xa_maps = {}
-    xa_housing_size_lookup = {}
+    state["last_sent_timestamp"] = latest_sent_timestamp
+    if latest_key is None or latest_state is None or latest_sent_timestamp is None:
+        return state
 
-    # First pass: build global FC manager map across ALL accounts
-    # Maps fc_key -> {name, account} for the first char with active subs per FC
-    global_fc_managers = {}
-    for account in account_locations:
-        auto_path = account["auto_path"]
-        if not os.path.isfile(auto_path):
+    if current_time - latest_sent_timestamp > (disable_window_minutes * 60) + TIMER_REFRESH_INTERVAL:
+        return state
+
+    ready_on_character = 0
+    next_pending_sub = None
+    for sub_entry in latest_state.get("sub_eta_timers", []):
+        if not isinstance(sub_entry, dict) or not bool(sub_entry.get("Processable")):
+            continue
+        hours_remaining = sub_entry.get("HoursRemaining")
+        if hours_remaining is None:
             continue
         try:
-            with open(auto_path, 'r', encoding='utf-8-sig') as f:
-                pre_data = json.load(f)
+            hours_remaining = float(hours_remaining)
         except Exception:
             continue
-        pre_fc_data = extract_fc_data(pre_data)
-        pre_characters = collect_characters(pre_data, account["nickname"])
-        pre_housing = {}
-        lfstrm_path = account.get("lfstrm_path", "")
-        if lfstrm_path:
-            pre_housing = load_lifestream_data(lfstrm_path)
-        xa_db_path = account.get("xa_db_path", "")
-        pre_alto_map = scan_xa_db(xa_db_path) if xa_db_path else {}
-        account_xa_maps[account["nickname"]] = pre_alto_map
-        xa_housing_size_lookup.update(build_xa_housing_size_lookup(pre_alto_map))
-        for char in pre_characters:
-            cid = char.get("CID", 0)
-            if not bool(char.get("OfflineSubmarineData", [])):
-                continue
-            if char.get("ExcludeWorkshop", False) if HONOR_AR_EXCLUSIONS else False:
-                continue
-            world = char.get("World", "Unknown")
-            name = char.get("Name", "Unknown")
-            fc_name = pre_fc_data[cid].get("Name", "") if cid in pre_fc_data else ""
-            has_fc_house = cid in pre_housing and pre_housing[cid].get('fc') is not None
-            fc_key = None
-            if has_fc_house:
-                fcd = pre_housing[cid]['fc']
-                fc_key = f"{world}_{fcd['district']}_W{fcd['ward']}_P{fcd['plot']}"
-            elif fc_name:
-                fc_key = f"{world}_{fc_name}"
-            if fc_key and fc_key not in global_fc_managers:
-                global_fc_managers[fc_key] = {"name": name, "account": account["nickname"]}
-
-    sub_planner_accounts = []  # Per-account submarine planner data
-
-    for account in account_locations:
-        auto_path = account["auto_path"]
-        if not os.path.isfile(auto_path):
+        if hours_remaining < 0:
+            ready_on_character += 1
             continue
-
-        try:
-            with open(auto_path, 'r', encoding='utf-8-sig') as f:
-                data = json.load(f)
-        except Exception:
-            continue
-
-        build_plan_name_lookup(data)
-        fc_data = extract_fc_data(data)
-        characters = collect_characters(data, account["nickname"])
-
-        # Scan XA Database for highest_level
-        alto_map = account_xa_maps.get(account["nickname"], {})
-
-        # Load Lifestream housing
-        housing_map = {}
-        lfstrm_path = account.get("lfstrm_path", "")
-        if lfstrm_path:
-            housing_map = load_lifestream_data(lfstrm_path)
-
-        # Track per-account stats
-        acc_chars_total = 0
-        acc_chars_in_fc = 0
-        acc_chars_in_fc_no_subs = 0  # orange: FC house no subs OR duplicate FC (managed by alt)
-        acc_chars_no_fc = 0
-        acc_chars_excluded = 0
-        acc_region_counts = {}   # region -> count of chars
-        acc_world_counts = {}    # world -> count of chars
-        acc_world_fc_counts = {} # world -> count of unique FCs with subs (green)
-        acc_world_fc_nosubs_counts = {} # world -> count of managed-by-alt (orange)
-        acc_world_excluded_counts = {} # world -> count of excluded chars
-        acc_region_fc = {}       # region -> count of unique FCs with subs (green)
-        acc_region_fc_nosubs = {} # region -> count of managed-by-alt (orange)
-        acc_region_excluded = {} # region -> count of excluded chars
-        acc_no_fc_list = []      # chars not in FC for this account
-        seen_fc_keys = {}        # FC plot dedup: fc_key -> first char name that claimed it
-        per_world_chars = {}     # world -> list of {name, status, fc_name} for clickable UI
-        acc_sub_chars = []       # Characters with subs for Sub Planner
-
-        for char in characters:
-            cid = char.get("CID", 0)
-            name = char.get("Name", "Unknown")
-            world = char.get("World", "Unknown")
-            region = region_from_world(world)
-
-            # Get highest level from XA Database
-            xa_snapshot = alto_map.get(cid, {})
-            highest_level = xa_snapshot.get("highest_level", 0)
-            if cid in housing_map:
-                housing_map[cid] = apply_xa_housing_sizes(housing_map[cid], xa_snapshot, xa_housing_size_lookup)
-
-            # FC membership for capacity planner
-            fc_name = ""
-            if cid in fc_data:
-                fc_name = fc_data[cid].get("Name", "")
-
-            # Check AR exclusion settings for this character
-            exclude_workshop = char.get("ExcludeWorkshop", False) if HONOR_AR_EXCLUSIONS else False
-            is_excluded = exclude_workshop
-
-            has_subs = bool(char.get("OfflineSubmarineData", []))
-            has_fc_house = cid in housing_map and housing_map[cid].get('fc') is not None
-
-            # Build FC key for dedup (same plot = same FC = same earnings)
-            fc_key = None
-            if has_fc_house:
-                fcd = housing_map[cid]['fc']
-                fc_key = f"{world}_{fcd['district']}_W{fcd['ward']}_P{fcd['plot']}"
-            elif fc_name:
-                fc_key = f"{world}_{fc_name}"
-
-            # Classify character into 4 categories:
-            # GREEN  (in_fc):         unique FC with active subs
-            # ORANGE (in_fc_no_subs): managed by alt — FC house no subs, or duplicate FC with subs
-            # GRAY   (excluded):      ExcludeWorkshop enabled
-            # YELLOW (can_join):      not in any FC
-            if is_excluded:
-                char_status = "excluded"
-            elif has_subs:
-                if fc_key and fc_key in seen_fc_keys:
-                    char_status = "fc_managed"  # duplicate FC — subs managed by another toon
-                else:
-                    char_status = "in_fc"  # unique FC with active subs
-                    if fc_key:
-                        seen_fc_keys[fc_key] = {"name": name, "account": account["nickname"]}
-            elif has_fc_house:
-                char_status = "fc_managed"  # has FC plot but no subs on this char
-            else:
-                char_status = "can_join"
-
-            acc_chars_total += 1
-            if char_status == "excluded":
-                acc_chars_excluded += 1
-            elif char_status == "in_fc":
-                acc_chars_in_fc += 1
-            elif char_status == "fc_managed":
-                acc_chars_in_fc_no_subs += 1
-            else:
-                acc_chars_no_fc += 1
-
-            # Region/world counts
-            if region:
-                acc_region_counts[region] = acc_region_counts.get(region, 0) + 1
-                if char_status == "excluded":
-                    acc_region_excluded[region] = acc_region_excluded.get(region, 0) + 1
-                elif char_status == "in_fc":
-                    acc_region_fc[region] = acc_region_fc.get(region, 0) + 1
-                elif char_status == "fc_managed":
-                    acc_region_fc_nosubs[region] = acc_region_fc_nosubs.get(region, 0) + 1
-            if world:
-                acc_world_counts[world] = acc_world_counts.get(world, 0) + 1
-                if char_status == "excluded":
-                    acc_world_excluded_counts[world] = acc_world_excluded_counts.get(world, 0) + 1
-                elif char_status == "in_fc":
-                    acc_world_fc_counts[world] = acc_world_fc_counts.get(world, 0) + 1
-                elif char_status == "fc_managed":
-                    acc_world_fc_nosubs_counts[world] = acc_world_fc_nosubs_counts.get(world, 0) + 1
-
-            # Track character for clickable world UI
-            if world not in per_world_chars:
-                per_world_chars[world] = []
-            char_info = {
-                "name": name,
-                "status": char_status,
-                "fc_name": fc_name,
+        if hours_remaining > 0 and (next_pending_sub is None or hours_remaining < next_pending_sub["hours"]):
+            next_pending_sub = {
+                "name": str(sub_entry.get("Name", "")),
+                "hours": hours_remaining,
             }
-            if char_status == "fc_managed" and fc_key and fc_key in global_fc_managers:
-                mgr = global_fc_managers[fc_key]
-                char_info["managed_by"] = mgr["name"]
-                char_info["managed_by_account"] = mgr["account"]
-            per_world_chars[world].append(char_info)
 
-            # Characters not in FC (can_join or excluded — not green/orange)
-            if char_status in ("can_join", "excluded"):
-                char_entry = {
-                    "name": name,
-                    "world": world,
-                    "region": region,
-                    "highest_level": highest_level,
-                    "account": account["nickname"],
-                    "has_fc_house": False,
-                    "has_private_house": False,
-                    "is_excluded": is_excluded,
-                }
-                if cid in housing_map:
-                    if housing_map[cid].get('fc'):
-                        char_entry["has_fc_house"] = True
-                    if housing_map[cid].get('private'):
-                        char_entry["has_private_house"] = True
-                        pd = housing_map[cid]['private']
-                        char_entry["private_house"] = f"{pd['district']} W{pd['ward']} P{pd['plot']}"
-                acc_no_fc_list.append(char_entry)
-                no_fc_chars.append(char_entry)
+    if ready_on_character > 0 or next_pending_sub is None:
+        return state
 
-            # Collect plot data from housing_map
-            if cid in housing_map:
-                for plot_type in ['private', 'fc']:
-                    pd = housing_map[cid].get(plot_type)
-                    if pd:
-                        # Deduplicate FC plots by world+district+ward+plot (same as main page unique_fc_plots)
-                        plot_key = f"{world}_{pd['district']}_W{pd['ward']}_P{pd['plot']}"
-                        if plot_type == 'fc':
-                            existing_fc_entry = seen_fc_plots.get(plot_key)
-                            if existing_fc_entry:
-                                if not existing_fc_entry.get("size") and pd.get("size"):
-                                    existing_fc_entry["size"] = pd["size"]
-                                if not existing_fc_entry.get("fc_name") and fc_name:
-                                    existing_fc_entry["fc_name"] = fc_name
-                                continue
+    if next_pending_sub["hours"] > (disable_window_minutes / 60.0):
+        return state
 
-                        entry = {
-                            "type": plot_type,
-                            "district": pd['district'],
-                            "ward": pd['ward'],
-                            "plot": pd['plot'],
-                            "world": world,
-                            "region": region,
-                            "data_center": datacenter_from_world(world),
-                            "size": pd.get('size', ''),
-                            "character": name,
-                            "account": account["nickname"],
-                            "fc_name": fc_name if plot_type == 'fc' else "",
-                        }
-                        if plot_type == 'fc':
-                            seen_fc_plots[plot_key] = entry
-                        plot_list.append(entry)
+    state.update({
+        "active": True,
+        "character_name": latest_key[1],
+        "content_id": latest_key[0],
+        "sub_name": next_pending_sub["name"],
+        "next_sub_hours": next_pending_sub["hours"],
+    })
+    return state
 
-                        # Build district -> ward map
-                        dist = pd['district']
-                        if dist not in district_ward_map:
-                            district_ward_map[dist] = {}
-                        ward = pd['ward']
-                        if ward not in district_ward_map[dist]:
-                            district_ward_map[dist][ward] = []
-                        district_ward_map[dist][ward].append(entry)
+def format_hours(hours, ready_count=0, is_running=False, force247uptime=False, ready_retainers=0, soonest_retainer_hours=None):
+    """Format hours with + prefix for positive values and ready count.
+    When force247uptime=True and no subs ready but retainers ready, show (xx Ret.) instead.
+    When force247uptime=True and no retainers ready but retainers on ventures, show retainer timer.
+    """
+    if hours is None:
+        return "N/A"
+    if hours >= 0:
+        # For force247uptime accounts with ready retainers but no ready subs, show retainer count
+        # This shows (xx Ret.) regardless of hours threshold since retainers need processing
+        if is_running and ready_count == 0 and force247uptime and ready_retainers > 0:
+            return f"+{hours:.1f} hours ({ready_retainers} Ret.)"
+        # For force247uptime accounts with no ready retainers but retainers on ventures, show retainer timer
+        if is_running and ready_count == 0 and force247uptime and ready_retainers == 0 and soonest_retainer_hours is not None:
+            # Convert hours to minutes for retainer timer display
+            retainer_minutes = soonest_retainer_hours * 60
+            if retainer_minutes < 0:
+                return f"+{hours:.1f} hours ({int(retainer_minutes)}min)"
+            else:
+                return f"+{hours:.1f} hours (+{int(retainer_minutes)}min)"
+        # Show (WAITING) when game is running with 0 ready subs and within threshold
+        if is_running and ready_count == 0 and hours <= AUTO_CLOSE_THRESHOLD:
+            return f"+{hours:.1f} hours (WAITING)"
+        return f"+{hours:.1f} hours"
+    else:
+        # Negative means already returned
+        return f"{hours:.1f} hours ({ready_count} READY)"
 
-            # Collect submarine data for Sub Planner
-            submarines = parse_submarine_data(char)
-            if submarines:
-                subs_sleeping = not char.get("WorkshopEnabled", True)
-                sub_list = []
-                for s in submarines:
-                    # Compact ETA: "R" if ready, "Xh" or "Xm" or "XdYh"
-                    eta = "R"
-                    if not s.get("is_ready", False) and s.get("return_time"):
-                        delta = datetime.datetime.fromtimestamp(s["return_time"]) - datetime.datetime.now()
-                        secs = delta.total_seconds()
-                        if secs > 0:
-                            hrs = int(secs // 3600)
-                            mins = int((secs % 3600) // 60)
-                            if hrs >= 24:
-                                eta = f"{hrs // 24}d{hrs % 24}h"
-                            elif hrs > 0:
-                                eta = f"{hrs}h"
+def display_submarine_timers(game_status_dict=None, client_start_times=None, launcher_failed_accounts=None, last_sub_processed=None, retainer_mode_active=None, vessel_waiting_states=None):
+    """Display submarine timers for all accounts"""
+    # Clear screen
+    os.system('cls' if os.name == 'nt' else 'clear')
+    
+    # Use empty dict/set if none provided
+    if game_status_dict is None:
+        game_status_dict = {}
+    if client_start_times is None:
+        client_start_times = {}
+    if launcher_failed_accounts is None:
+        launcher_failed_accounts = set()
+    if last_sub_processed is None:
+        last_sub_processed = {}
+    if retainer_mode_active is None:
+        retainer_mode_active = {}
+    if vessel_waiting_states is None:
+        vessel_waiting_states = {}
+    
+    print("=" * 85)
+    print(f"Auto-Autoretainer {VERSION}{VERSION_SUFFIX}\nFFXIV Game Instance Manager")
+    print("=" * 85)
+    print(f"Updated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 85)
+    print()
+    
+    account_data = []
+    total_ready_subs = 0
+    total_all_subs = 0
+    all_builds = []
+    all_plans = []  # Track plan names for plan-based gil calculation
+    all_days_remaining = []
+    all_inventory_spaces = []  # Track inventory spaces for sub-only farmer characters
+    all_retainer_inventory_spaces = []  # Track inventory spaces for retainer farmer characters
+    
+    for account_entry in account_locations:
+        timer_data = get_submarine_timers_for_account(account_entry)
+        account_data.append(timer_data)
+        total_ready_subs += timer_data["ready_subs"]
+        total_all_subs += timer_data["total_subs"]
+        all_builds.extend(timer_data["sub_builds"])
+        all_plans.extend(timer_data.get("sub_plans", []))
+        if timer_data.get("days_until_restocking") is not None:
+            all_days_remaining.append(timer_data["days_until_restocking"])
+        if timer_data.get("lowest_inventory_space") is not None:
+            all_inventory_spaces.append(timer_data["lowest_inventory_space"])
+        if timer_data.get("lowest_retainer_inventory_space") is not None:
+            all_retainer_inventory_spaces.append(timer_data["lowest_retainer_inventory_space"])
+    
+    # Display results
+    for data in account_data:
+        nickname = data["nickname"]
+        total_subs = data["total_subs"]
+        ready_subs = data["ready_subs"]
+        soonest_hours = data["soonest_hours"]
+        ready_retainers = data.get("ready_retainers", 0)
+        vessel_waiting_state = vessel_waiting_states.get(nickname, {})
+        vessel_waiting_active = bool(vessel_waiting_state.get("active"))
+        soonest_retainer_hours = data.get("soonest_retainer_hours")
+        account_entry = next((acc for acc in account_locations if acc["nickname"] == nickname), None)
+        automation_hours_str = format_automation_hours_status(account_entry, datetime.datetime.now()) if account_entry else ""
+        automation_hours_formatted = f"{automation_hours_str:{AUTOMATION_HOURS_WIDTH}s}" if automation_hours_str else ""
+        
+        if not data["include_submarines"]:
+            # Show game status even with submarines disabled (for force247uptime monitoring)
+            subs_disabled_str = "Disabled"
+            
+            # Check if account has launcher failures
+            if nickname in launcher_failed_accounts:
+                status_str = f"{'[LAUNCHER]':{STATUS_WIDTH}s}"
+                print(f"{nickname:{NICKNAME_WIDTH}s} {subs_disabled_str:{SUBS_COUNT_WIDTH}s}:{'':{HOURS_WIDTH+1}s}{status_str}{automation_hours_formatted}")
+                continue
+            
+            # Get game status and force247uptime flag
+            force247 = account_entry.get("force247uptime", False) if account_entry else False
+            game_info = game_status_dict.get(nickname, (None, None))
+            is_running = game_info[0]
+            process_id = game_info[1]
+            
+            status_str = ""
+            pid_uptime_str = ""
+            if is_running is not None:
+                if is_running:
+                    # Show [Up 24/7] if force247uptime is True, otherwise [Running]
+                    if force247:
+                        status_str = f"{'[Up 24/7]':{STATUS_WIDTH}s}"
+                    else:
+                        status_str = f"{'[Running]':{STATUS_WIDTH}s}"
+                    
+                    # Handle PID and uptime display differently based on mode
+                    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                        # Single client mode: get actual PID from process and use 'ffxiv_single' for start time
+                        if PSUTIL_AVAILABLE:
+                            try:
+                                for proc in psutil.process_iter(['pid', 'name']):
+                                    if proc.info['name'].lower() == 'ffxiv_dx11.exe':
+                                        actual_pid = proc.info['pid']
+                                        pid_part = f"PID: {actual_pid}"
+                                        pid_formatted = f"{pid_part:{PID_WIDTH}s}"
+                                        
+                                        # Calculate uptime using 'ffxiv_single' key
+                                        current_time = time.time()
+                                        start_time = client_start_times.get('ffxiv_single')
+                                        if start_time is not None:
+                                            uptime_hours = (current_time - start_time) / 3600.0
+                                            uptime_part = f"UPTIME: {uptime_hours:.1f} hrs"
+                                            pid_uptime_str = f"{pid_formatted}{uptime_part}"
+                                        else:
+                                            pid_uptime_str = pid_formatted
+                                        break
+                            except Exception:
+                                pass
+                    else:
+                        # Multi-client mode: use PID from window detection
+                        if process_id:
+                            pid_part = f"PID: {process_id}"
+                            pid_formatted = f"{pid_part:{PID_WIDTH}s}"
+                            
+                            # Calculate uptime if we have start time
+                            current_time = time.time()
+                            start_time = client_start_times.get(process_id)
+                            if start_time is not None:
+                                uptime_hours = (current_time - start_time) / 3600.0
+                                uptime_part = f"UPTIME: {uptime_hours:.1f} hrs"
+                                pid_uptime_str = f"{pid_formatted}{uptime_part}"
                             else:
-                                eta = f"{mins}m"
-                    sub_list.append({
-                        "name": s["name"],
-                        "level": s["level"],
-                        "build": s["build"],
-                        "plan_name": s.get("plan_name", ""),
-                        "is_farming": s.get("is_farming", False),
-                        "is_leveling": s.get("is_leveling", False),
-                        "eta": eta,
-                    })
-
-                # Character inventory stats
-                ceruleum = char.get("Ceruleum", 0)
-                repair_kits = char.get("RepairKits", 0)
-                inventory_space = char.get("InventorySpace", 0)
-                total_tanks_per_day = sum(s.get("tanks_per_day", 0) for s in submarines)
-                total_kits_per_day = sum(s.get("kits_per_day", 0) for s in submarines)
-                restock_days = None
-                if total_tanks_per_day > 0 and total_kits_per_day > 0:
-                    d_tanks = ceruleum / total_tanks_per_day if ceruleum > 0 else 0
-                    d_kits = repair_kits / total_kits_per_day if repair_kits > 0 else 0
-                    restock_days = int(min(d_tanks, d_kits))
-
-                acc_sub_chars.append({
-                    "name": name,
-                    "world": world,
-                    "region": region,
-                    "fc_name": fc_name,
-                    "excluded": is_excluded,
-                    "sleeping": subs_sleeping,
-                    "subs": sub_list,
-                    "tanks": ceruleum,
-                    "kits": repair_kits,
-                    "restock_days": restock_days,
-                    "inventory": inventory_space,
-                })
-
-        # Calculate capacity per region
-        region_capacity = []
-        for reg in ["NA", "EU", "JP", "OCE"]:
-            limit = REGION_CHAR_LIMITS[reg]
-            current = acc_region_counts.get(reg, 0)
-            in_fc_count = acc_region_fc.get(reg, 0)
-            in_fc_no_subs_count = acc_region_fc_nosubs.get(reg, 0)
-            excluded_count = acc_region_excluded.get(reg, 0)
-            not_in_fc = current - in_fc_count - in_fc_no_subs_count - excluded_count
-            remaining = limit - current
-
-            # Per-world breakdown for this region
-            world_breakdown = []
-            for world_name in REGION_WORLD_ORDER.get(reg, []):
-                count = acc_world_counts.get(world_name, 0)
-                if count > 0:
-                    w_in_fc = acc_world_fc_counts.get(world_name, 0)
-                    w_in_fc_no_subs = acc_world_fc_nosubs_counts.get(world_name, 0)
-                    w_excluded = acc_world_excluded_counts.get(world_name, 0)
-                    w_not_in_fc = count - w_in_fc - w_in_fc_no_subs - w_excluded
-                    world_breakdown.append({"world": world_name, "count": count, "in_fc": w_in_fc, "in_fc_no_subs": w_in_fc_no_subs, "not_in_fc": w_not_in_fc, "excluded": w_excluded, "max": MAX_CHARS_PER_WORLD, "remaining": MAX_CHARS_PER_WORLD - count, "chars": per_world_chars.get(world_name, [])})
-
-            region_capacity.append({
-                "region": reg,
-                "limit": limit,
-                "current": current,
-                "in_fc": in_fc_count,
-                "in_fc_no_subs": in_fc_no_subs_count,
-                "not_in_fc": not_in_fc,
-                "excluded": excluded_count,
-                "remaining": remaining,
-                "worlds": world_breakdown,
-            })
-
-        account_summaries.append({
-            "nickname": account["nickname"],
-            "total_chars": acc_chars_total,
-            "in_fc": acc_chars_in_fc,
-            "in_fc_no_subs": acc_chars_in_fc_no_subs,
-            "not_in_fc": acc_chars_no_fc,
-            "excluded": acc_chars_excluded,
-            "no_fc_chars": acc_no_fc_list,
-            "region_capacity": region_capacity,
-        })
-
-        if acc_sub_chars:
-            sub_planner_accounts.append({
-                "nickname": account["nickname"],
-                "characters": acc_sub_chars,
-                "total_subs": sum(len(c["subs"]) for c in acc_sub_chars),
-                "total_chars": len(acc_sub_chars),
-            })
-
-    # Build district summary for visualization (ordered: Goblet, LB, Mist, Empyreum, Shirogane)
-    district_summary = {}
-    # Process in defined order, then any extras alphabetically
-    ordered_districts = [d for d in DISTRICT_ORDER if d in district_ward_map]
-    ordered_districts += sorted(d for d in district_ward_map if d not in DISTRICT_ORDER)
-    for dist in ordered_districts:
-        wards = district_ward_map[dist]
-        ward_list = []
-        for ward_num in sorted(wards.keys()):
-            plots = sorted(wards[ward_num], key=lambda p: p['plot'])
-            fc_count = sum(1 for p in plots if p['type'] == 'fc')
-            personal_count = sum(1 for p in plots if p['type'] == 'private')
-            ward_list.append({
-                "ward": ward_num,
-                "plots": plots,
-                "fc_count": fc_count,
-                "personal_count": personal_count,
-                "total": len(plots),
-            })
-        district_summary[dist] = {
-            "wards": ward_list,
-            "total_plots": sum(w['total'] for w in ward_list),
-            "total_fc": sum(w['fc_count'] for w in ward_list),
-            "total_personal": sum(w['personal_count'] for w in ward_list),
-            "ward_count": len(ward_list),
-        }
-
-    total_plots = sum(d['total_plots'] for d in district_summary.values())
-    total_fc = sum(d['total_fc'] for d in district_summary.values())
-    total_personal = sum(d['total_personal'] for d in district_summary.values())
-
-    # Aggregate character counts across all accounts
-    total_chars = sum(a["total_chars"] for a in account_summaries)
-    total_in_fc = sum(a["in_fc"] for a in account_summaries)
-    total_in_fc_no_subs = sum(a["in_fc_no_subs"] for a in account_summaries)
-    total_not_in_fc = sum(a["not_in_fc"] for a in account_summaries)
-    num_accounts = len(account_summaries)
-
-    # Max capacity: sum of all region limits across all accounts
-    max_capacity = 0
-    for acc in account_summaries:
-        for rc in acc["region_capacity"]:
-            max_capacity += rc["limit"]
-
-    # FC coverage percentage
-    fc_coverage_pct = round(total_in_fc / total_chars * 100, 1) if total_chars > 0 else 0
-
-    # Max ward total across all districts (for bar chart scaling)
-    max_ward_total = 0
-    for dist_data in district_summary.values():
-        for w in dist_data["wards"]:
-            if w["total"] > max_ward_total:
-                max_ward_total = w["total"]
-
-    available_plot_regions = {p["region"] for p in plot_list if p.get("region")}
-
-    return {
-        "plots": plot_list,
-        "district_summary": district_summary,
-        "district_ward_map": district_ward_map,
-        "no_fc_chars": no_fc_chars,
-        "account_summaries": account_summaries,
-        "total_plots": total_plots,
-        "total_fc": total_fc,
-        "total_personal": total_personal,
-        "total_chars": total_chars,
-        "total_in_fc": total_in_fc,
-        "total_in_fc_no_subs": total_in_fc_no_subs,
-        "total_not_in_fc": total_not_in_fc,
-        "num_accounts": num_accounts,
-        "max_capacity": max_capacity,
-        "fc_coverage_pct": fc_coverage_pct,
-        "max_ward_total": max_ward_total,
-        "sub_planner_accounts": sub_planner_accounts,
-        "plot_regions": [region for region in REGION_ORDER if region in available_plot_regions],
-        "plot_world_options": PLOT_WORLD_OPTIONS,
-        "plot_account_names": sorted(set(p["account"] for p in plot_list if p.get("account"))),
-        "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    }
-
-
-# ===============================================
-# Map Page HTML Template
-# ===============================================
-MAP_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plot Map - AutoRetainer Dashboard</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
-    <style>
-        :root {
-            --bg-primary: #1a1a2e;
-            --bg-secondary: #16213e;
-            --bg-card: #0f3460;
-            --bg-hover: #1a4a7a;
-            --text-primary: #e8e8e8;
-            --text-secondary: #a0a0a0;
-            --accent: #3a7aaa;
-            --accent-light: #4a9aca;
-            --accent-highlight: #e94560;
-            --success: #00d26a;
-            --warning: #ffc107;
-            --border: #2a2a4a;
-            --gold: #ffd700;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
-
-        .top-bar {
-            background: var(--bg-secondary);
-            border-bottom: 2px solid var(--border);
-            padding: 12px 24px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        .top-bar h1 { font-size: 1.3rem; color: var(--accent-light); }
-        .top-bar h1 span { color: var(--text-secondary); font-weight: 400; font-size: 0.85rem; margin-left: 8px; }
-        .top-bar a { color: var(--accent-light); text-decoration: none; font-size: 0.9rem; padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; transition: all 0.2s; }
-        .top-bar a:hover { background: var(--bg-hover); border-color: var(--accent); }
-        .top-bar a.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-        .container { max-width: 1700px; margin: 0 auto; padding: 20px; }
-
-        /* Summary cards */
-        .summary-row {
-            display: flex;
-            gap: 16px;
-            margin-bottom: 24px;
-            flex-wrap: wrap;
-        }
-        .summary-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px 24px;
-            flex: 1;
-            min-width: 160px;
-            text-align: center;
-        }
-        .summary-card .value { font-size: 2rem; font-weight: 700; color: var(--accent-light); }
-        .summary-card .label { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; }
-        .summary-card .sublabel { font-size: 0.7rem; color: var(--text-secondary); margin-top: 4px; }
-        .summary-card.fc .value { color: var(--success); }
-        .summary-card.personal .value { color: var(--gold); }
-        .summary-card.warn .value { color: var(--warning); }
-        .summary-card.accent .value { color: var(--accent-highlight); }
-
-        .info-disclaimer {
-            background: rgba(58, 122, 170, 0.1);
-            border: 1px solid rgba(58, 122, 170, 0.3);
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin: 8px 0 16px 0;
-            font-size: 0.78rem;
-            color: var(--text-secondary);
-            line-height: 1.5;
-        }
-        .info-disclaimer strong { color: var(--accent-light); }
-
-        /* Section headers */
-        .section-header {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--accent-light);
-            margin: 28px 0 14px 0;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* District visualization */
-        .district-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 12px;
-            margin-bottom: 24px;
-        }
-        .district-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            overflow: visible;
-            transition: border-color 0.2s;
-        }
-        .district-card:hover { border-color: var(--accent); }
-        .district-card-header {
-            padding: 10px 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            border-radius: 10px 10px 0 0;
-            background: var(--bg-card);
-        }
-        .district-name { font-weight: 700; font-size: 1.05rem; }
-        .district-count {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            display: flex;
-            gap: 10px;
-        }
-        .district-count .fc-tag { color: var(--success); }
-        .district-count .personal-tag { color: var(--gold); }
-        .district-body { padding: 10px 10px; border-radius: 0 0 10px 10px; background: var(--bg-card); }
-
-        /* Ward rows */
-        .ward-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 5px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
-        }
-        .ward-row:last-child { border-bottom: none; }
-        .ward-label {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            width: 30px;
-            flex-shrink: 0;
-            font-weight: 600;
-        }
-        .ward-plots { display: flex; gap: 3px; flex-wrap: wrap; flex: 1; }
-
-        /* Plot dots */
-        .plot-dot {
-            width: 18px;
-            height: 18px;
-            border-radius: 3px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.48rem;
-            font-weight: 700;
-            cursor: default;
-            position: relative;
-            transition: transform 0.15s;
-        }
-        .plot-dot:hover { transform: scale(1.4); z-index: 50; }
-        .plot-dot.fc { background: var(--success); color: #000; }
-        .plot-dot.private { background: var(--gold); color: #000; }
-
-        /* Tooltip */
-        .plot-dot .tooltip {
-            display: none;
-            position: absolute;
-            bottom: 130%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #111;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 6px 10px;
-            white-space: nowrap;
-            font-size: 0.75rem;
-            color: var(--text-primary);
-            z-index: 50;
-            pointer-events: none;
-            font-weight: 400;
-        }
-        .plot-dot:hover .tooltip { display: block; }
-
-        /* Ward bar chart */
-        .ward-bar-container { margin-top: 10px; }
-        .ward-bar-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 4px;
-        }
-        .ward-bar-label {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            width: 52px;
-            flex-shrink: 0;
-            text-align: right;
-        }
-        .ward-bar-track {
-            flex: 1;
-            height: 14px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 3px;
-            overflow: hidden;
-            display: flex;
-        }
-        .ward-bar-fc {
-            height: 100%;
-            background: var(--success);
-            transition: width 0.4s;
-        }
-        .ward-bar-personal {
-            height: 100%;
-            background: var(--gold);
-            transition: width 0.4s;
-        }
-        .ward-bar-value {
-            font-size: 0.7rem;
-            color: var(--text-secondary);
-            width: 40px;
-            text-align: right;
-            flex-shrink: 0;
-        }
-
-        /* View toggle */
-        .view-toggle {
-            display: flex;
-            gap: 4px;
-            background: var(--bg-secondary);
-            border-radius: 8px;
-            padding: 3px;
-            border: 1px solid var(--border);
-        }
-        .view-toggle button {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            padding: 5px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            transition: all 0.2s;
-        }
-        .view-toggle button.active { background: var(--accent); color: #fff; }
-        .view-toggle button:hover:not(.active) { color: var(--text-primary); }
-        .plot-filters {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            align-items: center;
-            margin-bottom: 12px;
-            font-size: 0.8rem;
-        }
-        .plot-filter-label {
-            color: var(--text-secondary);
-            font-weight: 600;
-        }
-        .plot-filter-checkbox {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            cursor: pointer;
-            color: var(--text-secondary);
-            white-space: nowrap;
-        }
-        .plot-filter-checkbox input {
-            cursor: pointer;
-        }
-        .plot-filter-divider {
-            color: var(--text-secondary);
-            opacity: 0.65;
-        }
-        .plot-world-dropdown {
-            position: relative;
-            min-width: 260px;
-        }
-        .plot-world-select-btn {
-            min-width: 260px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 7px 10px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: border-color 0.15s, background 0.15s;
-        }
-        .plot-world-select-btn:hover,
-        .plot-world-dropdown.open .plot-world-select-btn {
-            border-color: var(--accent);
-            background: rgba(255,255,255,0.04);
-        }
-        .plot-world-selected-label {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            text-align: left;
-        }
-        .plot-world-menu {
-            display: none;
-            position: absolute;
-            top: calc(100% + 6px);
-            left: 0;
-            width: 320px;
-            max-height: 340px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 10px;
-            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
-            z-index: 120;
-        }
-        .plot-world-menu.open {
-            display: block;
-        }
-        .plot-world-search {
-            width: 100%;
-            background: rgba(255,255,255,0.06);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 8px 10px;
-            font-size: 0.8rem;
-        }
-        .plot-world-search:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-        .plot-world-menu-actions {
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 8px;
-        }
-        .plot-world-action-btn {
-            background: rgba(255,255,255,0.06);
-            color: var(--text-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 6px 10px;
-            font-size: 0.76rem;
-            cursor: pointer;
-            transition: border-color 0.15s, background 0.15s, color 0.15s;
-        }
-        .plot-world-action-btn:hover:not(:disabled) {
-            border-color: var(--accent);
-            color: var(--text-primary);
-            background: rgba(255,255,255,0.09);
-        }
-        .plot-world-action-btn:disabled {
-            opacity: 0.45;
-            cursor: not-allowed;
-        }
-        .plot-world-options {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            margin-top: 8px;
-            max-height: 260px;
-            overflow-y: auto;
-            padding-right: 2px;
-        }
-        .plot-world-option {
-            background: rgba(255,255,255,0.04);
-            color: var(--text-primary);
-            border: 1px solid transparent;
-            border-radius: 8px;
-            padding: 8px 10px;
-            text-align: left;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            transition: border-color 0.15s, background 0.15s;
-        }
-        .plot-world-option:hover {
-            border-color: var(--accent);
-            background: rgba(255,255,255,0.07);
-        }
-        .plot-world-option.active {
-            border-color: var(--accent);
-            background: rgba(58, 122, 170, 0.18);
-        }
-        .plot-world-option-name {
-            font-size: 0.82rem;
-            font-weight: 600;
-        }
-        .plot-world-option-meta {
-            font-size: 0.72rem;
-            color: var(--text-secondary);
-        }
-
-        /* FC Planner section */
-        .planner-controls {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-        }
-        .planner-controls label { font-size: 0.85rem; color: var(--text-secondary); }
-        .planner-controls select {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 6px 12px;
-            font-size: 0.85rem;
-            cursor: pointer;
-        }
-        .planner-controls select:focus { outline: none; border-color: var(--accent); }
-
-        /* Region cards */
-        .region-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-        .region-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px;
-        }
-        .region-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        .region-card-header h3 { font-size: 1.05rem; color: var(--accent-light); }
-        .region-badge {
-            font-size: 0.75rem;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-weight: 600;
-        }
-        .region-badge.full { background: var(--accent-highlight); color: #fff; }
-        .region-badge.available { background: var(--success); color: #000; }
-
-        /* Capacity bar */
-        .capacity-bar {
-            height: 28px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 6px;
-            overflow: hidden;
-            display: flex;
-            margin: 8px 0;
-            position: relative;
-        }
-        .capacity-bar .in-fc {
-            height: 100%;
-            background: var(--success);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: #000;
-            min-width: 20px;
-            transition: width 0.4s;
-        }
-        .capacity-bar .in-fc-no-subs {
-            height: 100%;
-            background: #e67e22;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: #000;
-            min-width: 20px;
-            transition: width 0.4s;
-        }
-        .capacity-bar .not-in-fc {
-            height: 100%;
-            background: var(--warning);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: #000;
-            min-width: 20px;
-            transition: width 0.4s;
-        }
-        .capacity-bar .excluded {
-            height: 100%;
-            background: rgba(255,255,255,0.15);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: rgba(255,255,255,0.5);
-            min-width: 20px;
-            transition: width 0.4s;
-        }
-        .capacity-bar .remaining-space {
-            height: 100%;
-            flex: 1;
-        }
-        .capacity-legend {
-            display: flex;
-            gap: 16px;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            margin-top: 6px;
-        }
-        .capacity-legend span { display: flex; align-items: center; gap: 4px; cursor: default; }
-        .legend-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-        .legend-dot.fc-dot { background: var(--success); }
-        .legend-dot.fc-nosubs-dot { background: #e67e22; }
-        .legend-dot.nofc-dot { background: var(--warning); }
-        .legend-dot.excluded-dot { background: rgba(255,255,255,0.15); }
-        .legend-dot.empty-dot { background: rgba(255,255,255,0.1); }
-
-        .capacity-stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-top: 12px;
-            text-align: center;
-        }
-        .cap-stat { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 8px; }
-        .cap-stat .cap-val { font-size: 1.1rem; font-weight: 700; }
-        .cap-stat .cap-lbl { font-size: 0.7rem; color: var(--text-secondary); }
-        .cap-stat.green .cap-val { color: var(--success); }
-        .cap-stat.orange .cap-val { color: #e67e22; }
-        .cap-stat.yellow .cap-val { color: var(--warning); }
-        .cap-stat.gray .cap-val { color: rgba(255,255,255,0.5); }
-        .cap-stat.blue .cap-val { color: var(--accent-light); }
-
-        /* World breakdown */
-        .world-breakdown { margin-top: 12px; }
-        .world-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 4px 0;
-            font-size: 0.8rem;
-        }
-        .world-name { width: 100px; color: var(--text-secondary); }
-        .world-bar-track {
-            flex: 1;
-            height: 14px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 3px;
-            overflow: hidden;
-            display: flex;
-        }
-        .world-bar-fc {
-            height: 100%;
-            background: var(--success);
-            transition: width 0.3s;
-        }
-        .world-bar-fc-nosubs {
-            height: 100%;
-            background: #e67e22;
-            transition: width 0.3s;
-        }
-        .world-bar-nofc {
-            height: 100%;
-            background: var(--warning);
-            transition: width 0.3s;
-        }
-        .world-bar-excluded {
-            height: 100%;
-            background: rgba(255,255,255,0.15);
-            transition: width 0.3s;
-        }
-        .world-count { width: 40px; text-align: right; font-size: 0.75rem; color: var(--text-secondary); }
-        .world-row { cursor: pointer; border-radius: 4px; padding: 4px 6px !important; }
-        .world-row:hover { background: rgba(255,255,255,0.05); }
-        .world-chars {
-            display: none;
-            padding: 6px 8px 8px 108px;
-            font-size: 0.75rem;
-            line-height: 1.6;
-        }
-        .world-chars.open { display: block; }
-        .world-chars .ch-name { margin-right: 6px; }
-        .world-chars .ch-name.st-in_fc { color: var(--success); }
-        .world-chars .ch-name.st-fc_managed { color: #e67e22; }
-        .world-chars .ch-name.st-can_join { color: var(--warning); }
-        .world-chars .ch-name.st-excluded { color: rgba(255,255,255,0.4); }
-        .world-chars .ch-fc { font-size: 0.65rem; color: var(--text-secondary); }
-
-        /* Sub Planner */
-        .sub-planner-grid {
-            --sp-account-columns: 1;
-            --sp-char-column-width: 150px;
-            --sp-column-gap: 1px;
-            --sp-account-width: calc((var(--sp-account-columns) * var(--sp-char-column-width)) + ((var(--sp-account-columns) - 1) * var(--sp-column-gap)));
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            align-items: flex-start;
-            justify-content: flex-start;
-            overflow-x: auto;
-            padding-bottom: 4px;
-        }
-        .sp-account {
-            flex: 0 0 var(--sp-account-width);
-            width: var(--sp-account-width);
-            min-width: var(--sp-account-width);
-            box-sizing: border-box;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            overflow: hidden;
-        }
-        .sp-acc-header {
-            background: rgba(255,255,255,0.04);
-            padding: 4px 6px;
-            font-size: 0.65rem;
-            font-weight: 700;
-            color: var(--accent-light);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .sp-acc-header .sp-count {
-            font-weight: 400;
-            color: var(--text-secondary);
-            font-size: 0.55rem;
-        }
-        .sp-acc-body {
-            display: grid;
-            grid-template-columns: repeat(var(--sp-account-columns), var(--sp-char-column-width));
-            gap: var(--sp-column-gap);
-            background: rgba(255,255,255,0.05);
-        }
-        .sp-char {
-            padding: 2px 5px;
-            background: var(--bg-card);
-            min-width: 0;
-            box-sizing: border-box;
-        }
-        .sp-char-name {
-            font-size: 0.6rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 0;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .sp-char-name .sp-world {
-            font-weight: 400;
-            color: var(--text-secondary);
-            font-size: 0.55rem;
-        }
-        .sp-sub-row {
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            font-size: 0.58rem;
-            line-height: 1.35;
-            padding-left: 4px;
-        }
-        .sp-sub-lvl {
-            min-width: 22px;
-            font-weight: 600;
-        }
-        .sp-sub-lvl.farming { color: var(--success); }
-        .sp-sub-lvl.leveling { color: var(--warning); }
-        .sp-sub-lvl.finalize { color: #f85149; }
-        .sp-sub-lvl.redeploy { color: cyan; }
-        .sp-sub-build {
-            color: var(--text-secondary);
-            min-width: 34px;
-            font-family: monospace;
-            font-size: 0.55rem;
-        }
-        .sp-sub-eta {
-            min-width: 22px;
-            font-size: 0.55rem;
-            color: var(--text-secondary);
-            font-weight: 600;
-            text-align: center;
-        }
-        .sp-sub-eta.ready { color: var(--success); }
-        .sp-sub-plan {
-            color: var(--text-secondary);
-            font-size: 0.55rem;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            flex: 1;
-        }
-        .sp-inv-row {
-            display: flex;
-            gap: 4px;
-            padding: 1px 4px 2px;
-            font-size: 0.5rem;
-            color: var(--text-secondary);
-            border-top: 1px solid rgba(255,255,255,0.04);
-            flex-wrap: wrap;
-        }
-        .sp-inv-row span { cursor: default; white-space: nowrap; }
-        .sp-sort-bar {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            margin-bottom: 6px;
-            flex-wrap: wrap;
-        }
-        .sp-sort-btn {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            font-size: 0.65rem;
-            padding: 2px 7px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-        .sp-sort-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
-        .sp-sort-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-        .sp-char.excluded { opacity: 0.35; }
-        .sp-char.sleeping { opacity: 0.5; }
-        .sp-layout-control {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            margin-left: auto;
-            font-size: 0.65rem;
-            color: var(--text-secondary);
-        }
-        .sp-layout-control span { white-space: nowrap; }
-        .sp-column-select {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid var(--border);
-            color: var(--text-primary);
-            color-scheme: dark;
-            font-size: 0.65rem;
-            padding: 2px 6px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .sp-column-select option {
-            background: #1b2340;
-            color: #f5f7ff;
-        }
-        .sp-column-select option:checked,
-        .sp-column-select option:hover,
-        .sp-column-select option:focus {
-            background: var(--accent);
-            color: #ffffff;
-        }
-        .sp-column-select:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-        .fcdata-top-actions {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .privacy-toggle-btn {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-            padding: 5px 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-        .privacy-toggle-btn:hover {
-            background: rgba(255,255,255,0.1);
-            color: var(--text-primary);
-        }
-        .privacy-toggle-btn.active {
-            background: var(--accent);
-            color: #fff;
-            border-color: var(--accent);
-        }
-
-        /* No FC character table */
-        .char-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.85rem;
-        }
-        .char-table th {
-            text-align: left;
-            padding: 8px 12px;
-            background: var(--bg-secondary);
-            color: var(--text-secondary);
-            font-weight: 600;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid var(--border);
-        }
-        .char-table td {
-            padding: 6px 12px;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
-        }
-        .char-table tr:hover td { background: rgba(255,255,255,0.03); }
-        .char-table .lv-high { color: var(--success); font-weight: 600; }
-        .char-table .lv-mid { color: var(--warning); }
-        .char-table .lv-low { color: var(--text-secondary); }
-        .char-table .region-tag {
-            font-size: 0.7rem;
-            padding: 2px 6px;
-            border-radius: 4px;
-            background: rgba(255,255,255,0.08);
-            font-weight: 600;
-        }
-        .char-table .house-icon { font-size: 0.85rem; }
-
-        .no-data {
-            text-align: center;
-            padding: 40px;
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-        }
-
-        .footer-note {
-            text-align: center;
-            color: var(--text-secondary);
-            font-size: 0.75rem;
-            padding: 20px 0;
-            border-top: 1px solid var(--border);
-            margin-top: 30px;
-        }
-    </style>
-</head>
-<body>
-    <div class="top-bar">
-        <h1>🗺️ Plot Map & FC Planner <span>{{ version }}</span></h1>
-        <div class="fcdata-top-actions">
-            <span style="font-size:0.75rem;color:var(--text-secondary);">Updated: {{ data.last_updated }}</span>
-            <button id="fcdata-privacy-btn" class="privacy-toggle-btn" onclick="toggleFcDataPrivacy()" title="Censor player names on this page">🔒 Privacy</button>
-            <a href="/">📊 Dashboard</a>
-            <a href="/fcdata/" class="active">🏨 FC Data</a>
-            <a href="/data/">📝 Data</a>
-            <a href="/charts/">📈 Charts</a>
-        </div>
-    </div>
-
-    <div class="container">
-        <!-- Summary cards -->
-        <div class="summary-row">
-            <div class="summary-card">
-                <div class="value">{{ data.total_chars }}</div>
-                <div class="label">👥 Total Characters</div>
-                <div class="sublabel">{{ data.num_accounts }} accounts</div>
-            </div>
-            <div class="summary-card fc">
-                <div class="value">{{ data.total_in_fc }}</div>
-                <div class="label">✅ In FC</div>
-                <div class="sublabel">{{ data.fc_coverage_pct }}% coverage</div>
-            </div>
-            <div class="summary-card warn">
-                <div class="value">{{ data.total_not_in_fc }}</div>
-                <div class="label">⚠️ Can Join FC</div>
-                <div class="sublabel">of {{ data.max_capacity }} max capacity</div>
-            </div>
-            <div class="summary-card fc">
-                <div class="value">{{ data.total_fc }}</div>
-                <div class="label">🏨 FC Plots</div>
-                <div class="sublabel">{{ data.total_plots }} total plots</div>
-            </div>
-            <div class="summary-card personal">
-                <div class="value">{{ data.total_personal }}</div>
-                <div class="label">🏡 Personal Plots</div>
-                <div class="sublabel">{{ data.district_summary|length }} districts</div>
-            </div>
-        </div>
-
-        <!-- Plot Visualization -->
-        <div class="section-header">
-            <span>🏘️ Housing Plot Overview</span>
-            <div style="margin-left:auto;">
-                <div class="view-toggle">
-                    <button class="active" onclick="setView('dots', this)">Grid</button>
-                    <button onclick="setView('bars', this)">Bars</button>
-                </div>
-            </div>
-        </div>
-
-        {% if data.district_summary %}
-        <div class="plot-filters">
-            <span class="plot-filter-label">Region:</span>
-            <div class="view-toggle" id="region-plot-toggle">
-                <button class="active" onclick="setPlotRegion('all', this)">All</button>
-                {% for reg in data.plot_regions %}
-                <button onclick="setPlotRegion('{{ reg }}', this)">{{ reg }}</button>
-                {% endfor %}
-            </div>
-            <span class="plot-filter-label">World:</span>
-            <div class="plot-world-dropdown" id="plot-world-dropdown">
-                <button type="button" class="plot-world-select-btn" onclick="togglePlotWorldMenu(event)">
-                    <span class="plot-world-selected-label" id="plot-world-selected-label">All Worlds</span>
-                    <span>▾</span>
-                </button>
-                <div class="plot-world-menu" id="plot-world-menu" onclick="event.stopPropagation()">
-                    <input type="text" id="plot-world-search" class="plot-world-search" placeholder="Search world, data center, region..." oninput="filterPlotWorldOptions()">
-                    <div class="plot-world-menu-actions">
-                        <button type="button" class="plot-world-action-btn" id="plot-world-clear-btn" onclick="clearSelectedPlotWorlds()" disabled>Clear Selected</button>
-                    </div>
-                    <div class="plot-world-options">
-                        {% for world in data.plot_world_options %}
-                        <button type="button" class="plot-world-option" data-world="{{ world.name }}" data-search="{{ world.search_text }}" onclick="selectPlotWorld('{{ world.name }}', this)">
-                            <span class="plot-world-option-name">{{ world.name }}</span>
-                            <span class="plot-world-option-meta">{{ world.data_center }} | {{ world.region }}</span>
-                        </button>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            <span class="plot-filter-label">Accounts:</span>
-            {% for acc_name in data.plot_account_names %}
-            <label class="plot-filter-checkbox">
-                <input type="checkbox" checked onchange="filterPlots()" class="plot-acc-cb" value="{{ acc_name }}"> {{ acc_name }}
-            </label>
-            {% endfor %}
-            <span class="plot-filter-divider">|</span>
-            <span class="plot-filter-label">Sizes:</span>
-            <label class="plot-filter-checkbox">
-                <input type="checkbox" checked onchange="filterPlots()" class="plot-size-cb" value="Small"> Small
-            </label>
-            <label class="plot-filter-checkbox">
-                <input type="checkbox" checked onchange="filterPlots()" class="plot-size-cb" value="Medium"> Medium
-            </label>
-            <label class="plot-filter-checkbox">
-                <input type="checkbox" checked onchange="filterPlots()" class="plot-size-cb" value="Large"> Large
-            </label>
-        </div>
-        <div class="district-grid">
-            {% for dist_name, dist_data in data.district_summary.items() %}
-            <div class="district-card">
-                <div class="district-card-header">
-                    <span class="district-name">
-                        {% if dist_name == "Mist" %}🌊{% elif dist_name == "Goblet" %}🏜️{% elif dist_name == "LB" %}🌿{% elif dist_name == "Empyreum" %}⛰️{% elif dist_name == "Shirogane" %}🏯{% endif %}
-                        {{ dist_name }}
-                    </span>
-                    <span class="district-count">
-                        <span class="fc-tag">🏨 {{ dist_data.total_fc }}</span>
-                        <span class="personal-tag">🏡 {{ dist_data.total_personal }}</span>
-                    </span>
-                </div>
-                <div class="district-body">
-                    <!-- Dot view -->
-                    <div class="view-dots">
-                        {% for ward_data in dist_data.wards %}
-                        <div class="ward-row">
-                            <span class="ward-label">W{{ ward_data.ward }}</span>
-                            <div class="ward-plots">
-                                {% for plot in ward_data.plots %}
-                                <div class="plot-dot {{ plot.type }}" title="P{{ plot.plot }}" data-region="{{ plot.region }}" data-account="{{ plot.account }}" data-world="{{ plot.world }}" data-size="{{ plot.size or '' }}">
-                                    {{ plot.plot }}
-                                    <div class="tooltip">
-                                        <b class="fcdata-player-name" data-real-name="{{ plot.character }}">{{ plot.character }}</b><br>
-                                        {{ dist_name }} W{{ ward_data.ward }} P{{ plot.plot }}<br>
-                                        {{ "FC" if plot.type == "fc" else "Personal" }}{% if plot.size %} • {{ plot.size }}{% endif %}{% if plot.fc_name %} - {{ plot.fc_name }}{% endif %}<br>
-                                        <span style="color:var(--text-secondary)">{{ plot.world }}{% if plot.data_center %} | {{ plot.data_center }} | {{ plot.region }}{% endif %} ({{ plot.account }})</span>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <!-- Bar view -->
-                    <div class="view-bars" style="display:none;">
-                        <div class="ward-bar-container">
-                            {% for ward_data in dist_data.wards %}
-                            <div class="ward-bar-row">
-                                <span class="ward-bar-label">W{{ ward_data.ward }}</span>
-                                <div class="ward-bar-track">
-                                    <div class="ward-bar-fc" style="width:{{ (ward_data.fc_count / data.max_ward_total * 100)|round(1) if ward_data.fc_count > 0 else 0 }}%;{% if ward_data.fc_count == 0 %}display:none{% endif %}"></div>
-                                    <div class="ward-bar-personal" style="width:{{ (ward_data.personal_count / data.max_ward_total * 100)|round(1) if ward_data.personal_count > 0 else 0 }}%;{% if ward_data.personal_count == 0 %}display:none{% endif %}"></div>
-                                </div>
-                                <span class="ward-bar-value">{{ ward_data.total }}</span>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-
-        <div style="display:flex;gap:16px;justify-content:center;margin-bottom:24px;font-size:0.8rem;">
-            <span style="display:flex;align-items:center;gap:5px;"><span class="legend-dot fc-dot"></span> FC Plot</span>
-            <span style="display:flex;align-items:center;gap:5px;"><span class="legend-dot nofc-dot" style="background:var(--gold)"></span> Personal Plot</span>
-        </div>
-        {% else %}
-        <div class="no-data">No housing plot data found. Ensure Lifestream DefaultConfig.json is configured.</div>
-        {% endif %}
-
-        <!-- FC Capacity Planner -->
-        <div class="section-header">
-            <span>📊 FC Capacity Planner</span>
-        </div>
-
-        <div class="info-disclaimer">
-            <strong>ℹ️ How "In FC" is determined:</strong> A character counts as <span style="color:var(--success);font-weight:600;">In FC</span> (green) only if it has active submarines in a <em>unique</em> FC &mdash; multiple characters in the same FC are de-duplicated by plot location. Green characters may or may not show an FC name; what matters is they have active subs. <span style="color:#e67e22;font-weight:600;">Managed by Alt</span> (orange) means another character is already managing the subs for that FC &mdash; click on a world bar to see which character and account is handling it. <span style="color:var(--warning);font-weight:600;">Can Join FC</span> (yellow) characters are not in any FC for capacity purposes; they may still show an FC name if they're in an FC but have no plot or active subs. <span style="color:rgba(255,255,255,0.4);font-weight:600;">Excluded</span> (gray) characters have <code>ExcludeWorkshop</code> enabled in AutoRetainer.<br>
-            <strong>⚠️ FC Name Data:</strong> AutoRetainer may not always have your FC name saved correctly. If a character shows an FC name but is no longer in that FC, open AutoRetainer settings in-game &rarr; Exclusions &rarr; search the character &rarr; click <em>"Remove FC Data"</em> to clear stale data. You can refresh sub data by interacting with the submersible console afterwards if needed.<br>
-            <strong>📊 OCE Max Capacity:</strong> OCE shows 39 max per account by default, reserving 1 slot for DC travel from other regions. NA/EU/JP/OCE max is 40 per account, 8 max per world.
-        </div>
-
-        <div class="planner-controls">
-            <label for="account-select">Account:</label>
-            <select id="account-select" onchange="updatePlanner()">
-                <option value="all">All Accounts</option>
-                {% for acc in data.account_summaries %}
-                <option value="{{ acc.nickname }}">{{ acc.nickname }} ({{ acc.total_chars }} chars)</option>
-                {% endfor %}
-            </select>
-
-            <label for="region-select">Region:</label>
-            <select id="region-select" onchange="updatePlanner()">
-                <option value="all">All Regions</option>
-                <option value="NA">NA (40 max)</option>
-                <option value="EU">EU (40 max)</option>
-                <option value="JP">JP (40 max)</option>
-                <option value="OCE">OCE (39 max)</option>
-            </select>
-        </div>
-
-        <div id="planner-content">
-            <!-- Populated by JS -->
-        </div>
-
-        <!-- Sub Planners -->
-        <div class="section-header">
-            <span>🚢 Sub Planners</span>
-            <span style="font-size:0.8rem;color:var(--text-secondary);margin-left:auto;">
-                {{ data.sub_planner_accounts|sum(attribute='total_subs') }} subs across {{ data.sub_planner_accounts|sum(attribute='total_chars') }} characters
-            </span>
-        </div>
-
-        {% if data.sub_planner_accounts %}
-        <div class="sp-sort-bar">
-            <span style="color:var(--text-secondary);font-size:0.7rem;margin-right:4px;">Sort:</span>
-            <button class="sp-sort-btn active" onclick="sortSubPlanners('default',this)" title="Default order">Default</button>
-            <button class="sp-sort-btn" onclick="sortSubPlanners('subs',this)" data-key="subs" data-dir="desc" title="Sort by submarines unlocked">🚢 Subs ▼</button>
-            <button class="sp-sort-btn" onclick="sortSubPlanners('maxlvl',this)" data-key="maxlvl" data-dir="desc" title="Sort by sub level">🔱 Level ▼</button>
-            <button class="sp-sort-btn" onclick="sortSubPlanners('tanks',this)" data-key="tanks" data-dir="desc" title="Sort by ceruleum tanks">⛽ Tanks ▼</button>
-            <button class="sp-sort-btn" onclick="sortSubPlanners('kits',this)" data-key="kits" data-dir="desc" title="Sort by repair kits">🔧 Kits ▼</button>
-            <button class="sp-sort-btn" onclick="sortSubPlanners('restock',this)" data-key="restock" data-dir="asc" title="Sort by restock days">♻️ Restock ▲</button>
-            <button class="sp-sort-btn" onclick="sortSubPlanners('inv',this)" data-key="inv" data-dir="desc" title="Sort by inventory slots">🎒 Inventory ▼</button>
-            <label class="sp-layout-control" for="sp-columns-select" title="How many character columns each account card should use">
-                <span>Cols/account</span>
-                <select id="sp-columns-select" class="sp-column-select" onchange="setSubPlannerColumns(this.value)">
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                </select>
-            </label>
-        </div>
-        <div id="sub-planner-grid" class="sub-planner-grid">
-            {% for spa in data.sub_planner_accounts %}
-            <div class="sp-account">
-                <div class="sp-acc-header">
-                    <span>{{ spa.nickname }}</span>
-                    <span class="sp-count">{{ spa.total_subs }} subs / {{ spa.total_chars }} chars</span>
-                </div>
-                <div class="sp-acc-body">
-                {% for ch in spa.characters %}
-                <div class="sp-char{% if ch.excluded %} excluded{% endif %}{% if ch.sleeping %} sleeping{% endif %}" data-subs="{{ ch.subs|length }}" data-maxlvl="{{ ch.subs|map(attribute='level')|max }}" data-tanks="{{ ch.tanks }}" data-kits="{{ ch.kits }}" data-restock="{{ ch.restock_days if ch.restock_days is not none else 9999 }}" data-inv="{{ ch.inventory }}">
-                    <div class="sp-char-name fcdata-player-name" data-real-name="{{ ch.name }}" data-world="{{ ch.world }}" data-region="{{ ch.region }}" data-fc-name="{{ ch.fc_name }}" data-excluded="{{ 1 if ch.excluded else 0 }}" data-sleeping="{{ 1 if ch.sleeping else 0 }}" title="{{ ch.name }}@{{ ch.world }} ({{ ch.region }}){% if ch.fc_name %} — {{ ch.fc_name }}{% endif %}{% if ch.excluded %} [EXCLUDED]{% endif %}{% if ch.sleeping %} [SLEEPING]{% endif %}">
-                        <span class="fcdata-player-name-text">{{ ch.name }}</span><span class="sp-world">@{{ ch.world }}</span>
-                    </div>
-                    {% for sub in ch.subs %}
-                    <div class="sp-sub-row">
-                        <span class="sp-sub-lvl {% if sub.plan_name == 'Finalize' %}finalize{% elif sub.plan_name == 'Redeploy' %}redeploy{% elif sub.is_farming %}farming{% else %}leveling{% endif %}">{{ sub.level }}</span>
-                        <span class="sp-sub-build">{{ sub.build }}</span>
-                        <span class="sp-sub-eta{% if sub.eta == 'R' %} ready{% endif %}">{{ sub.eta }}</span>
-                        <span class="sp-sub-plan" style="{% if sub.plan_name == 'Finalize' %}color: #f85149;{% elif sub.plan_name == 'Redeploy' %}color: cyan;{% elif sub.is_farming %}color: var(--success);{% elif sub.is_leveling %}color: var(--warning);{% endif %}" title="{{ sub.plan_name if sub.plan_name else 'No plan' }}">{{ sub.plan_name if sub.plan_name else '—' }}</span>
-                    </div>
-                    {% endfor %}
-                    <div class="sp-inv-row">
-                        <span title="Submarines unlocked: {{ ch.subs|length }}">🚢{{ ch.subs|length }}</span>
-                        <span title="Ceruleum Tanks: {{ '{:,}'.format(ch.tanks) }}">⛽{{ ch.tanks|sp_compact }}</span>
-                        <span title="Repair Kits: {{ '{:,}'.format(ch.kits) }}">🔧{{ ch.kits|sp_compact }}</span>
-                        <span title="Days until restock">♻️{{ ch.restock_days if ch.restock_days is not none else '?' }}</span>
-                        <span title="Inventory slots remaining">🎒{{ ch.inventory }}</span>
-                    </div>
-                </div>
-                {% endfor %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-
-        <div style="display:flex;gap:16px;justify-content:center;margin:10px 0 20px;font-size:0.75rem;color:var(--text-secondary);">
-            <span style="display:flex;align-items:center;gap:4px;"><span style="color:var(--success);font-weight:700;">Lv</span> Farming</span>
-            <span style="display:flex;align-items:center;gap:4px;"><span style="color:var(--warning);font-weight:700;">Lv</span> Leveling</span>
-        </div>
-        {% else %}
-        <div class="no-data">No submarine data found.</div>
-        {% endif %}
-
-        <!-- Characters Not in FC -->
-        <div class="section-header">
-            <span>👤 Characters Not in FC</span>
-            <span style="font-size:0.8rem;color:var(--text-secondary);margin-left:auto;">{{ data.no_fc_chars|length }} characters</span>
-        </div>
-
-        {% if data.no_fc_chars %}
-        <div style="margin-bottom:8px;">
-            <label style="font-size:0.8rem;color:var(--text-secondary);cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-                <input type="checkbox" id="hide-excluded" onchange="toggleExcluded()" style="cursor:pointer;" checked> Hide excluded toons
-            </label>
-        </div>
-        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;">
-            <table class="char-table">
-                <thead>
-                    <tr>
-                        <th>Character</th>
-                        <th>World</th>
-                        <th>Region</th>
-                        <th>Level</th>
-                        <th>Account</th>
-                        <th>Housing</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ch in data.no_fc_chars|sort(attribute='highest_level', reverse=true) %}
-                    <tr{% if ch.get('is_excluded') %} data-excluded="1" style="opacity:0.4"{% endif %}>
-                        <td style="color:{{ 'rgba(255,255,255,0.4)' if ch.get('is_excluded') else 'var(--warning)' }}"><span class="fcdata-player-name" data-real-name="{{ ch.name }}">{{ ch.name }}</span>{% if ch.get('is_excluded') %} 🚫{% endif %}</td>
-                        <td>{{ ch.world }}</td>
-                        <td><span class="region-tag">{{ ch.region }}</span></td>
-                        <td class="{{ 'lv-high' if ch.highest_level >= 25 else ('lv-mid' if ch.highest_level >= 10 else 'lv-low') }}">
-                            Lv {{ ch.highest_level }}
-                        </td>
-                        <td style="color:var(--text-secondary)">{{ ch.account }}</td>
-                        <td>
-                            {% if ch.has_private_house %}<span class="house-icon" title="{{ ch.get('private_house', '') }}">🏡</span>{% endif %}
-                            {% if ch.has_fc_house %}<span class="house-icon">🏨 <span style="font-size:0.7rem;color:var(--text-secondary)">(no subs)</span></span>{% endif %}
-                            {% if not ch.has_private_house and not ch.has_fc_house %}<span style="color:var(--text-secondary)">-</span>{% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="no-data">All characters are in a Free Company!</div>
-        {% endif %}
-
-        <div class="footer-note">
-            AutoRetainer Dashboard {{ version }} &bull; <a href="/" style="color:var(--accent-light);text-decoration:none;">Back to Dashboard</a>
-        </div>
-    </div>
-
-    <script>
-        let isFcDataPrivate = false;
-
-        function escapeHtml(value) {
-            return String(value ?? '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-        }
-
-        function getFcDataAlias(index) {
-            return 'Player ' + (index + 1);
-        }
-
-        function buildFcDataPrivacyTitle(el, alias) {
-            const world = el.dataset.world || '';
-            const region = el.dataset.region || '';
-            const fcName = el.dataset.fcName || '';
-            const excluded = el.dataset.excluded === '1';
-            const sleeping = el.dataset.sleeping === '1';
-            let title = world ? `${alias}@${world}` : alias;
-            if (region) title += ` (${region})`;
-            if (fcName) title += ` — ${fcName}`;
-            if (excluded) title += ' [EXCLUDED]';
-            if (sleeping) title += ' [SLEEPING]';
-            return title;
-        }
-
-        function applyFcDataPrivacy() {
-            const button = document.getElementById('fcdata-privacy-btn');
-            if (button) {
-                button.classList.toggle('active', isFcDataPrivate);
-                button.textContent = isFcDataPrivate ? '🔓 Privacy' : '🔒 Privacy';
-            }
-
-            document.querySelectorAll('.fcdata-player-name').forEach((el, index) => {
-                const realName = el.dataset.realName || el.textContent.trim();
-                if (!el.dataset.realName) {
-                    el.dataset.realName = realName;
-                }
-
-                const alias = getFcDataAlias(index);
-
-                if (el.classList.contains('sp-char-name')) {
-                    if (!el.dataset.originalTitle && el.hasAttribute('title')) {
-                        el.dataset.originalTitle = el.getAttribute('title');
-                    }
-                    const nameSpan = el.querySelector('.fcdata-player-name-text');
-                    if (nameSpan) {
-                        nameSpan.textContent = isFcDataPrivate ? alias : el.dataset.realName;
-                    } else {
-                        el.textContent = isFcDataPrivate ? alias : el.dataset.realName;
-                    }
-                    el.title = isFcDataPrivate ? buildFcDataPrivacyTitle(el, alias) : (el.dataset.originalTitle || el.title);
-                    return;
-                }
-
-                if (!el.dataset.originalTitle && el.hasAttribute('title')) {
-                    el.dataset.originalTitle = el.getAttribute('title');
-                }
-                el.textContent = isFcDataPrivate ? alias : el.dataset.realName;
-                if (el.dataset.originalTitle) {
-                    el.setAttribute('title', isFcDataPrivate ? alias : el.dataset.originalTitle);
-                }
-            });
-        }
-
-        function toggleFcDataPrivacy() {
-            isFcDataPrivate = !isFcDataPrivate;
-            applyFcDataPrivacy();
-        }
-
-        function toggleExcluded() {
-            const hide = document.getElementById('hide-excluded').checked;
-            document.querySelectorAll('tr[data-excluded]').forEach(r => r.style.display = hide ? 'none' : '');
-        }
-        // Apply default hide on page load
-        toggleExcluded();
-        // Raw data from backend
-        const accountData = {{ data.account_summaries | tojson }};
-        const REGION_LIMITS = {"NA": 40, "EU": 40, "JP": 40, "OCE": 39};
-        const MAX_PER_WORLD = 8;
-        const SUB_PLANNER_COLUMNS_KEY = 'fcdata-subplanner-columns';
-        const SUB_PLANNER_MIN_COLUMNS = 1;
-        const SUB_PLANNER_MAX_COLUMNS = 5;
-
-        let currentPlotRegion = 'all';
-        const currentPlotWorlds = new Set();
-
-        function clampSubPlannerColumns(value) {
-            const parsed = parseInt(value, 10);
-            if (Number.isNaN(parsed)) {
-                return SUB_PLANNER_MIN_COLUMNS;
-            }
-            return Math.min(SUB_PLANNER_MAX_COLUMNS, Math.max(SUB_PLANNER_MIN_COLUMNS, parsed));
-        }
-
-        function applySubPlannerColumns(value) {
-            const columns = clampSubPlannerColumns(value);
-            const grid = document.getElementById('sub-planner-grid');
-            if (grid) {
-                grid.style.setProperty('--sp-account-columns', String(columns));
-                grid.dataset.columns = String(columns);
-            }
-            const select = document.getElementById('sp-columns-select');
-            if (select && select.value !== String(columns)) {
-                select.value = String(columns);
-            }
-            return columns;
-        }
-
-        function setSubPlannerColumns(value) {
-            const columns = applySubPlannerColumns(value);
-            localStorage.setItem(SUB_PLANNER_COLUMNS_KEY, String(columns));
-        }
-
-        function setView(view, btn) {
-            btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            document.querySelectorAll('.view-dots').forEach(el => el.style.display = view === 'dots' ? '' : 'none');
-            document.querySelectorAll('.view-bars').forEach(el => el.style.display = view === 'bars' ? '' : 'none');
-        }
-
-        function setPlotRegion(region, btn) {
-            currentPlotRegion = region;
-            const toggle = document.getElementById('region-plot-toggle');
-            if (toggle) toggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-            if (btn) btn.classList.add('active');
-            filterPlots();
-        }
-
-        function togglePlotWorldMenu(event) {
-            if (event) event.stopPropagation();
-            const dropdown = document.getElementById('plot-world-dropdown');
-            const menu = document.getElementById('plot-world-menu');
-            const searchInput = document.getElementById('plot-world-search');
-            if (!dropdown || !menu) return;
-            const nextOpen = !menu.classList.contains('open');
-            dropdown.classList.toggle('open', nextOpen);
-            menu.classList.toggle('open', nextOpen);
-            if (nextOpen && searchInput) {
-                searchInput.value = '';
-                filterPlotWorldOptions();
-                searchInput.focus();
-            }
-        }
-
-        function closePlotWorldMenu() {
-            const dropdown = document.getElementById('plot-world-dropdown');
-            const menu = document.getElementById('plot-world-menu');
-            if (dropdown) dropdown.classList.remove('open');
-            if (menu) menu.classList.remove('open');
-        }
-
-        function updatePlotWorldSelectionUI() {
-            const selectedWorlds = Array.from(currentPlotWorlds);
-            document.querySelectorAll('.plot-world-option').forEach(option => {
-                const worldName = option.getAttribute('data-world') || '';
-                option.classList.toggle('active', currentPlotWorlds.has(worldName));
-            });
-            const labelEl = document.getElementById('plot-world-selected-label');
-            if (labelEl) {
-                labelEl.textContent = selectedWorlds.length > 0 ? selectedWorlds.join(', ') : 'All Worlds';
-            }
-            const clearBtn = document.getElementById('plot-world-clear-btn');
-            if (clearBtn) {
-                clearBtn.disabled = selectedWorlds.length === 0;
-            }
-        }
-
-        function filterPlotWorldOptions() {
-            const searchInput = document.getElementById('plot-world-search');
-            const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
-            document.querySelectorAll('.plot-world-option').forEach(option => {
-                const searchText = (option.getAttribute('data-search') || '').toLowerCase();
-                option.style.display = !query || searchText.includes(query) ? '' : 'none';
-            });
-        }
-
-        function selectPlotWorld(worldName, btn) {
-            if (!worldName) return;
-            if (currentPlotWorlds.has(worldName)) {
-                currentPlotWorlds.delete(worldName);
-            } else {
-                currentPlotWorlds.add(worldName);
-            }
-            if (btn) btn.blur();
-            updatePlotWorldSelectionUI();
-            filterPlots();
-        }
-
-        function clearSelectedPlotWorlds() {
-            if (currentPlotWorlds.size === 0) return;
-            currentPlotWorlds.clear();
-            updatePlotWorldSelectionUI();
-            filterPlots();
-        }
-
-        document.addEventListener('click', event => {
-            if (!event.target.closest('#plot-world-dropdown')) {
-                closePlotWorldMenu();
-            }
-        });
-
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape') {
-                closePlotWorldMenu();
-            }
-        });
-
-        function filterPlots() {
-            const selRegion = currentPlotRegion;
-            const hasSelectedWorlds = currentPlotWorlds.size > 0;
-            const checkedAccs = new Set();
-            document.querySelectorAll('.plot-acc-cb:checked').forEach(cb => checkedAccs.add(cb.value));
-            const selectedSizes = new Set();
-            document.querySelectorAll('.plot-size-cb:checked').forEach(cb => selectedSizes.add(cb.value));
-            const totalSizeFilters = document.querySelectorAll('.plot-size-cb').length;
-            const allSizesSelected = selectedSizes.size === totalSizeFilters;
-
-            // Filter dots
-            document.querySelectorAll('.plot-dot').forEach(dot => {
-                const r = dot.getAttribute('data-region');
-                const a = dot.getAttribute('data-account');
-                const w = dot.getAttribute('data-world');
-                const s = dot.getAttribute('data-size') || '';
-                const show = (selRegion === 'all' || r === selRegion)
-                    && (!hasSelectedWorlds || currentPlotWorlds.has(w))
-                    && checkedAccs.has(a)
-                    && selectedSizes.size > 0
-                    && (allSizesSelected || selectedSizes.has(s));
-                dot.style.display = show ? '' : 'none';
-            });
-
-            // Update district counts
-            document.querySelectorAll('.district-card').forEach(card => {
-                const dots = card.querySelectorAll('.plot-dot');
-                let fcCount = 0, personalCount = 0;
-                dots.forEach(d => {
-                    if (d.style.display !== 'none') {
-                        if (d.classList.contains('fc')) fcCount++;
-                        else personalCount++;
-                    }
-                });
-                const fcTag = card.querySelector('.fc-tag');
-                const pTag = card.querySelector('.personal-tag');
-                if (fcTag) fcTag.textContent = '🏨 ' + fcCount;
-                if (pTag) pTag.textContent = '🏡 ' + personalCount;
-            });
-
-            // Update bar view: recalculate per-ward bars
-            document.querySelectorAll('.district-card').forEach(card => {
-                const wardRows = card.querySelectorAll('.view-dots .ward-row');
-                const barRows = card.querySelectorAll('.ward-bar-row');
-                let maxTotal = 0;
-                const wardTotals = [];
-                wardRows.forEach((wr, i) => {
-                    const dots = wr.querySelectorAll('.plot-dot');
-                    let fc = 0, personal = 0;
-                    dots.forEach(d => {
-                        if (d.style.display !== 'none') {
-                            if (d.classList.contains('fc')) fc++;
-                            else personal++;
-                        }
-                    });
-                    const total = fc + personal;
-                    if (total > maxTotal) maxTotal = total;
-                    wardTotals.push({fc, personal, total});
-                });
-                barRows.forEach((br, i) => {
-                    if (i >= wardTotals.length) return;
-                    const wt = wardTotals[i];
-                    const scale = maxTotal > 0 ? maxTotal : 1;
-                    const fcBar = br.querySelector('.ward-bar-fc');
-                    const pBar = br.querySelector('.ward-bar-personal');
-                    const valSpan = br.querySelector('.ward-bar-value');
-                    if (fcBar) {
-                        fcBar.style.width = (wt.fc / scale * 100) + '%';
-                        fcBar.style.display = wt.fc > 0 ? '' : 'none';
-                    }
-                    if (pBar) {
-                        pBar.style.width = (wt.personal / scale * 100) + '%';
-                        pBar.style.display = wt.personal > 0 ? '' : 'none';
-                    }
-                    if (valSpan) valSpan.textContent = wt.total;
-                });
-            });
-        }
-
-        // Sub Planner sorting — store original DOM order on first load
-        (function() {
-            document.querySelectorAll('.sp-account').forEach(acc => {
-                const body = acc.querySelector('.sp-acc-body');
-                if (!body) return;
-                const chars = Array.from(body.querySelectorAll('.sp-char'));
-                chars.forEach((ch, i) => ch.setAttribute('data-orig', i));
-            });
-            const savedColumns = localStorage.getItem(SUB_PLANNER_COLUMNS_KEY) || String(SUB_PLANNER_MIN_COLUMNS);
-            applySubPlannerColumns(savedColumns);
-        })();
-
-        function sortSubPlanners(key, btn) {
-            if (key === 'default') {
-                document.querySelectorAll('.sp-sort-btn').forEach(b => b.classList.remove('active'));
-                if (btn) btn.classList.add('active');
-            } else {
-                // If clicking the already-active button, flip direction
-                const wasActive = btn && btn.classList.contains('active');
-                if (wasActive) {
-                    const cur = btn.dataset.dir;
-                    btn.dataset.dir = cur === 'desc' ? 'asc' : 'desc';
-                    const label = btn.textContent.replace(/[▲▼]/, btn.dataset.dir === 'desc' ? '▼' : '▲');
-                    btn.textContent = label;
-                } else {
-                    document.querySelectorAll('.sp-sort-btn').forEach(b => b.classList.remove('active'));
-                    if (btn) btn.classList.add('active');
-                }
-            }
-
-            const dir = (btn && btn.dataset.dir === 'asc') ? 1 : -1;
-
-            document.querySelectorAll('.sp-account').forEach(acc => {
-                const body = acc.querySelector('.sp-acc-body');
-                if (!body) return;
-                const chars = Array.from(body.querySelectorAll('.sp-char'));
-                chars.sort((a, b) => {
-                    if (key === 'default') {
-                        return parseInt(a.dataset.orig) - parseInt(b.dataset.orig);
-                    }
-                    const av = parseFloat(a.dataset[key]) || 0;
-                    const bv = parseFloat(b.dataset[key]) || 0;
-                    return (av - bv) * dir;
-                });
-                chars.forEach(ch => body.appendChild(ch));
-            });
-        }
-
-        function updatePlanner() {
-            const accSel = document.getElementById('account-select').value;
-            const regSel = document.getElementById('region-select').value;
-            const container = document.getElementById('planner-content');
-
-            // Filter accounts
-            let accounts = accountData;
-            if (accSel !== 'all') {
-                accounts = accounts.filter(a => a.nickname === accSel);
-            }
-
-            let html = '';
-
-            for (const acc of accounts) {
-                const fcNS = acc.in_fc_no_subs || 0;
-                html += `<h3 style="color:var(--accent-light);margin:16px 0 10px;font-size:1rem;display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
-                    <span>${acc.nickname}</span>
-                    <span style="color:var(--text-secondary);font-weight:400;font-size:0.8rem;">${acc.total_chars} chars</span>
-                    <span style="font-size:0.75rem;display:inline-flex;gap:4px;margin-left:4px;">
-                        <span title="${acc.in_fc} character${acc.in_fc !== 1 ? 's' : ''} in FCs with active subs" style="background:var(--success);color:#000;padding:1px 6px;border-radius:4px;font-weight:600;cursor:default;">${acc.in_fc} 🟢</span>
-                        ${fcNS > 0 ? `<span title="${fcNS} character${fcNS !== 1 ? 's' : ''} managed by another alt in the same FC" style="background:#e67e22;color:#000;padding:1px 6px;border-radius:4px;font-weight:600;cursor:default;">${fcNS} 🟠</span>` : ''}
-                        <span title="${acc.not_in_fc} character${acc.not_in_fc !== 1 ? 's' : ''} not in any FC — available to join one" style="background:var(--warning);color:#000;padding:1px 6px;border-radius:4px;font-weight:600;cursor:default;">${acc.not_in_fc} 🟡</span>
-                        ${acc.excluded > 0 ? `<span title="${acc.excluded} character${acc.excluded !== 1 ? 's' : ''} excluded via ExcludeWorkshop" style="background:rgba(255,255,255,0.2);color:#fff;padding:1px 6px;border-radius:4px;font-weight:600;cursor:default;">${acc.excluded} ⬜</span>` : ''}
-                    </span>
-                </h3>`;
-
-                let regions = acc.region_capacity;
-                if (regSel !== 'all') {
-                    regions = regions.filter(r => r.region === regSel);
-                }
-
-                html += '<div class="region-grid">';
-                for (const reg of regions) {
-                    if (reg.current === 0 && regSel === 'all') continue; // skip empty regions in "all" view
-
-                    const pctFc = reg.limit > 0 ? (reg.in_fc / reg.limit * 100) : 0;
-                    const fcNoSubs = reg.in_fc_no_subs || 0;
-                    const pctFcNoSubs = reg.limit > 0 ? (fcNoSubs / reg.limit * 100) : 0;
-                    const pctNoFc = reg.limit > 0 ? (reg.not_in_fc / reg.limit * 100) : 0;
-                    const pctExcl = reg.limit > 0 ? ((reg.excluded || 0) / reg.limit * 100) : 0;
-                    const isFull = reg.remaining <= 0;
-                    const hasExcluded = (reg.excluded || 0) > 0;
-                    const hasFcNoSubs = fcNoSubs > 0;
-                    const maxFcPotential = reg.in_fc + fcNoSubs + reg.not_in_fc; // only non-excluded chars
-                    // Dynamic grid columns: base 3 + 1 for each optional category
-                    const statCols = 3 + (hasFcNoSubs ? 1 : 0) + (hasExcluded ? 1 : 0);
-
-                    html += `
-                    <div class="region-card">
-                        <div class="region-card-header">
-                            <h3>${reg.region} Region</h3>
-                            <span class="region-badge ${isFull ? 'full' : 'available'}">
-                                ${isFull ? 'FULL' : reg.remaining + ' slots open'}
-                            </span>
-                        </div>
-
-                        <div class="capacity-bar">
-                            ${reg.in_fc > 0 ? `<div class="in-fc" style="width:${pctFc}%">${reg.in_fc}</div>` : ''}
-                            ${hasFcNoSubs ? `<div class="in-fc-no-subs" style="width:${pctFcNoSubs}%">${fcNoSubs}</div>` : ''}
-                            ${reg.not_in_fc > 0 ? `<div class="not-in-fc" style="width:${pctNoFc}%">${reg.not_in_fc}</div>` : ''}
-                            ${hasExcluded ? `<div class="excluded" style="width:${pctExcl}%">${reg.excluded}</div>` : ''}
-                            <div class="remaining-space"></div>
-                        </div>
-
-                        <div class="capacity-legend">
-                            <span title="${reg.in_fc} character${reg.in_fc !== 1 ? 's' : ''} in FCs with active subs"><span class="legend-dot fc-dot"></span> ${reg.in_fc}</span>
-                            ${hasFcNoSubs ? `<span title="${fcNoSubs} character${fcNoSubs !== 1 ? 's' : ''} managed by another alt in the same FC"><span class="legend-dot fc-nosubs-dot"></span> ${fcNoSubs}</span>` : ''}
-                            <span title="${reg.not_in_fc} character${reg.not_in_fc !== 1 ? 's' : ''} not in any FC — available to join one"><span class="legend-dot nofc-dot"></span> ${reg.not_in_fc}</span>
-                            ${hasExcluded ? `<span title="${reg.excluded} character${reg.excluded !== 1 ? 's' : ''} excluded via ExcludeWorkshop"><span class="legend-dot excluded-dot"></span> ${reg.excluded}</span>` : ''}
-                            <span title="${reg.remaining > 0 ? reg.remaining : 0} open slot${reg.remaining !== 1 ? 's' : ''} remaining"><span class="legend-dot empty-dot"></span> ${reg.remaining > 0 ? reg.remaining : 0}</span>
-                        </div>
-
-                        ${reg.worlds.length > 0 ? `
-                        <div class="world-breakdown">
-                            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:12px;margin-bottom:6px;font-weight:600;">
-                                Per-World (${MAX_PER_WORLD} max each)
-                            </div>
-                            ${reg.worlds.map((w, idx) => {
-                                const wFcNoSubs = w.in_fc_no_subs || 0;
-                                const wId = `wc_${acc.nickname}_${reg.region}_${idx}`;
-                                const chars = w.chars || [];
-                                const charHtml = chars.map(c => {
-                                    const fcTag = c.fc_name ? `<span class="ch-fc">[${c.fc_name}]</span>` : '';
-                                    const mgrTag = (c.status === 'fc_managed' && c.managed_by) ? `<span class="ch-fc"> &mdash; subs managed by <span class="fcdata-player-name" data-real-name="${escapeHtml(c.managed_by)}">${escapeHtml(c.managed_by)}</span> (${c.managed_by_account})</span>` : '';
-                                    return `<span class="ch-name st-${c.status} fcdata-player-name" data-real-name="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>${fcTag}${mgrTag}`;
-                                }).join('<br>');
-                                return `
-                            <div class="world-row" onclick="document.getElementById('${wId}').classList.toggle('open')">
-                                <span class="world-name">${w.world}</span>
-                                <div class="world-bar-track">
-                                    ${w.in_fc > 0 ? `<div class="world-bar-fc" style="width:${w.in_fc / MAX_PER_WORLD * 100}%"></div>` : ''}
-                                    ${wFcNoSubs > 0 ? `<div class="world-bar-fc-nosubs" style="width:${wFcNoSubs / MAX_PER_WORLD * 100}%"></div>` : ''}
-                                    ${w.not_in_fc > 0 ? `<div class="world-bar-nofc" style="width:${w.not_in_fc / MAX_PER_WORLD * 100}%"></div>` : ''}
-                                    ${(w.excluded || 0) > 0 ? `<div class="world-bar-excluded" style="width:${w.excluded / MAX_PER_WORLD * 100}%"></div>` : ''}
-                                </div>
-                                <span class="world-count">${w.count}/${MAX_PER_WORLD}</span>
-                            </div>
-                            <div class="world-chars" id="${wId}">${charHtml}</div>`;
-                            }).join('')}
-                        </div>
-                        ` : ''}
-
-                        <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:0.8rem;color:var(--text-secondary);">
-                            Max FC earning potential: <b style="color:var(--accent-light)">${maxFcPotential}</b> characters
-                            ${reg.not_in_fc > 0 ? ` (+${reg.not_in_fc} if all join FC)` : ''}
-                            ${hasExcluded ? `<br><span style="color:rgba(255,255,255,0.4);font-size:0.75rem;">* ${reg.excluded} excluded character${reg.excluded !== 1 ? 's' : ''} not counted in above results</span>` : ''}
-                        </div>
-                    </div>`;
-                }
-                html += '</div>';
-            }
-
-            if (html === '') {
-                html = '<div class="no-data">No character data found for the selected filters.</div>';
-            }
-
-            container.innerHTML = html;
-            applyFcDataPrivacy();
-        }
-
-        // Initialize on load
-        document.addEventListener('DOMContentLoaded', () => {
-            applyFcDataPrivacy();
-            updatePlotWorldSelectionUI();
-            filterPlots();
-            updatePlanner();
-        });
-    </script>
-</body>
-</html>
-'''
-
-
-# ===============================================
-# Submarine Master List Data
-# ===============================================
-def get_subs_data():
-    """
-    Collect all character data across all accounts for the /subs/ master list page.
-    Returns one row per character with up to 4 submarine slots,
-    plus character-level context like gil, ceruleum, kits, inventory, treasure.
-    Characters with no FC, no subs, no tanks, no kits are flagged as 'unused'.
-    """
-    rows = []
-    seen_fcs = {}  # Track unique FCs by (account, fc_name) to avoid double-counting points
-    unique_fc_names = set()  # Track globally unique FC names
-    
-    totals = {
-        "total_chars": 0,
-        "total_subs": 0,
-        "total_chars_with_subs": 0,
-        "total_unused": 0,
-        "total_farming": 0,
-        "total_leveling": 0,
-        "total_idle": 0,
-        "total_ready": 0,
-        "total_daily_income": 0,
-        "total_daily_cost": 0,
-        "total_ceruleum": 0,
-        "total_kits": 0,
-        "total_fc_points": 0,
-        "total_monthly_income": 0,
-        "total_monthly_cost": 0,
-        "total_net_daily": 0,
-        "total_net_monthly": 0,
-        "total_fc_tanks": 0,
-        "total_fc_stacks": 0.0,
-        "total_fc_tank_value": 0,
-        "unique_fc_count": 0,
-    }
-    
-    for account in account_locations:
-        auto_path = account["auto_path"]
-        if not os.path.isfile(auto_path):
-            continue
-        
-        try:
-            with open(auto_path, 'r', encoding='utf-8-sig') as f:
-                data = json.load(f)
-        except Exception:
-            continue
-        
-        build_plan_name_lookup(data)
-        fc_data = extract_fc_data(data)
-        characters = collect_characters(data, account["nickname"])
-        
-        # Scan XA Database for treasure values
-        alto_map = {}
-        xa_db_path = account.get("xa_db_path", "")
-        if xa_db_path:
-            alto_map = scan_xa_db(xa_db_path)
-        
-        for char in characters:
-            cid = char.get("CID", 0)
-            submarines = parse_submarine_data(char)
-            
-            totals["total_chars"] += 1
-            
-            # Character-level data
-            char_name = char.get("Name", "Unknown")
-            world = char.get("World", "Unknown")
-            region = region_from_world(world)
-            char_gil = char.get("Gil", 0)
-            exclude_retainer = char.get("ExcludeRetainer", False) if HONOR_AR_EXCLUSIONS else False
-            retainers = parse_retainer_data(char)
-            retainer_gil = sum(r["gil"] for r in retainers) if not exclude_retainer else 0
-            ceruleum = char.get("Ceruleum", 0)
-            repair_kits = char.get("RepairKits", 0)
-            inventory_space = char.get("InventorySpace", 0)
-            ventures = char.get("Ventures", 0)
-            
-            # XA Database data
-            treasure_value = 0
-            fc_gil = 0
-            highest_level = 0
-            highest_job = ""
-            if cid in alto_map:
-                treasure_value = alto_map[cid].get("treasure_value", 0)
-                fc_gil = alto_map[cid].get("fc_gil", 0)
-                highest_level = alto_map[cid].get("highest_level", 0)
-                highest_job = alto_map[cid].get("highest_job", "")
-            
-            # FC info
-            fc_name = ""
-            fc_points = 0
-            if cid in fc_data:
-                fc_name = fc_data[cid].get("Name", "")
-                fc_points = fc_data[cid].get("FCPoints", 0)
-                # Only count FC points once per unique FC per account
-                fc_key = (account["nickname"], fc_name)
-                if fc_key not in seen_fcs and fc_name:
-                    seen_fcs[fc_key] = fc_points
-                if fc_name:
-                    unique_fc_names.add(fc_name)
-            
-            # Exclusion / sleeping flags
-            exclude_workshop = char.get("ExcludeWorkshop", False) if HONOR_AR_EXCLUSIONS else False
-            subs_sleeping = not char.get("WorkshopEnabled", True)
-            
-            # Calculate days until restock
-            total_tanks_per_day = sum(s.get("tanks_per_day", 0) for s in submarines)
-            total_kits_per_day = sum(s.get("kits_per_day", 0) for s in submarines)
-            days_until_restock = None
-            if total_tanks_per_day > 0 and total_kits_per_day > 0:
-                days_from_tanks = ceruleum / total_tanks_per_day if ceruleum > 0 else 0
-                days_from_kits = repair_kits / total_kits_per_day if repair_kits > 0 else 0
-                days_until_restock = int(min(days_from_tanks, days_from_kits))
-            
-            # Daily totals for this character
-            daily_income = sum(s["daily_gil"] for s in submarines) if submarines else 0
-            daily_cost = sum(s["daily_cost"] for s in submarines) if submarines else 0
-            
-            # Pad submarines to 4 slots
-            sub_slots = []
-            for i in range(4):
-                if i < len(submarines):
-                    s = submarines[i]
-                    sub_slots.append({
-                        "name": s["name"],
-                        "level": s["level"],
-                        "build": s["build"],
-                        "plan_name": s["plan_name"] if s["plan_name"] else ("Farming" if s["is_farming"] else ("Leveling" if s["is_leveling"] else "None")),
-                        "return_formatted": s["return_formatted"],
-                        "return_time": s["return_time"] if s["return_time"] else 0,
-                        "is_ready": s["is_ready"],
-                        "is_farming": s["is_farming"],
-                        "is_leveling": s["is_leveling"],
-                        "daily_gil": s["daily_gil"],
-                    })
+                                pid_uptime_str = pid_formatted
                 else:
-                    sub_slots.append(None)
+                    # Show [Up 24/7] if force247uptime is True, otherwise [Closed]
+                    if force247:
+                        status_str = f"{'[Up 24/7]':{STATUS_WIDTH}s}"
+                    else:
+                        status_str = f"{'[Closed]':{STATUS_WIDTH}s}"
             
-            # Determine if character is "unused" (no FC, no subs, no tanks, no kits)
-            has_fc = bool(fc_name)
-            has_subs = len(submarines) > 0
-            has_tanks = ceruleum > 0
-            has_kits = repair_kits > 0
-            is_unused = not has_fc and not has_subs and not has_tanks and not has_kits
+            # Use same formatting structure as other entries for proper alignment
+            print(f"{nickname:{NICKNAME_WIDTH}s} {subs_disabled_str:{SUBS_COUNT_WIDTH}s}:{'':{HOURS_WIDTH+1}s}{status_str}{pid_uptime_str}{automation_hours_formatted}")
+        elif total_subs == 0:
+            no_subs_str = "No submarines found"
+            print(f"{nickname:{NICKNAME_WIDTH}s} {no_subs_str:{SUBS_COUNT_WIDTH}s}  {'':{HOURS_WIDTH}s}{automation_hours_formatted}")
+        else:
+            # Check if account has launcher failures
+            if nickname in launcher_failed_accounts:
+                # Get force247uptime flag for retainer display
+                force247 = account_entry.get("force247uptime", False) if account_entry else False
+                hours_str = format_hours(soonest_hours, ready_subs, is_running=False, force247uptime=force247, ready_retainers=ready_retainers, soonest_retainer_hours=soonest_retainer_hours)
+                subs_str = f"({total_subs} subs)"
+                status_str = f"{'[LAUNCHER]':{STATUS_WIDTH}s}"
+                print(f"{nickname:{NICKNAME_WIDTH}s} {subs_str:{SUBS_COUNT_WIDTH}s}: {hours_str:{HOURS_WIDTH}s}{status_str}{automation_hours_formatted}")
+                continue
             
-            # Accumulate totals
-            if has_subs:
-                totals["total_chars_with_subs"] += 1
-                totals["total_subs"] += len(submarines)
-                totals["total_farming"] += sum(1 for s in submarines if s["is_farming"])
-                totals["total_leveling"] += sum(1 for s in submarines if s["is_leveling"])
-                totals["total_idle"] += sum(1 for s in submarines if not s["plan_name"] and not s["is_farming"] and not s["is_leveling"])
-                totals["total_ready"] += sum(1 for s in submarines if s["is_ready"])
-                totals["total_daily_income"] += daily_income
-                totals["total_daily_cost"] += daily_cost
-            totals["total_ceruleum"] += ceruleum
-            totals["total_kits"] += repair_kits
-            if is_unused:
-                totals["total_unused"] += 1
+            # Get game status for this account (only show for enabled submarines)
+            # Check force247uptime flag to determine status display
+            force247 = account_entry.get("force247uptime", False) if account_entry else False
+            game_info = game_status_dict.get(nickname, (None, None))
+            is_running = game_info[0]
+            process_id = game_info[1]
             
-            rows.append({
-                "account": account["nickname"],
-                "char_name": char_name,
-                "world": world,
-                "region": region,
-                "fc_name": fc_name,
-                "char_level": highest_level,
-                "char_job": highest_job,
-                "gil": char_gil,
-                "retainer_gil": retainer_gil,
-                "fc_gil": fc_gil,
-                "ceruleum": ceruleum,
-                "repair_kits": repair_kits,
-                "inventory_space": inventory_space,
-                "ventures": ventures,
-                "treasure_value": treasure_value,
-                "days_until_restock": days_until_restock,
-                "daily_income": daily_income,
-                "daily_cost": daily_cost,
-                "num_subs": len(submarines),
-                "subs": sub_slots,
-                "exclude_workshop": exclude_workshop,
-                "subs_sleeping": subs_sleeping,
-                "is_unused": is_unused,
-            })
+            status_str = ""
+            pid_uptime_str = ""
+            if is_running is not None:
+                if is_running:
+                    # Show [Up 24/7] if force247uptime is True, otherwise [Running]
+                    if force247:
+                        status_str = f"{'[Up 24/7]':{STATUS_WIDTH}s}"
+                    else:
+                        status_str = f"{'[Running]':{STATUS_WIDTH}s}"
+                    
+                    # Handle PID and uptime display differently based on mode
+                    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                        # Single client mode: get actual PID from process and use 'ffxiv_single' for start time
+                        if PSUTIL_AVAILABLE:
+                            try:
+                                for proc in psutil.process_iter(['pid', 'name']):
+                                    if proc.info['name'].lower() == 'ffxiv_dx11.exe':
+                                        actual_pid = proc.info['pid']
+                                        pid_part = f"PID: {actual_pid}"
+                                        pid_formatted = f"{pid_part:{PID_WIDTH}s}"
+                                        
+                                        # Calculate uptime using 'ffxiv_single' key
+                                        current_time = time.time()
+                                        start_time = client_start_times.get('ffxiv_single')
+                                        if start_time is not None:
+                                            uptime_hours = (current_time - start_time) / 3600.0
+                                            uptime_part = f"UPTIME: {uptime_hours:.1f} hrs"
+                                            pid_uptime_str = f"{pid_formatted}{uptime_part}"
+                                        else:
+                                            pid_uptime_str = pid_formatted
+                                        
+                                        # Add force-crash timer display (X:xx minutes remaining)
+                                        if nickname in last_sub_processed and not vessel_waiting_active:
+                                            minutes_since = (current_time - last_sub_processed[nickname]) / 60
+                                            currently_retainer = (ready_subs == 0 and force247 and ready_retainers > 0)
+                                            in_retainer_mode = currently_retainer or (retainer_mode_active.get(nickname, False) and ready_subs > 0)
+                                            threshold = FORCE_CRASH_RETAINER_MINUTES if in_retainer_mode else FORCE_CRASH_INACTIVITY_MINUTES
+                                            remaining = threshold - minutes_since
+                                            pid_uptime_str += f" X:{remaining:.0f}"
+                                        break
+                            except Exception:
+                                pass
+                    elif process_id:
+                        # Multi-client mode: use process_id from window title
+                        pid_part = f"PID: {process_id}"
+                        pid_formatted = f"{pid_part:{PID_WIDTH}s}"
+                        
+                        # Calculate uptime in hours
+                        current_time = time.time()
+                        start_time = client_start_times.get(process_id)
+                        if start_time is not None:
+                            uptime_hours = (current_time - start_time) / 3600.0
+                            uptime_part = f"UPTIME: {uptime_hours:.1f} hrs"
+                            pid_uptime_str = f"{pid_formatted}{uptime_part}"
+                        else:
+                            pid_uptime_str = pid_formatted
+                        
+                        # Add force-crash timer display (X:xx minutes remaining)
+                        if nickname in last_sub_processed and not vessel_waiting_active:
+                            minutes_since = (current_time - last_sub_processed[nickname]) / 60
+                            # Determine threshold: retainer mode (20min) or submarine mode (10min)
+                            currently_retainer = (ready_subs == 0 and force247 and ready_retainers > 0)
+                            in_retainer_mode = currently_retainer or (retainer_mode_active.get(nickname, False) and ready_subs > 0)
+                            threshold = FORCE_CRASH_RETAINER_MINUTES if in_retainer_mode else FORCE_CRASH_INACTIVITY_MINUTES
+                            remaining = threshold - minutes_since
+                            pid_uptime_str += f" X:{remaining:.0f}"
+                else:
+                    # Show [Up 24/7] if force247uptime is True, otherwise [Closed]
+                    if force247:
+                        status_str = f"{'[Up 24/7]':{STATUS_WIDTH}s}"
+                    else:
+                        status_str = f"{'[Closed]':{STATUS_WIDTH}s}"
+            
+            hours_str = format_hours(soonest_hours, ready_subs, is_running=(is_running if is_running is not None else False), force247uptime=force247, ready_retainers=ready_retainers, soonest_retainer_hours=soonest_retainer_hours)
+            subs_str = f"({total_subs} subs)"
+            print(f"{nickname:{NICKNAME_WIDTH}s} {subs_str:{SUBS_COUNT_WIDTH}s}: {hours_str:{HOURS_WIDTH}s}{status_str}{pid_uptime_str}{automation_hours_formatted}")
     
-    totals["total_monthly_income"] = totals["total_daily_income"] * 30
-    totals["total_monthly_cost"] = totals["total_daily_cost"] * 30
-    totals["total_net_daily"] = totals["total_daily_income"] - totals["total_daily_cost"]
-    totals["total_net_monthly"] = totals["total_net_daily"] * 30
+    print()
+    print("=" * 85)
     
-    # FC points totals (deduplicated per unique FC)
-    totals["total_fc_points"] = sum(seen_fcs.values())
-    totals["total_fc_tanks"] = totals["total_fc_points"] // 100
-    totals["total_fc_stacks"] = round(totals["total_fc_tanks"] / 999, 1)
-    totals["total_fc_tank_value"] = totals["total_fc_tanks"] * CERULEUM_TANK_COST
-    totals["unique_fc_count"] = len(unique_fc_names)
+    # Calculate total daily gil earnings and submarine counts
+    # Priority: 1) Plan-based rates from submarine_plans["farming"]
+    #           2) Build-based rates from build_gil_rates
+    #           3) Count as leveling (0 gil)
+    total_daily_gil = 0
+    farming_subs_count = 0
+    leveling_plans = submarine_plans.get("leveling", [])
+    farming_plans = submarine_plans.get("farming", {})
     
-    return {
-        "rows": rows,
-        "totals": totals,
-        "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    }
-
-
-# ===============================================
-# Submarine Master List HTML Template
-# ===============================================
-SUBS_TEMPLATE = r'''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Master List - AutoRetainer Dashboard</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-    <style>
-        :root {
-            --bg-primary: #0a0e17;
-            --bg-card: #131a2b;
-            --bg-header: #0d1320;
-            --border: #1e2d44;
-            --text-primary: #e0e6ed;
-            --text-secondary: #7a8ba3;
-            --accent: #3a7aaa;
-            --accent-light: #5ba0d0;
-            --accent-highlight: #7ec8e3;
-            --success: #4caf50;
-            --warning: #ff9800;
-            --danger: #f44336;
-            --gold: #ffd700;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { height: 100%; overflow: hidden; }
-        body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-        }
-
-        /* Dark scrollbars */
-        ::-webkit-scrollbar { width: 10px; height: 10px; }
-        ::-webkit-scrollbar-track { background: var(--bg-primary); }
-        ::-webkit-scrollbar-thumb { background: #2a3a52; border-radius: 5px; }
-        ::-webkit-scrollbar-thumb:hover { background: #3a5070; }
-        ::-webkit-scrollbar-corner { background: var(--bg-primary); }
-        * { scrollbar-color: #2a3a52 var(--bg-primary); scrollbar-width: thin; }
-
-        .container {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            max-width: 100%;
-            padding: 12px 24px 0;
-        }
-
-        /* Navigation */
-        .nav-bar {
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 10px;
-            padding: 10px 16px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-        }
-        .nav-bar a {
-            color: var(--accent-light);
-            text-decoration: none;
-            font-size: 0.85rem;
-            padding: 6px 12px;
-            border-radius: 6px;
-            transition: background 0.2s;
-        }
-        .nav-bar a:hover { background: rgba(58, 122, 170, 0.2); }
-        .nav-bar a.active { background: var(--accent); color: #fff; }
-        .nav-bar .title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-right: auto;
-        }
-
-        /* Summary cards */
-        .summary-row {
-            flex-shrink: 0;
-            display: flex;
-            gap: 12px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
-        }
-        .summary-card {
-            flex: 1;
-            min-width: 100px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 8px 10px;
-            text-align: center;
-        }
-        .summary-card .value { font-size: 1.1rem; font-weight: 700; color: var(--accent-highlight); }
-        .summary-card .label { font-size: 0.68rem; color: var(--text-secondary); margin-top: 2px; }
-        .summary-card .sublabel { font-size: 0.6rem; color: var(--text-secondary); margin-top: 2px; }
-        .summary-card.fc .value { color: var(--success); }
-        .summary-card.warn .value { color: var(--warning); }
-        .summary-card.danger .value { color: var(--danger); }
-        .summary-card.gold .value { color: var(--gold); }
-
-        /* Table container */
-        .table-wrapper {
-            flex: 1;
-            overflow: auto;
-            min-height: 0;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-        }
-
-        /* Master table */
-        .sub-master-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            font-size: 0.78rem;
-            white-space: nowrap;
-        }
-        .sub-master-table th {
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            background: var(--bg-header);
-            color: var(--accent-light);
-            padding: 10px 8px;
-            text-align: left;
-            border-bottom: 2px solid var(--border);
-            cursor: pointer;
-            user-select: none;
-            font-weight: 600;
-            font-size: 0.72rem;
-            transition: background 0.15s;
-        }
-        .sub-master-table th:hover { background: rgba(58, 122, 170, 0.2); }
-        .sub-master-table th .sort-arrow { margin-left: 4px; font-size: 0.6rem; opacity: 0.5; }
-        .sub-master-table th.sorted .sort-arrow { opacity: 1; color: var(--gold); }
-        .sub-master-table td {
-            padding: 7px 8px;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
-            color: var(--text-primary);
-        }
-        .sub-master-table tbody tr:hover { background: rgba(58, 122, 170, 0.08); }
-
-        /* Sub slot header groups */
-        .sub-master-table th.sub-group-1 { border-top: 3px solid var(--success); }
-        .sub-master-table th.sub-group-2 { border-top: 3px solid var(--accent); }
-        .sub-master-table th.sub-group-3 { border-top: 3px solid var(--warning); }
-        .sub-master-table th.sub-group-4 { border-top: 3px solid var(--danger); }
-
-        /* Cell colors */
-        .text-success { color: var(--success); }
-        .text-warning { color: var(--warning); }
-        .text-danger { color: var(--danger); }
-        .text-gold { color: var(--gold); }
-        .text-muted { color: var(--text-secondary); }
-        .text-cyan { color: cyan; }
-        .text-accent { color: var(--accent-light); }
-
-        .cell-ready { color: var(--success); font-weight: 700; }
-        .cell-returning { color: var(--warning); }
-        .cell-empty { color: var(--text-secondary); opacity: 0.4; }
-        .cell-sleeping { color: #666; font-style: italic; }
-
-        .restock-critical { color: var(--danger); font-weight: 700; }
-        .restock-warning { color: var(--warning); }
-        .restock-ok { color: var(--success); }
-
-        /* Footer */
-        .footer {
-            flex-shrink: 0;
-            text-align: center;
-            padding: 8px;
-            color: var(--text-secondary);
-            font-size: 0.7rem;
-        }
-
-        /* Filter bar */
-        .sticky-filters {
-            flex-shrink: 0;
-            background: var(--bg-primary);
-            padding: 6px 0 4px;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 6px;
-        }
-
-        /* Search */
-        .search-bar {
-            margin-bottom: 8px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        .search-bar input {
-            flex: 1;
-            max-width: 300px;
-            padding: 8px 12px;
-            background: var(--bg-header);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: var(--text-primary);
-            font-size: 0.85rem;
-            outline: none;
-        }
-        .search-bar input:focus { border-color: var(--accent); }
-        .search-bar .count { font-size: 0.8rem; color: var(--text-secondary); }
-
-        /* Filter buttons */
-        .filter-row {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            margin-bottom: 12px;
-        }
-        .filter-btn {
-            padding: 5px 10px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            background: var(--bg-header);
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-size: 0.75rem;
-            transition: all 0.15s;
-        }
-        .filter-btn:hover { border-color: var(--accent); color: var(--text-primary); }
-        .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-        /* Checkbox toggle */
-        .toggle-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-left: 16px;
-        }
-        .toggle-row label {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .toggle-row input[type="checkbox"] {
-            accent-color: var(--accent);
-            cursor: pointer;
-            width: 14px;
-            height: 14px;
-        }
-        .toggle-row .unused-count {
-            font-size: 0.72rem;
-            color: var(--text-secondary);
-            opacity: 0.7;
-        }
-        tr.row-unused { opacity: 0.5; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <!-- Navigation -->
-        <div class="nav-bar">
-            <span class="title">📝 Data Master List</span>
-            <a href="/">📊 Dashboard</a>
-            <a href="/fcdata/">🏨 FC Data</a>
-            <a href="/data/" class="active">📝 Data</a>
-            <a href="/charts/">📈 Charts</a>
-        </div>
-
-        <!-- Summary cards -->
-        <div class="summary-row">
-            <div class="summary-card">
-                <div class="value">{{ data.totals.total_subs }}</div>
-                <div class="label">🚢 Total Subs</div>
-                <div class="sublabel">{{ data.totals.total_chars_with_subs }} w/ subs · {{ data.totals.total_chars }} total</div>
-            </div>
-            <div class="summary-card fc">
-                <div class="value">{{ data.totals.total_farming }}</div>
-                <div class="label">🌾 Farming</div>
-                <div class="sublabel">{{ data.totals.total_ready }} ready now</div>
-            </div>
-            <div class="summary-card warn">
-                <div class="value">{{ data.totals.total_leveling }}</div>
-                <div class="label">📈 Leveling</div>
-                <div class="sublabel">{{ data.totals.total_idle }} idle</div>
-            </div>
-            <div class="summary-card gold">
-                <div class="value">{{ "{:,}".format(data.totals.total_daily_income|int) }}</div>
-                <div class="label">💰 Daily Income</div>
-                <div class="sublabel">{{ "{:,}".format(data.totals.total_monthly_income|int) }}/mo</div>
-            </div>
-            <div class="summary-card danger">
-                <div class="value">{{ "{:,}".format(data.totals.total_daily_cost|int) }}</div>
-                <div class="label">🔧 Daily Cost</div>
-                <div class="sublabel">{{ "{:,}".format(data.totals.total_monthly_cost|int) }}/mo</div>
-            </div>
-            <div class="summary-card fc">
-                <div class="value">{{ "{:,}".format(data.totals.total_net_daily|int) }}</div>
-                <div class="label">📊 Net Daily</div>
-                <div class="sublabel">{{ "{:,}".format(data.totals.total_net_monthly|int) }}/mo</div>
-            </div>
-            <div class="summary-card">
-                <div class="value">{{ "{:,}".format(data.totals.total_ceruleum) }}</div>
-                <div class="label">⛽ Ceruleum</div>
-                <div class="sublabel">{{ "{:,}".format(data.totals.total_kits) }} kits</div>
-            </div>
-            <div class="summary-card gold">
-                <div class="value">{{ "{:,}".format(data.totals.total_fc_points) }}</div>
-                <div class="label">🪙 FC Points</div>
-                <div class="sublabel">{{ "{:,.1f}".format(data.totals.total_fc_stacks) }} stacks · {{ data.totals.total_fc_tank_value|sp_compact }} gil</div>
-            </div>
-            <div class="summary-card">
-                <div class="value">{{ data.totals.unique_fc_count }}</div>
-                <div class="label">🏠 Unique FCs</div>
-                <div class="sublabel">across all accounts</div>
-            </div>
-        </div>
-
-        <!-- Search and filters (sticky) -->
-        <div class="sticky-filters">
-            <div class="search-bar">
-                <input type="text" id="searchInput" placeholder="Search characters, worlds, accounts..." oninput="filterTable()">
-                <span class="count" id="rowCount">{{ data.rows|length }} characters</span>
-                <div class="toggle-row">
-                    <label><input type="checkbox" id="subsOnly" checked onchange="filterTable()"> Show only toons with subs</label>
-                    <label><input type="checkbox" id="showUnused" onchange="filterTable()"> Show unused toons <span class="unused-count">({{ data.totals.total_unused }})</span></label>
-                </div>
-                <button onclick="exportToExcel()" style="margin-left:auto;padding:4px 12px;font-size:0.75rem;background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:6px;cursor:pointer;" title="Export visible rows to Excel">📥 Export Excel</button>
-            </div>
-            <div class="filter-row">
-                <button class="filter-btn active" onclick="filterRegion(this, 'all')">All</button>
-                <button class="filter-btn" onclick="filterRegion(this, 'NA')">NA</button>
-                <button class="filter-btn" onclick="filterRegion(this, 'EU')">EU</button>
-                <button class="filter-btn" onclick="filterRegion(this, 'JP')">JP</button>
-                <button class="filter-btn" onclick="filterRegion(this, 'OCE')">OCE</button>
-            </div>
-        </div>
-
-        <!-- Master table -->
-        <div class="table-wrapper">
-            <table class="sub-master-table" id="subsTable">
-                <thead>
-                    <tr>
-                        <th onclick="sortTable(0, 'str')" data-col="0">Account <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(1, 'str')" data-col="1">Character <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(2, 'str')" data-col="2">World <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(3, 'str')" data-col="3">Region <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(4, 'num')" data-col="4">Lvl <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(5, 'num')" data-col="5">Gil <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(6, 'num')" data-col="6">🛎️ Ret. Gil <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(7, 'num')" data-col="7">🧰 FC Gil <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(8, 'num')" data-col="8">💎 Treasure <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(9, 'num')" data-col="9">⛽ Tanks <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(10, 'num')" data-col="10">🔧 Kits <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(11, 'num')" data-col="11">♻️ Restock <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(12, 'num')" data-col="12">📦 Inv <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(13, 'num')" data-col="13" class="sub-group-1">S1 Lvl <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(14, 'str')" data-col="14" class="sub-group-1">S1 Build <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(15, 'str')" data-col="15" class="sub-group-1">S1 Plan <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(16, 'str')" data-col="16" class="sub-group-1">S1 Return <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(17, 'num')" data-col="17" class="sub-group-2">S2 Lvl <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(18, 'str')" data-col="18" class="sub-group-2">S2 Build <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(19, 'str')" data-col="19" class="sub-group-2">S2 Plan <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(20, 'str')" data-col="20" class="sub-group-2">S2 Return <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(21, 'num')" data-col="21" class="sub-group-3">S3 Lvl <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(22, 'str')" data-col="22" class="sub-group-3">S3 Build <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(23, 'str')" data-col="23" class="sub-group-3">S3 Plan <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(24, 'str')" data-col="24" class="sub-group-3">S3 Return <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(25, 'num')" data-col="25" class="sub-group-4">S4 Lvl <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(26, 'str')" data-col="26" class="sub-group-4">S4 Build <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(27, 'str')" data-col="27" class="sub-group-4">S4 Plan <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(28, 'str')" data-col="28" class="sub-group-4">S4 Return <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(29, 'num')" data-col="29">💰 Daily <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(30, 'num')" data-col="30">🔧 Cost <span class="sort-arrow">▲▼</span></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in data.rows %}
-                    <tr data-region="{{ row.region }}" data-unused="{{ 'true' if row.is_unused else 'false' }}" data-hassubs="{{ 'true' if row.num_subs > 0 else 'false' }}" data-search="{{ row.account|lower }} {{ row.char_name|lower }} {{ row.world|lower }} {{ row.region|lower }} {{ row.fc_name|lower }}"{% if row.num_subs == 0 %} style="display:none"{% endif %}{% if row.is_unused %} class="row-unused"{% endif %}>
-                        <td>{{ row.account }}</td>
-                        <td><strong>{{ row.char_name }}</strong>{% if row.subs_sleeping %} <span class="cell-sleeping">💤</span>{% endif %}{% if row.exclude_workshop %} <span class="text-muted">🚫</span>{% endif %}</td>
-                        <td>{{ row.world }}</td>
-                        <td>{{ row.region }}</td>
-                        <td>{{ row.char_level }}</td>
-                        <td class="text-gold">{{ "{:,}".format(row.gil) }}</td>
-                        <td>{{ "{:,}".format(row.retainer_gil) }}</td>
-                        <td class="text-cyan">{{ "{:,}".format(row.fc_gil) }}</td>
-                        <td class="text-gold">{{ "{:,}".format(row.treasure_value) }}</td>
-                        <td>{{ "{:,}".format(row.ceruleum) }}</td>
-                        <td>{{ "{:,}".format(row.repair_kits) }}</td>
-                        <td class="{% if row.days_until_restock is not none %}{% if row.days_until_restock < 7 %}restock-critical{% elif row.days_until_restock < 14 %}restock-warning{% else %}restock-ok{% endif %}{% endif %}">{% if row.days_until_restock is not none %}{{ row.days_until_restock }}d{% else %}-{% endif %}</td>
-                        <td{% if row.inventory_space <= 10 %} class="text-danger"{% elif row.inventory_space <= 35 %} class="text-warning"{% endif %}>{{ row.inventory_space }}</td>
-                        {% for i in range(4) %}
-                        {% if row.subs[i] %}
-                        <td class="{% if row.subs[i].is_ready %}cell-ready{% endif %}">{{ row.subs[i].level }}</td>
-                        <td>{{ row.subs[i].build }}</td>
-                        <td class="{% if row.subs[i].plan_name == 'Finalize' %}text-danger{% elif row.subs[i].plan_name == 'Redeploy' %}text-cyan{% elif row.subs[i].is_farming %}text-success{% elif row.subs[i].is_leveling %}text-warning{% else %}text-muted{% endif %}">{{ row.subs[i].plan_name }}</td>
-                        <td class="{% if row.subs[i].is_ready %}cell-ready{% else %}cell-returning{% endif %}">{{ row.subs[i].return_formatted }}</td>
-                        {% else %}
-                        <td class="cell-empty">-</td>
-                        <td class="cell-empty">-</td>
-                        <td class="cell-empty">-</td>
-                        <td class="cell-empty">-</td>
-                        {% endif %}
-                        {% endfor %}
-                        <td class="text-success">{{ "{:,}".format(row.daily_income) }}</td>
-                        <td class="text-warning">{{ "{:,}".format(row.daily_cost) }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <div class="footer">
-            AutoRetainer Dashboard {{ version }} — Submarine Master List — Last updated: {{ data.last_updated }}
-        </div>
-    </div>
-
-    <script>
-        // Sort state
-        let currentSortCol = -1;
-        let currentSortDir = 'asc';
-
-        function sortTable(colIdx, type) {
-            const table = document.getElementById('subsTable');
-            const tbody = table.querySelector('tbody');
-            const rows = Array.from(tbody.querySelectorAll('tr'));
-            const headers = table.querySelectorAll('th');
-
-            // Toggle direction
-            if (currentSortCol === colIdx) {
-                currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
-            } else {
-                currentSortDir = 'asc';
-                currentSortCol = colIdx;
-            }
-
-            // Clear sorted class
-            headers.forEach(h => h.classList.remove('sorted'));
-            headers[colIdx].classList.add('sorted');
-
-            rows.sort((a, b) => {
-                let aVal = a.cells[colIdx].textContent.trim();
-                let bVal = b.cells[colIdx].textContent.trim();
-
-                if (type === 'num') {
-                    aVal = parseFloat(aVal.replace(/[^0-9.\\-]/g, '')) || 0;
-                    bVal = parseFloat(bVal.replace(/[^0-9.\\-]/g, '')) || 0;
-                    return currentSortDir === 'asc' ? aVal - bVal : bVal - aVal;
-                } else {
-                    aVal = aVal.toLowerCase();
-                    bVal = bVal.toLowerCase();
-                    if (aVal < bVal) return currentSortDir === 'asc' ? -1 : 1;
-                    if (aVal > bVal) return currentSortDir === 'asc' ? 1 : -1;
-                    return 0;
-                }
-            });
-
-            rows.forEach(r => tbody.appendChild(r));
-            updateArrows(colIdx);
-        }
-
-        function updateArrows(sortedCol) {
-            document.querySelectorAll('.sub-master-table th').forEach((th, idx) => {
-                const arrow = th.querySelector('.sort-arrow');
-                if (!arrow) return;
-                if (idx === sortedCol) {
-                    arrow.textContent = currentSortDir === 'asc' ? '▲' : '▼';
-                } else {
-                    arrow.textContent = '▲▼';
-                }
-            });
-        }
-
-        // Search filter
-        let activeRegion = 'all';
-
-        function filterTable() {
-            const query = document.getElementById('searchInput').value.toLowerCase();
-            const subsOnly = document.getElementById('subsOnly').checked;
-            const showUnused = document.getElementById('showUnused').checked;
-            const rows = document.querySelectorAll('#subsTable tbody tr');
-            let visible = 0;
-
-            rows.forEach(row => {
-                const searchData = row.getAttribute('data-search');
-                const region = row.getAttribute('data-region');
-                const isUnused = row.getAttribute('data-unused') === 'true';
-                const hasSubs = row.getAttribute('data-hassubs') === 'true';
-                const matchesSearch = !query || searchData.includes(query);
-                const matchesRegion = activeRegion === 'all' || region === activeRegion;
-                const matchesSubs = !subsOnly || hasSubs;
-                const matchesUnused = showUnused || !isUnused;
-                const show = matchesSearch && matchesRegion && matchesSubs && matchesUnused;
-                row.style.display = show ? '' : 'none';
-                if (show) visible++;
-            });
-
-            document.getElementById('rowCount').textContent = visible + ' characters';
-        }
-
-        function filterRegion(btn, region) {
-            activeRegion = region;
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            filterTable();
-        }
-
-        function exportToExcel() {
-            const table = document.getElementById('subsTable');
-            const headers = [];
-            table.querySelectorAll('thead th').forEach(th => {
-                headers.push(th.textContent.replace(/[▲▼]/g, '').trim());
-            });
-
-            const dataRows = [];
-            table.querySelectorAll('tbody tr').forEach(row => {
-                if (row.style.display === 'none') return;
-                const cells = [];
-                row.querySelectorAll('td').forEach(td => {
-                    let val = td.textContent.trim();
-                    // Try to parse as number (strip commas, gil suffix, etc.)
-                    const num = parseFloat(val.replace(/[^0-9.\-]/g, ''));
-                    cells.push(!isNaN(num) && val.match(/^[\d,.\-]+[dg]?$/) ? num : val);
-                });
-                dataRows.push(cells);
-            });
-
-            const wsData = [headers, ...dataRows];
-            const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-            // Frozen row 1 (header)
-            ws['!freeze'] = {xSplit: 0, ySplit: 1};
-            // Auto-filter on all columns
-            ws['!autofilter'] = {ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:dataRows.length, c:headers.length-1}})};
-            // Column widths (auto-fit approximation)
-            ws['!cols'] = headers.map((h, i) => {
-                let maxLen = h.length;
-                dataRows.forEach(r => {
-                    const len = String(r[i] || '').length;
-                    if (len > maxLen) maxLen = len;
-                });
-                return {wch: Math.min(maxLen + 2, 30)};
-            });
-
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Data');
-
-            // Set freeze pane via sheet views
-            wb.Sheets['Data']['!views'] = [{state: 'frozen', ySplit: 1}];
-
-            const now = new Date();
-            const ts = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
-            XLSX.writeFile(wb, 'AutoRetainer_Data_' + ts + '.xlsx');
-        }
-
-        // Update row count on page load to match default filter state
-        document.addEventListener('DOMContentLoaded', filterTable);
-    </script>
-</body>
-</html>
-'''
-
-
-# ===============================================
-# Charts Template (XA Database Financial Data)
-# ===============================================
-CHARTS_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Financial Charts - AutoRetainer Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { height: 100%; overflow: hidden; }
-        body { background: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; display: flex; flex-direction: column; }
-        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 6px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-        .header h1 { font-size: 16px; color: #58a6ff; }
-        .header .nav { display: flex; gap: 8px; }
-        .header .nav a { color: #8b949e; text-decoration: none; font-size: 12px; padding: 4px 10px; border-radius: 6px; transition: all 0.2s; }
-        .header .nav a:hover, .header .nav a.active { color: #f0f6fc; background: #21262d; }
-        .summary-row { display: flex; gap: 6px; padding: 6px 10px; flex-shrink: 0; }
-        .summary-card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 4px 10px; flex: 1; min-width: 0; }
-        .summary-card .label { font-size: 9px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .summary-card .value { font-size: 14px; font-weight: 600; color: #f0f6fc; white-space: nowrap; }
-        .summary-card .value.green { color: #3fb950; }
-        .summary-card .value.red { color: #f85149; }
-        .summary-card .value.blue { color: #58a6ff; }
-        .summary-card .value.gold { color: #d29922; }
-        .charts-area { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 3fr 2fr 2fr 2fr; gap: 6px; padding: 0 10px 6px; min-height: 0; }
-        .chart-box { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 6px 10px; min-height: 0; display: flex; flex-direction: column; }
-        .chart-box.full { grid-column: 1 / -1; }
-        .chart-box h3 { font-size: 10px; color: #8b949e; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.3px; flex-shrink: 0; }
-        .chart-box .chart-wrap { flex: 1; min-height: 0; position: relative; }
-        .chart-box canvas { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; }
-        .no-data { text-align: center; padding: 80px 20px; color: #484f58; font-size: 16px; }
-        .no-data h2 { color: #8b949e; margin-bottom: 8px; }
-        .footer { text-align: center; padding: 4px; color: #484f58; font-size: 10px; border-top: 1px solid #21262d; flex-shrink: 0; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>📈 Financial Charts</h1>
-        <div class="nav">
-            <a href="/">Dashboard</a>
-            <a href="/data/">Data</a>
-            <a href="/fcdata/">FC Data</a>
-            <a href="/charts/" class="active">Charts</a>
-        </div>
-    </div>
-
-    {% if data and data.daily_snapshots|length > 0 %}
-    <div class="summary-row">
-        <div class="summary-card">
-            <div class="label">Character Gil</div>
-            <div class="value green">{{ "{:,}".format(data.daily_snapshots[-1].get('total_character_gil', 0)) }}</div>
-        </div>
-        <div class="summary-card">
-            <div class="label">Retainer Gil</div>
-            <div class="value green">{{ "{:,}".format(data.daily_snapshots[-1].get('total_retainer_gil', 0)) }}</div>
-        </div>
-        <div class="summary-card">
-            <div class="label">FC Chest Gil</div>
-            <div class="value blue">{{ "{:,}".format(data.daily_snapshots[-1].get('total_fc_chest_gil', 0)) }}</div>
-        </div>
-        <div class="summary-card">
-            <div class="label">Treasure Value</div>
-            <div class="value gold">{{ "{:,}".format(data.daily_snapshots[-1].get('total_treasure_value', 0)) }}</div>
-        </div>
-        <div class="summary-card">
-            <div class="label">Combined Total</div>
-            <div class="value">{{ "{:,}".format(data.daily_snapshots[-1].get('total_gil_plus_treasure', 0)) }}</div>
-        </div>
-        <div class="summary-card">
-            <div class="label">Gil Earned (All Time)</div>
-            <div class="value green">{{ "{:,}".format(data.cumulative.get('total_gil_overall', 0)) }}</div>
-        </div>
-        <div class="summary-card">
-            <div class="label">Supply Cost (All Time)</div>
-            <div class="value red">{{ "{:,}".format(data.cumulative.get('total_supply_cost_overall', 0)) }}</div>
-        </div>
-        <div class="summary-card">
-            <div class="label">Gil/Day</div>
-            <div class="value gold">{{ "{:,}".format(data.daily_snapshots[-1].get('total_gil_per_day', 0)) }}</div>
-        </div>
-        <div class="summary-card">
-            <div class="label">Restock In</div>
-            <div class="value {% if data.daily_snapshots[-1].get('days_until_restocking') and data.daily_snapshots[-1]['days_until_restocking'] < 7 %}red{% else %}blue{% endif %}">
-                {{ data.daily_snapshots[-1].get('days_until_restocking', 'N/A') }}d
-            </div>
-        </div>
-    </div>
-
-    <div class="charts-area">
-        <div class="chart-box full">
-            <h3>Total Wealth Over Time (Character Gil + Retainer Gil + FC Chest Gil + Treasure)</h3>
-            <div class="chart-wrap"><canvas id="wealthChart"></canvas></div>
-        </div>
-        <div class="chart-box">
-            <h3>Daily Gil Earnings vs Supply Costs</h3>
-            <div class="chart-wrap"><canvas id="earningsChart"></canvas></div>
-        </div>
-        <div class="chart-box">
-            <h3>Days Until Restocking Required</h3>
-            <div class="chart-wrap"><canvas id="restockChart"></canvas></div>
-        </div>
-        <div class="chart-box">
-            <h3>Net Profit Per Day</h3>
-            <div class="chart-wrap"><canvas id="profitChart"></canvas></div>
-        </div>
-        <div class="chart-box">
-            <h3>Submarine Fleet</h3>
-            <div class="chart-wrap"><canvas id="subsChart"></canvas></div>
-        </div>
-        <div class="chart-box">
-            <h3>Supply Inventory (Tanks & Kits)</h3>
-            <div class="chart-wrap"><canvas id="supplyChart"></canvas></div>
-        </div>
-        <div class="chart-box">
-            <h3>Consumption Rates</h3>
-            <div class="chart-wrap"><canvas id="consumptionChart"></canvas></div>
-        </div>
-    </div>
-
-    <script>
-        const snapshots = {{ data.daily_snapshots | tojson }};
-        const labels = snapshots.map(s => s.date);
-
-        const chartDefaults = {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: '#8b949e', font: { size: 9 }, boxWidth: 10, padding: 6 } } },
-            scales: {
-                x: { ticks: { color: '#484f58', maxRotation: 30, font: { size: 8 }, maxTicksLimit: 15 }, grid: { color: '#21262d' } },
-                y: { ticks: { color: '#484f58', font: { size: 8 }, callback: v => v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(0)+'k' : v, maxTicksLimit: 6 }, grid: { color: '#21262d' } }
-            }
-        };
-
-        const compactMoneyTick = value => {
-            const num = Number(value);
-            if (!Number.isFinite(num)) return value;
-            const abs = Math.abs(num);
-            if (abs >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-            if (abs >= 1000) return (num / 1000).toFixed(0) + 'k';
-            return num.toLocaleString();
-        };
-
-        const wholeNumberTick = value => {
-            const num = Number(value);
-            if (!Number.isFinite(num)) return value;
-            return Math.round(num).toLocaleString();
-        };
-
-        const decimalTick = value => {
-            const num = Number(value);
-            if (!Number.isFinite(num)) return value;
-            return num.toFixed(1);
-        };
-
-        function buildLinearAxis(position, tickCallback, drawOnChartArea = true) {
-            return {
-                type: 'linear',
-                position,
-                display: true,
-                ticks: {
-                    color: '#484f58',
-                    font: { size: 8 },
-                    callback: tickCallback,
-                    maxTicksLimit: 6
-                },
-                grid: {
-                    color: '#21262d',
-                    drawOnChartArea
-                }
-            };
-        }
-
-        function syncAxesWithDatasets(chart) {
-            Object.entries(chart.options.scales).forEach(([axisId, axisOptions]) => {
-                if (axisId === 'x') return;
-                const hasVisibleDataset = chart.data.datasets.some((dataset, index) => {
-                    const datasetAxisId = dataset.yAxisID || 'y';
-                    return datasetAxisId === axisId && chart.isDatasetVisible(index);
-                });
-                axisOptions.display = hasVisibleDataset;
-            });
-        }
-
-        const defaultLegendClick = Chart.defaults.plugins.legend.onClick;
-        function axisAwareLegendClick(event, legendItem, legend) {
-            defaultLegendClick(event, legendItem, legend);
-            const chart = legend.chart;
-            syncAxesWithDatasets(chart);
-            chart.update();
-        }
-
-        function createDualAxisLineChart(canvasId, datasets, leftTickCallback, rightTickCallback) {
-            const chart = new Chart(document.getElementById(canvasId), {
-                type: 'line',
-                data: { labels, datasets },
-                options: {
-                    ...chartDefaults,
-                    plugins: {
-                        ...chartDefaults.plugins,
-                        legend: {
-                            ...chartDefaults.plugins.legend,
-                            onClick: axisAwareLegendClick
-                        }
-                    },
-                    scales: {
-                        x: { ...chartDefaults.scales.x },
-                        y: buildLinearAxis('left', leftTickCallback),
-                        y1: buildLinearAxis('right', rightTickCallback, false)
-                    }
-                }
-            });
-            syncAxesWithDatasets(chart);
-            chart.update();
-            return chart;
-        }
-
-        new Chart(document.getElementById('wealthChart'), {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [
-                    { label: 'Character Gil', data: snapshots.map(s => s.total_character_gil || 0), borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
-                    { label: 'Retainer Gil', data: snapshots.map(s => s.total_retainer_gil || 0), borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
-                    { label: 'FC Chest Gil', data: snapshots.map(s => s.total_fc_chest_gil || 0), borderColor: '#39c5cf', backgroundColor: 'rgba(57,197,207,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
-                    { label: 'Treasure Value', data: snapshots.map(s => s.total_treasure_value || 0), borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
-                    { label: 'Combined Total', data: snapshots.map(s => s.total_gil_plus_treasure || 0), borderColor: '#f0f6fc', backgroundColor: 'rgba(240,246,252,0)', fill: false, tension: 0.3, pointRadius: 2, borderWidth: 2, borderDash: [5, 3] }
-                ]
-            },
-            options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, stacked: false } } }
-        });
-
-        createDualAxisLineChart('earningsChart', [
-            { label: 'Gil Per Day', data: snapshots.map(s => s.total_gil_per_day || 0), yAxisID: 'y', borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
-            { label: 'Supply Cost Per Day', data: snapshots.map(s => s.total_supply_cost_per_day || 0), yAxisID: 'y1', borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
-        ], compactMoneyTick, compactMoneyTick);
-
-        const netProfitSeries = snapshots.map(s => (s.total_gil_per_day || 0) - (s.total_supply_cost_per_day || 0));
-        new Chart(document.getElementById('profitChart'), {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [{
-                    label: 'Net Profit',
-                    data: netProfitSeries,
-                    borderColor: '#3fb950',
-                    backgroundColor: 'rgba(63,185,80,0.12)',
-                    fill: {
-                        target: 'origin',
-                        above: 'rgba(63,185,80,0.12)',
-                        below: 'rgba(248,81,73,0.12)'
-                    },
-                    tension: 0.3,
-                    pointRadius: 1.5,
-                    pointHoverRadius: 3,
-                    borderWidth: 1.5,
-                    pointBackgroundColor: netProfitSeries.map(v => v >= 0 ? '#3fb950' : '#f85149'),
-                    pointBorderColor: netProfitSeries.map(v => v >= 0 ? '#3fb950' : '#f85149'),
-                    segment: {
-                        borderColor: ctx => (ctx.p0.parsed.y < 0 || ctx.p1.parsed.y < 0) ? '#f85149' : '#3fb950'
-                    }
-                }]
-            },
-            options: chartDefaults
-        });
-
-        createDualAxisLineChart('subsChart', [
-            { label: 'Farming Subs', data: snapshots.map(s => s.total_subs_farming || 0), yAxisID: 'y', borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
-            { label: 'Leveling Subs', data: snapshots.map(s => s.total_subs_leveling || 0), yAxisID: 'y1', borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
-        ], wholeNumberTick, wholeNumberTick);
-
-        createDualAxisLineChart('supplyChart', [
-            { label: 'Ceruleum Tanks', data: snapshots.map(s => s.ceruleum_tank_inventory || 0), yAxisID: 'y', borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
-            { label: 'Repair Kits', data: snapshots.map(s => s.repair_kit_inventory || 0), yAxisID: 'y1', borderColor: '#8b949e', backgroundColor: 'rgba(139,148,158,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
-        ], wholeNumberTick, wholeNumberTick);
-
-        createDualAxisLineChart('consumptionChart', [
-            { label: 'Tanks/Day', data: snapshots.map(s => s.total_tanks_per_day || 0), yAxisID: 'y', borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
-            { label: 'Kits/Day', data: snapshots.map(s => s.total_kits_per_day || 0), yAxisID: 'y1', borderColor: '#8b949e', backgroundColor: 'rgba(139,148,158,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
-        ], decimalTick, decimalTick);
-
-        new Chart(document.getElementById('restockChart'), {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [{
-                    label: 'Days Until Restock',
-                    data: snapshots.map(s => s.days_until_restocking),
-                    borderColor: '#f85149',
-                    backgroundColor: 'rgba(248,81,73,0.1)',
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 1,
-                    borderWidth: 1.5,
-                    pointBackgroundColor: snapshots.map(s => s.days_until_restocking !== null && s.days_until_restocking < 7 ? '#f85149' : '#3fb950')
-                }]
-            },
-            options: chartDefaults
-        });
-    </script>
-    {% else %}
-    <div class="no-data">
-        <h2>No Financial Data Available</h2>
-        {% if not data %}
-        <p>USE_AAR_DB is disabled in config.json.</p>
-        <p style="margin-top:8px;color:#8b949e;">Set <code style="background:#21262d;padding:2px 6px;border-radius:3px;">"USE_AAR_DB": true</code> to enable snapshot recording.</p>
-        {% else %}
-        <p>No snapshots recorded yet. Data will appear after the dashboard loads and records its first daily snapshot.</p>
-        <p style="margin-top:8px;color:#8b949e;">Visit the main dashboard page to trigger snapshot recording.</p>
-        {% endif %}
-    </div>
-    {% endif %}
-
-    <div class="footer">AutoRetainer Dashboard {{ version }} | Charts powered by sublord.db snapshots from XA Database</div>
-</body>
-</html>
-'''
-
-
-# ===============================================
-# Flask Routes
-# ===============================================
-@app.route('/')
-def index():
-    """Main dashboard page"""
-    data = get_all_data()
-    # Write daily snapshot to sublord.db for charts historical data
-    if USE_AAR_DB and data and "summary" in data:
-        write_daily_snapshot(data["summary"])
-    return render_template_string(HTML_TEMPLATE, data=data, auto_refresh=AUTO_REFRESH, 
-                                  job_categories=JOB_CATEGORIES, job_display_names=JOB_DISPLAY_NAMES,
-                                  job_base_class=JOB_BASE_CLASS, version=VERSION,
-                                  show_classes=SHOW_CLASSES, show_currencies=SHOW_CURRENCIES,
-                                  show_msq_progression=SHOW_MSQ_PROGRESSION, default_theme=DEFAULT_THEME,
-                                  highlight_idle_retainers=HIGHLIGHT_IDLE_RETAINERS,
-                                  highlight_idle_subs=HIGHLIGHT_IDLE_SUBS,
-                                  highlight_ready_items=HIGHLIGHT_READY_ITEMS,
-                                  highlight_max_mb=HIGHLIGHT_MAX_MB,
-                                  highlight_potential_retainer=HIGHLIGHT_POTENTIAL_RETAINER,
-                                  highlight_potential_subs=HIGHLIGHT_POTENTIAL_SUBS,
-                                  highlight_color_idle_retainers=HIGHLIGHT_COLOR_IDLE_RETAINERS,
-                                  highlight_color_idle_subs=HIGHLIGHT_COLOR_IDLE_SUBS,
-                                  highlight_color_max_mb=HIGHLIGHT_COLOR_MAX_MB,
-                                  highlight_color_potential_retainer=HIGHLIGHT_COLOR_POTENTIAL_RETAINER,
-                                  highlight_color_potential_subs=HIGHLIGHT_COLOR_POTENTIAL_SUBS)
-
-
-@app.route('/fcdata/')
-@app.route('/fcdata')
-def map_page():
-    """Plot map and FC capacity planner page"""
-    data = get_map_data()
-    return render_template_string(MAP_TEMPLATE, data=data, version=VERSION)
-
-
-@app.route('/data/')
-@app.route('/data')
-def subs_page():
-    """Submarine master list page"""
-    data = get_subs_data()
-    return render_template_string(SUBS_TEMPLATE, data=data, version=VERSION)
-
-
-@app.route('/charts/')
-@app.route('/charts')
-def charts_page():
-    """Financial charts page (historical snapshots from sublord.db)"""
-    data = read_sublord_data()
-    return render_template_string(CHARTS_TEMPLATE, data=data, version=VERSION)
-
-
-@app.route('/api/charts-data')
-def api_charts_data():
-    """API endpoint for charts page JSON data"""
-    data = read_sublord_data()
-    if data is None:
-        return jsonify({"error": "sublord.db not available", "daily_snapshots": [], "cumulative": {}})
-    return jsonify(data)
-
-
-@app.route('/api/subs-data')
-def api_subs_data():
-    """API endpoint for subs page JSON data"""
-    data = get_subs_data()
-    return jsonify(data)
-
-
-@app.route('/api/map-data')
-def api_map_data():
-    """API endpoint for map page JSON data"""
-    data = get_map_data()
-    return jsonify(data)
-
-
-@app.route('/api/data')
-def api_data():
-    """API endpoint for raw JSON data"""
-    data = get_all_data()
-    return jsonify(data)
-
-
-@app.route('/api/refresh')
-def api_refresh():
-    """Force data refresh"""
-    data = get_all_data()
-    return jsonify({"status": "ok", "last_updated": data["last_updated"]})
-
-
-# ===============================================
-# FC Detection Diagnostic
-# ===============================================
-def run_fc_diagnostic():
-    """
-    Compare FC detection methods across all accounts.
-    Prints per-character breakdown showing which indicators triggered.
-    """
-    print("\n" + "=" * 100)
-    print("  FC DETECTION DIAGNOSTIC — Comparing main page vs /map/ page logic")
-    print("=" * 100)
-    
-    grand_total = {"chars": 0, "in_fc": 0, "fc_managed": 0, "excluded": 0, "not_in_fc": 0}
-    
-    for account in account_locations:
-        auto_path = account["auto_path"]
-        if not os.path.isfile(auto_path):
-            continue
-        try:
-            with open(auto_path, 'r', encoding='utf-8-sig') as f:
-                data = json.load(f)
-        except Exception:
+    for i, build in enumerate(all_builds):
+        plan_name = all_plans[i] if i < len(all_plans) else ""
+        
+        # Check if plan is a leveling plan (skip, no income)
+        if plan_name and plan_name in leveling_plans:
             continue
         
-        fc_data = extract_fc_data(data)
-        characters = collect_characters(data, account["nickname"])
+        # Check if plan has a farming rate defined
+        if plan_name and plan_name in farming_plans:
+            total_daily_gil += farming_plans[plan_name]
+            farming_subs_count += 1
+            continue
         
-        housing_map = {}
-        lfstrm_path = account.get("lfstrm_path", "")
-        if lfstrm_path:
-            housing_map = load_lifestream_data(lfstrm_path)
-        
-        # Per-account counters
-        acc = {"chars": 0, "in_fc": 0, "fc_managed": 0, "excluded": 0, "not_in_fc": 0}
-        # Per-region counters
-        region_counts = {}
-        char_details = []
-        seen_fc_keys = {}  # FC plot dedup
-        
-        for char in characters:
-            cid = char.get("CID", 0)
-            name = char.get("Name", "Unknown")
-            world = char.get("World", "Unknown")
-            region = region_from_world(world)
-            
-            # FC indicators
-            fc_name = fc_data[cid].get("Name", "") if cid in fc_data else ""
-            has_subs = bool(char.get("OfflineSubmarineData", []))
-            has_fc_house = cid in housing_map and housing_map[cid].get('fc') is not None
-            
-            # Build FC key for dedup
-            fc_key = None
-            if has_fc_house:
-                fcd = housing_map[cid]['fc']
-                fc_key = f"{world}_{fcd['district']}_W{fcd['ward']}_P{fcd['plot']}"
-            elif fc_name:
-                fc_key = f"{world}_{fc_name}"
-            
-            # Exclusion flags (only ExcludeWorkshop affects FC capacity)
-            excl_ret = char.get("ExcludeRetainer", False) if HONOR_AR_EXCLUSIONS else False
-            excl_ws = char.get("ExcludeWorkshop", False) if HONOR_AR_EXCLUSIONS else False
-            is_excluded = excl_ws
-            
-            # Classify with dedup (matches get_map_data logic)
-            if is_excluded:
-                status = "EXCLUDED"
-            elif has_subs:
-                if fc_key and fc_key in seen_fc_keys:
-                    status = "FC_MANAGED"
-                else:
-                    status = "IN_FC"
-                    if fc_key:
-                        seen_fc_keys[fc_key] = name
-            elif has_fc_house:
-                status = "FC_MANAGED"
-            else:
-                status = "NOT_IN_FC"
-            
-            acc["chars"] += 1
-            if status == "EXCLUDED":
-                acc["excluded"] += 1
-            elif status == "IN_FC":
-                acc["in_fc"] += 1
-            elif status == "FC_MANAGED":
-                acc["fc_managed"] += 1
-            else:
-                acc["not_in_fc"] += 1
-            
-            # Track per region
-            if region:
-                if region not in region_counts:
-                    region_counts[region] = {"chars": 0, "in_fc": 0, "fc_managed": 0, "excluded": 0, "not_in_fc": 0}
-                rc = region_counts[region]
-                rc["chars"] += 1
-                if status == "EXCLUDED":
-                    rc["excluded"] += 1
-                elif status == "IN_FC":
-                    rc["in_fc"] += 1
-                elif status == "FC_MANAGED":
-                    rc["fc_managed"] += 1
-                else:
-                    rc["not_in_fc"] += 1
-            
-            # Build indicators list for detail display
-            indicators = []
-            if has_subs: indicators.append("SUBS")
-            if has_fc_house: indicators.append("FC_HOUSE")
-            if fc_name: indicators.append(f"FC:{fc_name}")
-            if excl_ret: indicators.append("EXCL_RET")
-            if excl_ws: indicators.append("EXCL_WS")
-            if fc_key and fc_key in seen_fc_keys and status == "FC_MANAGED": indicators.append("DEDUP")
-            
-            char_details.append({
-                "name": name, "world": world, "region": region,
-                "status": status, "indicators": indicators,
-                "is_excluded": is_excluded
-            })
-        
-        # Print account summary
-        print(f"\n  [{account['nickname']}] {acc['chars']} chars — InFC: {acc['in_fc']}, ManagedByAlt: {acc['fc_managed']}, Excluded: {acc['excluded']}, CanJoin: {acc['not_in_fc']}")
-        
-        for reg in sorted(region_counts.keys()):
-            rc = region_counts[reg]
-            mg = rc['fc_managed']
-            mg_str = f" | MgdByAlt: {mg:3d}" if mg > 0 else ""
-            print(f"    {reg:4s}: {rc['chars']:3d} chars | InFC: {rc['in_fc']:3d}{mg_str} | Excluded: {rc['excluded']:3d} | CanJoin: {rc['not_in_fc']:3d}")
-        
-        # Show excluded characters with their indicators
-        excluded_chars = [c for c in char_details if c["is_excluded"]]
-        if excluded_chars:
-            print(f"    --- Excluded Characters ({len(excluded_chars)}) ---")
-            for c in excluded_chars:
-                print(f"      {c['name']:24s} {c['world']:15s} {c['region']:4s} [{', '.join(c['indicators'])}]")
-        
-        # Show characters managed by alt (orange category)
-        fc_managed_chars = [c for c in char_details if c["status"] == "FC_MANAGED"]
-        if fc_managed_chars:
-            print(f"    --- Managed by Alt ({len(fc_managed_chars)}) — shown as ORANGE ---")
-            for c in fc_managed_chars:
-                print(f"      {c['name']:24s} {c['world']:15s} {c['region']:4s} [{', '.join(c['indicators'])}]")
-        
-        grand_total["chars"] += acc["chars"]
-        grand_total["in_fc"] += acc["in_fc"]
-        grand_total["fc_managed"] += acc["fc_managed"]
-        grand_total["excluded"] += acc["excluded"]
-        grand_total["not_in_fc"] += acc["not_in_fc"]
+        # Fall back to build-based rate
+        if build in build_gil_rates:
+            total_daily_gil += build_gil_rates[build]
+            farming_subs_count += 1
     
-    print(f"\n  GRAND TOTAL: {grand_total['chars']} chars")
-    print(f"    In FC (unique):   {grand_total['in_fc']}")
-    print(f"    Managed by Alt:   {grand_total['fc_managed']}")
-    print(f"    Excluded:         {grand_total['excluded']}")
-    print(f"    Can Join FC:      {grand_total['not_in_fc']}")
-    print(f"    HONOR_AR_EXCLUSIONS: {HONOR_AR_EXCLUSIONS}")
-    print(f"    FC Detection: unique subs=GREEN, dup FC or no subs=ORANGE(managed), else=CAN_JOIN")
-    print(f"    Dedup: by FC plot (world+district+ward+plot) or fc_name+world")
-    print("=" * 100 + "\n")
+    leveling_subs_count = total_all_subs - farming_subs_count
+    
+    # Calculate total supply cost per day (tanks and repair kits)
+    total_tanks_per_day = 0
+    total_kits_per_day = 0
+    for build in all_builds:
+        if build in build_consumption_rates:
+            total_tanks_per_day += build_consumption_rates[build]["tanks_per_day"]
+            total_kits_per_day += build_consumption_rates[build]["kits_per_day"]
+        else:
+            # Default consumption for unlisted builds (leveling submarines)
+            total_tanks_per_day += 9.0
+            total_kits_per_day += 1.33
+    
+    # Calculate costs using configurable supply costs
+    total_supply_cost_per_day = int((total_tanks_per_day * CERULEUM_TANK_COST) + (total_kits_per_day * REPAIR_KIT_COST))
+    
+    # Calculate minimum days until restocking
+    min_days_until_restocking = min(all_days_remaining) if all_days_remaining else None
+    
+    # Display totals
+    print(f"Total Subs: {total_ready_subs} / {total_all_subs}")
+    print(f"Total Gil Per Day: {total_daily_gil:,}")
+    print(f"Total Subs Leveling: {leveling_subs_count}")
+    print(f"Total Subs Farming: {farming_subs_count}")
+    print(f"Total Supply Cost Per Day: {total_supply_cost_per_day:,}")
+    if min_days_until_restocking is not None:
+        print(f"Total Days Until Restocking Required: {min_days_until_restocking}")
+    # Display lowest inventory space among submarine-only farmers (excludes characters with retainers)
+    min_inventory_space = min(all_inventory_spaces) if all_inventory_spaces else None
+    if min_inventory_space is not None:
+        print(f"Lowest Inventory Space (Sub-Only Farmers): {min_inventory_space}")
+    # Display lowest inventory space among retainer farmers (characters with retainers)
+    min_retainer_inventory_space = min(all_retainer_inventory_spaces) if all_retainer_inventory_spaces else None
+    if min_retainer_inventory_space is not None:
+        print(f"Lowest Inventory Space (Retainer Farmers): {min_retainer_inventory_space}")
+    # Warning for characters with submarines ready but not enabled for Multi processing
+    total_disabled_ready = sum(data.get("disabled_ready_subs", 0) for data in account_data)
+    if total_disabled_ready > 0:
+        all_disabled_chars = []
+        for data in account_data:
+            for char_name in data.get("disabled_chars_with_ready_subs", []):
+                all_disabled_chars.append(f"{char_name} ({data['nickname']})")
+        char_list = ", ".join(all_disabled_chars)
+        print(f"WARNING: {total_disabled_ready} sub(s) ready on characters without Workshop enabled: {char_list}")
+    if MAX_CLIENTS > 0:
+        print(f"Max Clients: {MAX_CLIENTS}")
+    
+    print("=" * 85)
+    print("Press Ctrl+C to exit")
+    print("=" * 85)
 
-
-# ===============================================
-# Main Entry Point
-# ===============================================
 def main():
-    load_external_config()
-    
-    print("=" * 60)
-    print(f"  AutoRetainer Dashboard {VERSION}")
-    print("=" * 60)
-    print(f"  Server: http://{HOST}:{PORT}")
-    print(f"  FC Data: http://{HOST}:{PORT}/fcdata/")
-    print(f"  Data:   http://{HOST}:{PORT}/data/")
-    if USE_AAR_DB:
-        print(f"  Charts: http://{HOST}:{PORT}/charts/")
-        init_sublord_db()
-        sublord_path = get_sublord_db_path()
-        print(f"  Sublord DB: {sublord_path}")
-        found_dbs, missing_dbs = check_xa_db_status()
-        if found_dbs:
-            print(f"  XA Database: Found for {len(found_dbs)}/{len(account_locations)} accounts")
-        if missing_dbs:
-            for acc_name in missing_dbs:
-                print(f"  [XA-DB] {acc_name} doesn't have a XA Database file to parse")
-    print(f"  Accounts: {len(account_locations)}")
-    print(f"  Auto-refresh: {AUTO_REFRESH}s" if AUTO_REFRESH > 0 else "  Auto-refresh: Disabled")
-    print("=" * 60)
-    
-    # Run FC detection diagnostic (only when DEBUG is enabled)
-    if DEBUG:
-        run_fc_diagnostic()
-    
-    app.run(host=HOST, port=PORT, debug=DEBUG)
+    """Main loop - continuously update display with dual refresh rates"""
+    try:
+        # System bootup delay (if configured)
+        if SYSTEM_BOOTUP_DELAY > 0:
+            print(f"ARR Processing Delay {SYSTEM_BOOTUP_DELAY}s Set. Please Wait...")
+            for remaining in range(SYSTEM_BOOTUP_DELAY, 0, -1):
+                print(f"  Starting in {remaining} second{'s' if remaining != 1 else ''}...", end='\r')
+                time.sleep(1)
+            print("\n")  # Clear the countdown line
+        
+        # Initial launcher check - close any stuck XIVLauncher on startup
+        if is_xivlauncher_running():
+            print("[STARTUP] XIVLauncher.exe detected with visible windows - closing stuck launcher...")
+            if kill_xivlauncher_process():
+                print("[STARTUP] Successfully closed XIVLauncher.exe")
+            else:
+                print("[STARTUP] Failed to close XIVLauncher.exe - may need manual intervention")
+            time.sleep(2)  # Brief wait after killing launcher
+        
+        # Validate configuration: single client mode requires only 1 account
+        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+            if len(account_locations) > 1:
+                print("[ERROR] USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME is True but multiple accounts are configured.")
+                print("[ERROR] Single client mode only supports 1 account.")
+                print(f"[ERROR] Currently configured accounts: {len(account_locations)}")
+                print("[ERROR] Please disable USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME or configure only 1 account.")
+                log_error(f"CONFIG_VALIDATION_FAILED: Single client mode enabled but {len(account_locations)} accounts configured")
+                sys.exit(1)
+            print("[INFO] Running in single client mode (USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME=True)")
+            print("[INFO] Using default FFXIV window title detection\n")
 
+        # Print startup summary for account-specific automation hours.
+        for account_entry in account_locations:
+            if not automation_hours_enabled(account_entry):
+                continue
+            nickname = account_entry["nickname"]
+            range_count = len(account_entry["automation_hours"])
+            if account_entry.get("force247uptime", False):
+                print(f"[AUTOMATION-HOURS] {nickname}: scheduled + force247uptime ({range_count} range(s), runs full windows only)")
+            else:
+                print(f"[AUTOMATION-HOURS] {nickname}: scheduled ({range_count} range(s))")
+        
+        # Track last window check time (set to negative to force immediate check on first run)
+        last_window_check = -WINDOW_REFRESH_INTERVAL
+        game_status_dict = {}
+        closed_pids = set()  # Track PIDs we've already closed to avoid repeated attempts
+        last_launch_time = {}  # Track last launch time for each account to enforce rate limiting
+        client_start_times = {}  # Track process start times (will be populated with actual times)
+        initial_arrangement_done = False  # Track if we've done initial window arrangement
+        game_launch_timestamp = {}  # Track when game was launched for each account (for force crash monitoring)
+        last_sub_processed = {}  # Track last time submarine was processed for each account (for force crash monitoring) (negative → positive transitions)
+        submarine_state_cache = {"__activity__": {}}  # Cache submarine return times by nickname to detect processing (negative → positive transitions)
+        retainer_state_cache = {}  # Cache retainer venture times by nickname to detect processing (for force247uptime accounts)
+        retainer_mode_active = {}  # Track when retainer timer mode was active per account (prevents premature timer switch when subs become ready)
+        vessel_waiting_states = {}
+        launcher_retry_count = {}  # Track launcher retry attempts per account
+        launcher_failed_accounts = set()  # Track accounts that have exceeded launcher retry limit
+        last_sublord_update = 0  # Track last sublord DB update time
+        
+        # Initialize sublord.db on startup
+        if ENABLE_SUBLORD_DB:
+            if init_sublord_db():
+                # Collect and store initial snapshot immediately
+                try:
+                    snapshot = collect_sublord_snapshot()
+                    update_sublord_db(snapshot)
+                    last_sublord_update = time.time()
+                    print(f"[SUBLORD-DB] Initial snapshot recorded (updates every {SUBLORD_DB_UPDATE_INTERVAL}min)")
+                except Exception as e:
+                    print(f"[SUBLORD-DB] Error collecting initial snapshot: {e}")
+        
+        # Initialize client_start_times with actual process start times for already-running games
+        if PSUTIL_AVAILABLE:
+            if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                # Single client mode: track ffxiv_dx11.exe process start time
+                ffxiv_start_time = get_ffxiv_process_start_time()
+                if ffxiv_start_time:
+                    client_start_times['ffxiv_single'] = ffxiv_start_time
+                    if DEBUG:
+                        print(f"[INIT] Found existing FFXIV process with start time: {datetime.datetime.fromtimestamp(ffxiv_start_time).strftime('%Y-%m-%d %H:%M:%S')}")
+            else:
+                # Multi-client mode: track by PID
+                for account_entry in account_locations:
+                    nickname = account_entry["nickname"]
+                    is_running, process_id = is_ffxiv_running_for_account(nickname)
+                    if is_running and process_id:
+                        actual_start_time = get_process_start_time(process_id)
+                        if actual_start_time:
+                            client_start_times[process_id] = actual_start_time
+                            if DEBUG:
+                                print(f"[INIT] Found existing process {nickname} (PID: {process_id}) with start time: {datetime.datetime.fromtimestamp(actual_start_time).strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        while True:
+            current_time = time.time()
+
+            farmer_entries = _sublord_all_accounts if _sublord_all_accounts else account_locations
+            submarine_state_cache["__activity__"] = {}
+            for farmer_entry in farmer_entries:
+                nickname = farmer_entry.get("nickname")
+                if not nickname:
+                    continue
+                submarine_state_cache["__activity__"][nickname] = sync_farmer_snapshots(farmer_entry, submarine_state_cache, current_time)
+            vessel_waiting_states = {}
+            for account_entry in account_locations:
+                nickname = account_entry["nickname"]
+                vessel_waiting_states[nickname] = get_vessel_waiting_state(account_entry, submarine_state_cache, current_time)
+            
+            # Check if we need to refresh window status (every WINDOW_REFRESH_INTERVAL seconds)
+            if current_time - last_window_check >= WINDOW_REFRESH_INTERVAL:
+                if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                    # Single client mode: track ffxiv_dx11.exe process
+                    for account_entry in account_locations:
+                        nickname = account_entry["nickname"]
+                        status = is_ffxiv_running_for_account(nickname)
+                        game_status_dict[nickname] = status
+                        is_running, _ = status
+                        
+                        if is_running:
+                            # Update process start time for single client
+                            if 'ffxiv_single' not in client_start_times:
+                                ffxiv_start_time = get_ffxiv_process_start_time()
+                                if ffxiv_start_time:
+                                    client_start_times['ffxiv_single'] = ffxiv_start_time
+                                    if DEBUG:
+                                        print(f"[DEBUG] Detected FFXIV process with start time")
+                        else:
+                            # Remove tracking if process not running
+                            if 'ffxiv_single' in client_start_times:
+                                del client_start_times['ffxiv_single']
+                else:
+                    # Multi-client mode: track by PID
+                    running_pids = set()
+                    for account_entry in account_locations:
+                        nickname = account_entry["nickname"]
+                        status = is_ffxiv_running_for_account(nickname)
+                        game_status_dict[nickname] = status
+                        is_running, process_id = status
+                        if is_running and process_id:
+                            running_pids.add(process_id)
+                            if process_id not in client_start_times:
+                                # Try to get actual process start time, fallback to current time
+                                actual_start_time = get_process_start_time(process_id)
+                                if actual_start_time:
+                                    client_start_times[process_id] = actual_start_time
+                                    if DEBUG:
+                                        print(f"[DEBUG] Detected new process {nickname} (PID: {process_id}) with actual start time")
+                                else:
+                                    client_start_times[process_id] = current_time
+                                    if DEBUG:
+                                        print(f"[DEBUG] Detected new process {nickname} (PID: {process_id}) using current time")
+                    # Remove entries for processes that are no longer running
+                    for pid in list(client_start_times.keys()):
+                        if pid not in running_pids:
+                            del client_start_times[pid]
+                
+                # Check for active DalamudCrashHandler.exe windows (indicates a game crash)
+                crash_handler_pid = is_dalamud_crash_handler_running()
+                if crash_handler_pid:
+                    print(f"\n[CRASH-HANDLER] DalamudCrashHandler.exe (PID {crash_handler_pid}) detected as ACTIVE APP - closing crash handler window...")
+                    if kill_dalamud_crash_handler_process(crash_handler_pid):
+                        print(f"[CRASH-HANDLER] Successfully closed DalamudCrashHandler.exe (PID {crash_handler_pid})")
+                    else:
+                        print(f"[CRASH-HANDLER] Failed to close DalamudCrashHandler.exe (PID {crash_handler_pid})")
+                
+                last_window_check = current_time
+            
+            # Display submarine timers with current game status FIRST
+            display_submarine_timers(game_status_dict, client_start_times, launcher_failed_accounts, last_sub_processed, retainer_mode_active, vessel_waiting_states)
+            
+            # Initial window arrangement check (only on first run)
+            if not initial_arrangement_done and ENABLE_WINDOW_LAYOUT:
+                # Check if any games are already running
+                any_games_running = any(
+                    game_status_dict.get(acc["nickname"], (False, None))[0] 
+                    for acc in account_locations 
+                    if acc.get("include_submarines", True)
+                )
+                
+                if any_games_running:
+                    if DEBUG:
+                        print(f"\n[WINDOW-MOVER] Detected games already running on startup")
+                    arrange_ffxiv_windows()
+                
+                initial_arrangement_done = True
+
+            # Automation-hours enforcement runs before launch decisions so out-of-hours
+            # clients do not occupy MAX_CLIENTS slots for accounts that are allowed to run.
+            for account_entry in account_locations:
+                nickname = account_entry["nickname"]
+                if not automation_hours_enabled(account_entry):
+                    continue
+                if is_account_in_automation_hours(account_entry, datetime.datetime.now()):
+                    continue
+
+                game_info = game_status_dict.get(nickname, (None, None))
+                is_running = game_info[0]
+                process_id = game_info[1]
+
+                if not is_running:
+                    continue
+                if not USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME and not process_id:
+                    continue
+                if process_id and process_id in closed_pids:
+                    continue
+
+                include_subs = account_entry.get("include_submarines", True)
+                ready_subs = 0
+                if include_subs:
+                    timer_data = get_submarine_timers_for_account(account_entry)
+                    ready_subs = timer_data.get("ready_subs", 0) or 0
+
+                pid_display = process_id if process_id else "single-client"
+                print(f"\n[AUTOMATION-HOURS] Closing {nickname} (PID: {pid_display}) - outside automation hours")
+
+                close_success = kill_game_client_and_cleanup(
+                    nickname, process_id,
+                    f"[AUTOMATION-HOURS] Successfully closed {nickname}; automation hours are closed.",
+                    f"[AUTOMATION-HOURS] Failed to close {nickname}",
+                    closed_pids, game_status_dict, client_start_times,
+                    last_launch_time=last_launch_time,
+                    game_launch_timestamp=game_launch_timestamp,
+                    last_sub_processed=last_sub_processed,
+                    retainer_mode_active=retainer_mode_active
+                )
+
+                if close_success:
+                    if ready_subs > 0:
+                        log_error(
+                            f"AUTOMATION_HOURS_EXPIRED_WITH_READY_SUBS: {nickname} - "
+                            f"automation hours closed with {ready_subs} ready sub(s) unprocessed"
+                        )
+                    else:
+                        print(f"[AUTOMATION-HOURS] {nickname} closed cleanly (no ready subs)")
+            
+            # Then show debug output and auto-launch logic (won't be cleared)
+            if ENABLE_AUTO_LAUNCH:
+                if DEBUG:
+                    print(f"\n[DEBUG] Auto-launch enabled, checking accounts...")
+                
+                # Count currently running clients
+                running_count = sum(1 for acc in account_locations if game_status_dict.get(acc["nickname"], (False, None))[0])
+                
+                if DEBUG:
+                    print(f"[DEBUG] Currently running clients: {running_count}")
+                    if MAX_CLIENTS > 0:
+                        print(f"[DEBUG] MAX_CLIENTS limit: {MAX_CLIENTS}")
+                
+                # Check if we've reached MAX_CLIENTS limit (0 = unlimited)
+                if MAX_CLIENTS > 0 and running_count >= MAX_CLIENTS:
+                    if DEBUG:
+                        print(f"[DEBUG] MAX_CLIENTS limit reached ({running_count}/{MAX_CLIENTS}), skipping auto-launch")
+                else:
+                    # Build lists of accounts that need launching
+                    force247_accounts = []
+                    submarine_ready_accounts = []
+                    
+                    for account_entry in account_locations:
+                        nickname = account_entry["nickname"]
+                        include_subs = account_entry.get("include_submarines", True)
+                        rotating_retainers = account_entry.get("force247uptime", False)
+                        
+                        # Skip if account has exceeded launcher retry limit
+                        if nickname in launcher_failed_accounts:
+                            if DEBUG:
+                                print(f"[DEBUG] {nickname}: Launcher failed, skipping")
+                            continue
+
+                        # Scheduled accounts only launch during configured automation hours.
+                        if automation_hours_enabled(account_entry):
+                            if not is_account_in_automation_hours(account_entry, datetime.datetime.now()):
+                                if DEBUG:
+                                    print(f"[DEBUG] {nickname}: Outside automation hours, skipping launch")
+                                continue
+                        
+                        # Skip if submarines are disabled for this account and not force247uptime
+                        if not include_subs and not rotating_retainers:
+                            if DEBUG:
+                                print(f"[DEBUG] {nickname}: Submarines disabled, skipping")
+                            continue
+                        
+                        # Get game status
+                        game_info = game_status_dict.get(nickname, (None, None))
+                        is_running = game_info[0]
+                        
+                        # Skip if already running
+                        if is_running:
+                            if DEBUG:
+                                debug_msg = f"[DEBUG] {nickname}: Already running, skipping"
+                                
+                                # Add force-close timer info if we have a launch timestamp
+                                if nickname in game_launch_timestamp:
+                                    launch_time = game_launch_timestamp[nickname]
+                                    monitoring_start_time = launch_time + (AUTO_LAUNCH_THRESHOLD * 3600)
+                                    
+                                    if current_time >= monitoring_start_time:
+                                        # Monitoring is active - show inactivity timer
+                                        if nickname in last_sub_processed:
+                                            minutes_since_processing = (current_time - last_sub_processed[nickname]) / 60
+                                            # Determine if monitoring retainers or submarines
+                                            timer_data = get_submarine_timers_for_account(account_entry)
+                                            ready_subs = timer_data.get("ready_subs", 0)
+                                            vessel_waiting_state = vessel_waiting_states.get(nickname, {})
+                                            if vessel_waiting_state.get("active"):
+                                                character_name = vessel_waiting_state.get("character_name") or "Unknown"
+                                                next_sub_hours = vessel_waiting_state.get("next_sub_hours")
+                                                disable_window_minutes = vessel_waiting_state.get("disable_window_minutes", 0)
+                                                if next_sub_hours is not None:
+                                                    debug_msg += f" [Force-Close] VesselWaiting on {character_name} - next sub in {next_sub_hours * 60:.1f} minutes"
+                                                else:
+                                                    debug_msg += f" [Force-Close] VesselWaiting on {character_name}"
+                                                if disable_window_minutes > 0:
+                                                    debug_msg += f" (DisableRetainerVesselReturn {disable_window_minutes}m)"
+                                                debug_msg += ", timer paused."
+                                            else:
+                                                # For force247 accounts with no subs ready, we're monitoring retainers
+                                                # Use rotating_retainers flag (not current ready_rets) since ready_rets may be 0 after processing
+                                                is_retainer_monitoring_account = (ready_subs == 0 and rotating_retainers)
+                                                # Use appropriate threshold for retainers vs submarines
+                                                inactivity_threshold = FORCE_CRASH_RETAINER_MINUTES if is_retainer_monitoring_account else FORCE_CRASH_INACTIVITY_MINUTES
+                                                minutes_until_crash = max(0, inactivity_threshold - minutes_since_processing)
+                                                if is_retainer_monitoring_account:
+                                                    debug_msg += f" [Force-Close] Last retainer processed {minutes_since_processing:.1f} minutes ago. Force close in {minutes_until_crash:.1f} minutes."
+                                                else:
+                                                    debug_msg += f" [Force-Close] Last sub processed {minutes_since_processing:.1f} minutes ago. Force close in {minutes_until_crash:.1f} minutes."
+                                        else:
+                                            # No processing detected yet
+                                            debug_msg += f" [Force-Close] Monitoring active, no submarine processing detected yet."
+                                    else:
+                                        # Still in countdown phase - show time until monitoring starts
+                                        time_until_monitoring = (monitoring_start_time - current_time) / 60
+                                        debug_msg += f" [Force-Close] Monitoring starts in {time_until_monitoring:.1f} minutes"
+                                
+                                print(debug_msg)
+                            continue
+                        
+                        # Check rate limiting
+                        last_launch = last_launch_time.get(nickname, 0)
+                        time_since_last_launch = current_time - last_launch
+                        if time_since_last_launch < OPEN_DELAY_THRESHOLD:
+                            if DEBUG:
+                                print(f"[DEBUG] {nickname}: Rate limited, {time_since_last_launch:.0f}s < {OPEN_DELAY_THRESHOLD}s")
+                            continue
+                        
+                        # Categorize account by launch priority
+                        if rotating_retainers:
+                            force247_accounts.append((account_entry, "force247uptime enabled"))
+                        elif include_subs:
+                            timer_data = get_submarine_timers_for_account(account_entry)
+                            soonest_hours = timer_data.get("soonest_hours")
+                            if soonest_hours is not None and soonest_hours <= AUTO_LAUNCH_THRESHOLD:
+                                force247_accounts.append((account_entry, f"submarines nearly ready ({soonest_hours:.1f}h)"))
+                    
+                    # Combine lists: force247uptime clients first, then submarine-ready clients
+                    accounts_to_launch = force247_accounts + submarine_ready_accounts
+                    
+                    if DEBUG and accounts_to_launch:
+                        print(f"[DEBUG] Accounts queued for launch: {len(accounts_to_launch)}")
+                        print(f"[DEBUG]  - force247uptime: {len(force247_accounts)}")
+                        print(f"[DEBUG]  - submarine-ready: {len(submarine_ready_accounts)}")
+                    
+                    # Launch accounts sequentially until MAX_CLIENTS limit reached
+                    for account_entry, reason in accounts_to_launch:
+                        # Recount running clients before each launch
+                        running_count = sum(1 for acc in account_locations if game_status_dict.get(acc["nickname"], (False, None))[0])
+                        
+                        # Check if limit reached
+                        if MAX_CLIENTS > 0 and running_count >= MAX_CLIENTS:
+                            if DEBUG:
+                                print(f"[DEBUG] MAX_CLIENTS limit reached ({running_count}/{MAX_CLIENTS}), stopping launches")
+                            break
+                        
+                        nickname = account_entry["nickname"]
+                        
+                        # Initialize launcher retry count if not exists
+                        if nickname not in launcher_retry_count:
+                            launcher_retry_count[nickname] = 0
+                        
+                        # Track if this launch succeeded
+                        launch_success = False
+                        title_relaunch_count = 0
+                        
+                        while not launch_success and launcher_retry_count[nickname] < FORCE_LAUNCHER_RETRY:
+                            print(f"\n[AUTO-LAUNCH] Launching {nickname} - {reason}")
+                            if launcher_retry_count[nickname] > 0:
+                                print(f"[AUTO-LAUNCH] Launcher retry attempt {launcher_retry_count[nickname]}/{FORCE_LAUNCHER_RETRY}")
+                            
+                            if launch_game(nickname):
+                                last_launch_time[nickname] = current_time
+                                print(f"[AUTO-LAUNCH] Successfully launched {nickname}, waiting {OPEN_DELAY_THRESHOLD} seconds for game startup...")
+                                
+                                # Wait OPEN_DELAY_THRESHOLD before checking window title
+                                time.sleep(OPEN_DELAY_THRESHOLD)
+                                
+                                # Wait for window title to update and check for launcher
+                                print(f"[AUTO-LAUNCH] Checking window/launcher status for {nickname}...")
+                                title_updated, needs_launcher_retry, stale_default_pid = wait_for_window_title_update(nickname, launcher_retry_count[nickname])
+                                
+                                if title_updated:
+                                    print(f"[AUTO-LAUNCH] Game successfully started for {nickname}")
+                                    launch_success = True
+                                    # Reset launcher retry count on success
+                                    launcher_retry_count[nickname] = 0
+                                    # Track game launch timestamp for force-close monitoring
+                                    game_launch_timestamp[nickname] = current_time
+                                    if DEBUG:
+                                        print(f"[FORCE-CRASH] {nickname}: Game launched, crash monitoring will activate in {AUTO_LAUNCH_THRESHOLD * 60:.1f} minutes")
+                                elif needs_launcher_retry:
+                                    # Launcher detected - kill it and retry
+                                    launcher_retry_count[nickname] += 1
+                                    print(f"[AUTO-LAUNCH] Killing XIVLauncher.exe for {nickname}...")
+                                    kill_xivlauncher_process()
+                                    time.sleep(2)  # Brief wait after killing launcher
+                                    
+                                    if launcher_retry_count[nickname] >= FORCE_LAUNCHER_RETRY:
+                                        # Max retries reached - log the failure
+                                        log_error(f"LAUNCHER_FAILED: {nickname} - Max launcher retries ({FORCE_LAUNCHER_RETRY}) reached, marking as [LAUNCHER]")
+                                        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                                            print(f"[AUTO-LAUNCH] Max launcher retries ({FORCE_LAUNCHER_RETRY}) reached for {nickname}")
+                                            print(f"[AUTO-LAUNCH] Stopping script - single client mode cannot continue")
+                                            launcher_failed_accounts.add(nickname)
+                                        else:
+                                            print(f"[AUTO-LAUNCH] Max launcher retries ({FORCE_LAUNCHER_RETRY}) reached for {nickname}")
+                                            print(f"[AUTO-LAUNCH] Marking {nickname} as [LAUNCHER] - will skip this account")
+                                            launcher_failed_accounts.add(nickname)
+                                        break
+                                    else:
+                                        # Before retry, check and update AutologinEnabled and OtpServerEnabled if needed
+                                        if ENABLE_AUTOLOGIN_UPDATER:
+                                            print(f"[AUTOLOGIN] Checking AutologinEnabled for {nickname} before retry...")
+                                            check_and_update_autologin(nickname)
+                                            # Also check OtpServerEnabled for 2FA accounts
+                                            check_and_update_otp_server(nickname)
+                                        print(f"[AUTO-LAUNCH] Retrying {nickname} (attempt {launcher_retry_count[nickname] + 1}/{FORCE_LAUNCHER_RETRY})...")
+                                        last_launch_time[nickname] = 0  # Allow immediate retry
+                                else:
+                                    # Title check failed without launcher detection
+                                    # Log the error for troubleshooting
+                                    log_error(f"WINDOW_TITLE_FAILED: {nickname} - Window title check failed after {MAX_WINDOW_TITLE_RESCAN} attempts")
+                                    
+                                    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                                        # Single client mode: safe to kill the single process
+                                        print(f"[AUTO-LAUNCH] Window title check failed for {nickname}, killing process and will retry...")
+                                        kill_ffxiv_process()
+                                        last_launch_time[nickname] = 0  # Allow immediate retry
+                                    elif stale_default_pid:
+                                        title_relaunch_count += 1
+                                        print(f"[AUTO-LAUNCH] Window title stayed default for {nickname}; force-closing stale FFXIV PID {stale_default_pid}...")
+                                        log_error(
+                                            f"WINDOW_TITLE_STALE_DEFAULT: {nickname} - Force closing PID {stale_default_pid} "
+                                            f"after {MAX_WINDOW_TITLE_RESCAN} attempts (retry {title_relaunch_count}/{FORCE_LAUNCHER_RETRY})"
+                                        )
+                                        kill_success = kill_process_by_pid(stale_default_pid, "FFXIV_STALE_DEFAULT_TITLE")
+                                        time.sleep(2)
+
+                                        if kill_success:
+                                            last_launch_time[nickname] = 0  # Allow immediate retry
+
+                                            if title_relaunch_count >= FORCE_LAUNCHER_RETRY:
+                                                print(f"[AUTO-LAUNCH] Max stale default-title retries reached for {nickname}; continuing normal rotation")
+                                                log_error(
+                                                    f"WINDOW_TITLE_STALE_DEFAULT_MAX: {nickname} - Max stale default-title retries "
+                                                    f"({FORCE_LAUNCHER_RETRY}) reached"
+                                                )
+                                                last_launch_time[nickname] = current_time
+                                                break
+
+                                            print(f"[AUTO-LAUNCH] Retrying {nickname} after closing stale default-title PID {stale_default_pid}...")
+                                            continue
+
+                                        print(f"[AUTO-LAUNCH] Failed to close stale default-title PID {stale_default_pid}; continuing normal rotation")
+                                        log_error(f"WINDOW_TITLE_STALE_DEFAULT_KILL_FAILED: {nickname} - PID {stale_default_pid}")
+                                        last_launch_time[nickname] = current_time  # Prevent immediate retry spam
+                                    else:
+                                        # Multi-client mode: DO NOT kill all processes!
+                                        # If no default-title PID is available, let normal rotation continue
+                                        # The game client checker will retry in WINDOW_REFRESH_INTERVAL seconds
+                                        print(f"[AUTO-LAUNCH] Window title check failed for {nickname}, continuing normal rotation...")
+                                        print(f"[AUTO-LAUNCH] Game client checker will retry {nickname} in {WINDOW_REFRESH_INTERVAL} seconds")
+                                        last_launch_time[nickname] = current_time  # Prevent immediate retry spam
+                                    break  # Exit retry loop, continue normal operation
+                            else:
+                                print(f"[AUTO-LAUNCH] Failed to launch {nickname}")
+                                last_launch_time[nickname] = current_time  # Record failed attempt to enforce rate limit
+                                break  # Exit retry loop
+                        
+                        # Only proceed with post-launch actions if successful
+                        if launch_success:
+                            # Refresh window status for all accounts
+                            if DEBUG:
+                                print(f"[AUTO-LAUNCH] Refreshing window status...")
+                            for acc_entry in account_locations:
+                                acc_nickname = acc_entry["nickname"]
+                                game_status_dict[acc_nickname] = is_ffxiv_running_for_account(acc_nickname)
+                            last_window_check = current_time
+                            
+                            # Arrange all windows after launch (if enabled)
+                            if ENABLE_WINDOW_LAYOUT:
+                                arrange_ffxiv_windows()
+                            
+                            # Update process tracking for newly launched client
+                            if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                                ffxiv_start_time = get_ffxiv_process_start_time()
+                                if ffxiv_start_time:
+                                    client_start_times['ffxiv_single'] = ffxiv_start_time
+                            else:
+                                is_running, process_id = game_status_dict.get(nickname, (False, None))
+                                if is_running and process_id and process_id not in client_start_times:
+                                    actual_start_time = get_process_start_time(process_id)
+                                    if actual_start_time:
+                                        client_start_times[process_id] = actual_start_time
+                                    else:
+                                        client_start_times[process_id] = current_time
+                            
+                            # Redisplay submarine timers to show newly opened client status
+                            print("")  # Empty line for spacing
+                            display_submarine_timers(game_status_dict, client_start_times, launcher_failed_accounts, last_sub_processed, retainer_mode_active, vessel_waiting_states)
+                            print("")  # Empty line for spacing
+            
+            # Auto-close games if enabled and conditions are met
+            if ENABLE_AUTO_CLOSE:
+                for account_entry in account_locations:
+                    nickname = account_entry["nickname"]
+                    include_subs = account_entry.get("include_submarines", True)
+                    rotating_retainers = account_entry.get("force247uptime", False)
+                    
+                    # Get game status
+                    game_info = game_status_dict.get(nickname, (None, None))
+                    is_running = game_info[0]
+                    process_id = game_info[1]
+                    
+                    # Only proceed if game is running
+                    if not is_running:
+                        continue
+                    
+                    # In multi-client mode, we need a valid process_id
+                    if not USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME and not process_id:
+                        continue
+                    
+                    # Skip if we've already closed this PID (multi-client mode only)
+                    if process_id and process_id in closed_pids:
+                        continue
+
+                    # Enforce MAX_RUNTIME for all clients
+                    uptime_hours = None
+                    if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                        # Single client mode: get uptime from ffxiv_single tracking
+                        start_time = client_start_times.get('ffxiv_single')
+                        if start_time is not None:
+                            uptime_hours = (current_time - start_time) / 3600.0
+                    elif process_id:
+                        # Multi-client mode: get uptime from PID tracking
+                        start_time = client_start_times.get(process_id)
+                        if start_time is not None:
+                            uptime_hours = (current_time - start_time) / 3600.0
+
+                    if uptime_hours is not None and uptime_hours >= MAX_RUNTIME:
+                        print(f"\n[AUTO-CLOSE] Closing {nickname} (PID: {process_id}) - Uptime {uptime_hours:.1f}h exceeds MAX_RUNTIME {MAX_RUNTIME}h")
+                        
+                        kill_game_client_and_cleanup(
+                            nickname, process_id,
+                            f"[AUTO-CLOSE] Successfully closed {nickname} after {uptime_hours:.1f}h, waiting {TIMER_REFRESH_INTERVAL} seconds before checking clients again.",
+                            f"[AUTO-CLOSE] Failed to close {nickname}",
+                            closed_pids, game_status_dict, client_start_times,
+                            set_launch_time=(last_launch_time, current_time)
+                        )
+                        continue
+
+                    # Do not auto-close force247uptime accounts based on submarine timers
+                    if rotating_retainers:
+                        continue
+
+                    # Close game if submarines disabled AND force247uptime is False
+                    # (no submarines and no reason to keep game running)
+                    if not include_subs and not rotating_retainers:
+                        print(f"\n[AUTO-CLOSE] Closing {nickname} (PID: {process_id}) - Submarines disabled, force247uptime=False")
+                        
+                        kill_game_client_and_cleanup(
+                            nickname, process_id,
+                            f"[AUTO-CLOSE] Successfully closed {nickname}, waiting {TIMER_REFRESH_INTERVAL} seconds before checking clients again.",
+                            f"[AUTO-CLOSE] Failed to close {nickname}",
+                            closed_pids, game_status_dict, client_start_times,
+                            last_launch_time=last_launch_time
+                        )
+                        continue
+                    
+                    # Skip timer-based auto-close for accounts without submarines (but with force247uptime)
+                    if not include_subs:
+                        continue
+
+                    # Get submarine timer data
+                    timer_data = get_submarine_timers_for_account(account_entry)
+                    soonest_hours = timer_data.get("soonest_hours")
+                    
+                    # Check if we should close the game
+                    # Close if soonest_hours > AUTO_CLOSE_THRESHOLD (submarines won't be ready soon)
+                    if soonest_hours is not None and soonest_hours > AUTO_CLOSE_THRESHOLD:
+                        print(f"\n[AUTO-CLOSE] Closing {nickname} (PID: {process_id}) - Next sub in {soonest_hours:.1f}h")
+                        
+                        close_success = kill_game_client_and_cleanup(
+                            nickname, process_id,
+                            f"[AUTO-CLOSE] Successfully closed {nickname}, waiting {TIMER_REFRESH_INTERVAL} seconds before checking clients again.",
+                            f"[AUTO-CLOSE] Failed to close {nickname}",
+                            closed_pids, game_status_dict, client_start_times,
+                            last_launch_time=last_launch_time
+                        )
+                        if close_success:
+                            compact_dynamic_window_grid_after_auto_close()
+            
+            # Force crash timer - check for frozen/stuck clients
+            # Only run force-crash monitoring if ENABLE_AUTO_CLOSE is True
+            if ENABLE_AUTO_CLOSE:
+                for account_entry in account_locations:
+                    nickname = account_entry["nickname"]
+                    include_subs = account_entry.get("include_submarines", True)
+                    force247 = account_entry.get("force247uptime", False)
+                    auto_path = account_entry["auto_path"]
+                    
+                    # Skip if submarines disabled
+                    if not include_subs:
+                        continue
+                    
+                    # Get game status
+                    game_info = game_status_dict.get(nickname, (None, None))
+                    is_running = game_info[0]
+                    process_id = game_info[1]
+                    
+                    # Only check if game is running
+                    if not is_running:
+                        # Clean up tracking if game not running
+                        if nickname in game_launch_timestamp:
+                            del game_launch_timestamp[nickname]
+                        if nickname in last_sub_processed:
+                            del last_sub_processed[nickname]
+                        if nickname in retainer_mode_active:
+                            del retainer_mode_active[nickname]
+                        continue
+                    
+                    # Check if we have a game launch timestamp for this account
+                    if nickname not in game_launch_timestamp:
+                        # Game is running but we don't have launch timestamp (e.g., script restarted while game was running)
+                        # Check actual uptime to determine appropriate launch timestamp
+                        actual_uptime_hours = 0
+                        if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                            if 'ffxiv_single' in client_start_times:
+                                actual_uptime_hours = (current_time - client_start_times['ffxiv_single']) / 3600
+                        elif process_id and process_id in client_start_times:
+                            actual_uptime_hours = (current_time - client_start_times[process_id]) / 3600
+                        
+                        # Check if subs or retainers are ready - if so, activate monitoring immediately
+                        timer_data = get_submarine_timers_for_account(account_entry)
+                        ready_subs = timer_data.get("ready_subs", 0)
+                        ready_retainers = timer_data.get("ready_retainers", 0)
+                        subs_or_retainers_ready = ready_subs > 0 or (force247 and ready_retainers > 0)
+                        
+                        # Activate monitoring immediately if:
+                        # 1. Uptime exceeds AUTO_LAUNCH_THRESHOLD, OR
+                        # 2. Submarines are ready (need processing), OR
+                        # 3. force247uptime and retainers are ready (need processing)
+                        if actual_uptime_hours >= AUTO_LAUNCH_THRESHOLD or subs_or_retainers_ready:
+                            # Set launch timestamp in the past so monitoring activates now
+                            game_launch_timestamp[nickname] = current_time - (AUTO_LAUNCH_THRESHOLD * 3600)
+                            if DEBUG:
+                                if subs_or_retainers_ready:
+                                    ready_type = "subs" if ready_subs > 0 else "retainers"
+                                    ready_count = ready_subs if ready_subs > 0 else ready_retainers
+                                    print(f"[FORCE-CRASH] {nickname}: {ready_count} {ready_type} ready, activating monitoring immediately")
+                                else:
+                                    print(f"[FORCE-CRASH] {nickname}: Game running {actual_uptime_hours:.2f}h (>{AUTO_LAUNCH_THRESHOLD * 60:.0f}min threshold), activating monitoring immediately")
+                        else:
+                            # Set launch timestamp to current time, monitoring will activate after AUTO_LAUNCH_THRESHOLD
+                            game_launch_timestamp[nickname] = current_time
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: Game running {actual_uptime_hours:.2f}h (<{AUTO_LAUNCH_THRESHOLD * 60:.0f}min threshold), monitoring will activate in {(AUTO_LAUNCH_THRESHOLD - actual_uptime_hours) * 60:.1f} minutes")
+                        continue
+                    
+                    # Calculate when monitoring should activate (AUTO_LAUNCH_THRESHOLD hours after game launched)
+                    launch_time = game_launch_timestamp[nickname]
+                    monitoring_start_time = launch_time + (AUTO_LAUNCH_THRESHOLD * 3600)  # Convert hours to seconds
+                    
+                    # Check if monitoring should be active yet
+                    if current_time < monitoring_start_time:
+                        # Not time to monitor yet - still within grace period
+                        if DEBUG:
+                            minutes_until_monitoring = (monitoring_start_time - current_time) / 60
+                            print(f"[FORCE-CRASH] {nickname}: Monitoring will activate in {minutes_until_monitoring:.1f} minutes")
+                        continue
+                    
+                    # Monitoring is now active - check for submarine processing activity
+                    processed_count = detect_submarine_processing(account_entry, submarine_state_cache, datetime.datetime.now().timestamp())
+                    
+                    if processed_count > 0:
+                        # Submarine processing detected - reset inactivity timer and clear retainer mode
+                        last_sub_processed[nickname] = current_time
+                        # Clear retainer mode flag since subs are now being processed
+                        if nickname in retainer_mode_active:
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: Subs now being processed, switching from retainer timer to submarine timer")
+                            del retainer_mode_active[nickname]
+                        if DEBUG:
+                            print(f"[FORCE-CRASH] {nickname}: {processed_count} sub(s) processed, resetting inactivity timer")
+                    
+                    # For force247uptime accounts, also check retainer processing
+                    if force247:
+                        retainer_processed_count = detect_retainer_processing(account_entry, retainer_state_cache, datetime.datetime.now().timestamp())
+                        
+                        if retainer_processed_count > 0:
+                            # Retainer processing detected - reset inactivity timer
+                            last_sub_processed[nickname] = current_time
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: {retainer_processed_count} retainer(s) processed, resetting inactivity timer")
+                    
+                    # Get submarine status to determine monitoring applicability
+                    timer_data = get_submarine_timers_for_account(account_entry)
+                    ready_subs = timer_data.get("ready_subs", 0)
+                    ready_retainers = timer_data.get("ready_retainers", 0)
+                    soonest_hours = timer_data.get("soonest_hours")
+                    is_waiting = (ready_subs == 0 and soonest_hours is not None and 0 < soonest_hours <= AUTO_CLOSE_THRESHOLD)
+                    vessel_waiting_state = vessel_waiting_states.get(nickname, {})
+                    if vessel_waiting_state.get("active"):
+                        last_sub_processed[nickname] = current_time
+                        if DEBUG:
+                            character_name = vessel_waiting_state.get("character_name") or "Unknown"
+                            next_sub_hours = vessel_waiting_state.get("next_sub_hours")
+                            disable_window_minutes = vessel_waiting_state.get("disable_window_minutes", 0)
+                            if next_sub_hours is not None:
+                                print(f"[FORCE-CRASH] {nickname}: VesselWaiting on {character_name} - next sub in {next_sub_hours * 60:.1f} minutes within DisableRetainerVesselReturn {disable_window_minutes}m, timer paused")
+                            else:
+                                print(f"[FORCE-CRASH] {nickname}: VesselWaiting active, timer paused")
+                        continue
+                    
+                    # Skip monitoring if all subs are voyaging (0 ready, not in WAITING)
+                    # UNLESS force247uptime=True and retainers are ready (continue monitoring for retainer processing)
+                    if ready_subs == 0 and not is_waiting:
+                        # Check if force247uptime with ready retainers - keep monitoring active
+                        if force247 and ready_retainers > 0:
+                            # Retainers ready for processing - keep monitoring active
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: All subs voyaging but {ready_retainers} retainer(s) ready, monitoring active")
+                        else:
+                            # All submarines voyaging, no ready subs, no retainers - disable monitoring for idle state
+                            if nickname in last_sub_processed:
+                                del last_sub_processed[nickname]  # Clear timer when entering idle
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: All subs voyaging (0 ready), monitoring disabled")
+                            continue
+                    
+                    # Check if account is in (WAITING) state - extend timer to prevent force-close during legitimate waiting
+                    # UNLESS force247uptime=True and retainers are ready (should be processing retainers)
+                    # For force247 accounts, also reset timer when no retainers are ready (waiting for retainers to return)
+                    if is_waiting:
+                        if force247 and ready_retainers > 0:
+                            # Retainers are ready - don't reset timer, expect retainer processing
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: Waiting for subs but {ready_retainers} retainer(s) ready, expecting retainer processing")
+                        else:
+                            # Account is in (WAITING) state - reset inactivity timer to prevent force-close
+                            last_sub_processed[nickname] = current_time
+                            if DEBUG:
+                                print(f"[FORCE-CRASH] {nickname}: Sub is still waiting. Force close timer reset to {FORCE_CRASH_INACTIVITY_MINUTES} minutes")
+                    elif force247 and ready_retainers == 0:
+                        # force247 account with no retainers ready - also considered WAITING for retainers to return
+                        last_sub_processed[nickname] = current_time
+                        if DEBUG:
+                            print(f"[FORCE-CRASH] {nickname}: Waiting for retainers to return. Force close timer reset to {FORCE_CRASH_RETAINER_MINUTES} minutes")
+                    
+                    # Initialize last_sub_processed if not set (first check after monitoring activates)
+                    if nickname not in last_sub_processed:
+                        # No processing detected yet, start fresh timer from current time
+                        last_sub_processed[nickname] = current_time
+                        if DEBUG:
+                            print(f"[FORCE-CRASH] {nickname}: Monitoring activated, starting inactivity timer")
+                    
+                    # Check inactivity timer
+                    minutes_since_processing = (current_time - last_sub_processed[nickname]) / 60
+                    
+                    # Determine if monitoring retainers (longer timeout) or submarines
+                    # Use retainer timer when: (1) only retainers ready, OR (2) we were in retainer mode and subs became ready but haven't been processed yet
+                    currently_retainer_mode = (ready_subs == 0 and force247 and ready_retainers > 0)
+                    
+                    # Track retainer mode state - set flag when in retainer mode
+                    if currently_retainer_mode:
+                        retainer_mode_active[nickname] = True
+                    
+                    # Use retainer timer if: currently in retainer mode OR was in retainer mode when subs became ready (not yet processed)
+                    # The retainer_mode_active flag is only cleared when actual submarine processing is detected (above)
+                    monitoring_retainers = currently_retainer_mode or (retainer_mode_active.get(nickname, False) and ready_subs > 0)
+                    inactivity_threshold = FORCE_CRASH_RETAINER_MINUTES if monitoring_retainers else FORCE_CRASH_INACTIVITY_MINUTES
+                    
+                    if DEBUG and monitoring_retainers and ready_subs > 0:
+                        print(f"[FORCE-CRASH] {nickname}: Subs ready but retainer mode still active (waiting for sub processing), using {FORCE_CRASH_RETAINER_MINUTES}m timer")
+                    
+                    # Force crash if no processing detected for the appropriate threshold
+                    if minutes_since_processing > inactivity_threshold:
+                        time_since_launch = (current_time - launch_time) / 3600
+                        processing_type = "retainer" if monitoring_retainers else "submarine"
+                        crash_message = f"[FORCE-CRASH] Crashing {nickname} (PID: {process_id}) - No {processing_type} processing for {minutes_since_processing:.1f}m (game running for {time_since_launch:.1f}h)"
+                        print(f"\n{crash_message}")
+                        
+                        # Send notification about force-crash
+                        log_error(crash_message)
+                        
+                        kill_game_client_and_cleanup(
+                            nickname, process_id,
+                            f"[FORCE-CRASH] Successfully crashed {nickname} - likely frozen/stuck, waiting {TIMER_REFRESH_INTERVAL} seconds before relaunch",
+                            f"[FORCE-CRASH] Failed to crash {nickname}",
+                            closed_pids, game_status_dict, client_start_times,
+                            last_launch_time=last_launch_time,
+                            game_launch_timestamp=game_launch_timestamp,
+                            last_sub_processed=last_sub_processed,
+                            retainer_mode_active=retainer_mode_active
+                        )
+            
+            # Periodic sublord.db update
+            if ENABLE_SUBLORD_DB and last_sublord_update > 0:
+                sublord_elapsed = (current_time - last_sublord_update) / 60  # minutes
+                if sublord_elapsed >= SUBLORD_DB_UPDATE_INTERVAL:
+                    try:
+                        snapshot = collect_sublord_snapshot()
+                        if update_sublord_db(snapshot):
+                            last_sublord_update = current_time
+                    except Exception as e:
+                        if DEBUG:
+                            print(f"[SUBLORD-DB] Periodic update error: {e}")
+            
+            # Wait for TIMER_REFRESH_INTERVAL seconds before next timer update
+            time.sleep(TIMER_REFRESH_INTERVAL)
+    except KeyboardInterrupt:
+        print("\n\nExiting submarine timer monitor...")
+        sys.exit(0)
 
 if __name__ == "__main__":
     try:
@@ -8967,7 +4543,14 @@ if __name__ == "__main__":
         except:
             print("[CRASH LOG] Failed to save crash log to file")
         
-        # Keep window open for debugging
-        print("\n[CRASH] Script has stopped. Window will remain open for debugging.")
-        print("Press Enter to close this window...")
-        input()
+        # Try to log and send notification about the crash
+        try:
+            log_error(f"CRITICAL_CRASH: {type(e).__name__}: {e} - An unexpected crash occurred, please check the script and report any issues.")
+        except:
+            pass
+        
+        # Keep window open for debugging if DEBUG is enabled
+        if DEBUG:
+            print("\n[CRASH] Script has stopped. Window will remain open for debugging.")
+            print("Press Enter to close this window...")
+            input()
