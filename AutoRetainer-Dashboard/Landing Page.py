@@ -34,11 +34,11 @@
 # Landing Page v1.35
 # AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-04-11 20:00:00
+# Last Updated: 2026-05-08 16:00:00
 #
 # ## Release Notes This Update ##
 #
-# v1.35 - Added adjustable column options for the /fcdata/ submarine mass listing
+# v1.35 - Replaced /fcdata/ housing size fallback with hardcoded verified plot sizes for every residential district plot
 #
 ############################################################################################################################
 
@@ -661,11 +661,83 @@ DISTRICT_ABBREV = {
     "Shirogane": "Shirogane"
 }
 
+HOUSING_PLOT_SIZE_BY_DISTRICT = {
+    "Mist": (
+        "Medium", "Large", "Small", "Medium", "Large", "Medium", "Medium", "Small", "Small", "Small",
+        "Small", "Small", "Small", "Medium", "Large", "Small", "Small", "Small", "Small", "Small",
+        "Small", "Small", "Small", "Small", "Small", "Small", "Small", "Small", "Medium", "Medium",
+        "Medium", "Large", "Small", "Medium", "Large", "Medium", "Medium", "Small", "Small", "Small",
+        "Small", "Small", "Small", "Medium", "Large", "Small", "Small", "Small", "Small", "Small",
+        "Small", "Small", "Small", "Small", "Small", "Small", "Small", "Small", "Medium", "Medium",
+    ),
+    "Goblet": (
+        "Small", "Small", "Small", "Medium", "Large", "Medium", "Small", "Medium", "Small", "Small",
+        "Medium", "Medium", "Large", "Small", "Small", "Small", "Small", "Small", "Medium", "Small",
+        "Small", "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Small", "Large",
+        "Small", "Small", "Small", "Medium", "Large", "Medium", "Small", "Medium", "Small", "Small",
+        "Medium", "Medium", "Large", "Small", "Small", "Small", "Small", "Small", "Medium", "Small",
+        "Small", "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Small", "Large",
+    ),
+    "Lavender Beds": (
+        "Medium", "Small", "Large", "Small", "Medium", "Large", "Small", "Small", "Small", "Small",
+        "Medium", "Small", "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Small",
+        "Medium", "Small", "Small", "Small", "Small", "Small", "Medium", "Large", "Small", "Medium",
+        "Medium", "Small", "Large", "Small", "Medium", "Large", "Small", "Small", "Small", "Small",
+        "Medium", "Small", "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Small",
+        "Medium", "Small", "Small", "Small", "Small", "Small", "Medium", "Large", "Small", "Medium",
+    ),
+    "Shirogane": (
+        "Medium", "Small", "Small", "Small", "Small", "Small", "Large", "Medium", "Small", "Small",
+        "Small", "Small", "Medium", "Small", "Medium", "Large", "Small", "Small", "Medium", "Small",
+        "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Medium", "Small", "Large",
+        "Medium", "Small", "Small", "Small", "Small", "Small", "Large", "Medium", "Small", "Small",
+        "Small", "Small", "Medium", "Small", "Medium", "Large", "Small", "Small", "Medium", "Small",
+        "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Medium", "Small", "Large",
+    ),
+    "Empyreum": (
+        "Small", "Medium", "Small", "Small", "Small", "Small", "Medium", "Medium", "Small", "Small",
+        "Small", "Large", "Small", "Small", "Small", "Small", "Medium", "Medium", "Small", "Small",
+        "Medium", "Large", "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Large",
+        "Small", "Medium", "Small", "Small", "Small", "Small", "Medium", "Medium", "Small", "Small",
+        "Small", "Large", "Small", "Small", "Small", "Small", "Medium", "Medium", "Small", "Small",
+        "Medium", "Large", "Small", "Small", "Small", "Medium", "Small", "Small", "Small", "Large",
+    ),
+}
+
+HOUSING_SIZE_DISTRICT_KEYS = {
+    "mist": "Mist",
+    "the mist": "Mist",
+    "goblet": "Goblet",
+    "the goblet": "Goblet",
+    "lavender beds": "Lavender Beds",
+    "the lavender beds": "Lavender Beds",
+    "lb": "Lavender Beds",
+    "shirogane": "Shirogane",
+    "empyreum": "Empyreum",
+}
+
 HOUSING_OWNER_SUFFIX_REGEX = re.compile(r"\s*\[[^\]]+\]\s*$")
 HOUSING_SIZE_REGEX = re.compile(r"\((Small|Medium|Large)\)\s*(?:\[[^\]]+\])?\s*$", re.IGNORECASE)
 HOUSING_PLOT_REGEX = re.compile(r"\bPlot\s+(?P<plot>\d+)\b", re.IGNORECASE)
 HOUSING_WARD_REGEX = re.compile(r"\b(?:Ward\s+(?P<ward_after>\d+)|(?P<ward_before>\d+)(?:st|nd|rd|th)\s+Ward)\b", re.IGNORECASE)
 HOUSING_PAREN_REGEX = re.compile(r"\s*\([^)]*\)")
+
+def housing_size_district_key(district):
+    normalized = str(district or "").strip().lower()
+    return HOUSING_SIZE_DISTRICT_KEYS.get(normalized, "")
+
+def get_housing_plot_size(district, plot_number):
+    district_key = housing_size_district_key(district)
+    if not district_key:
+        return ""
+    try:
+        plot_index = int(plot_number) - 1
+    except (TypeError, ValueError):
+        return ""
+    sizes = HOUSING_PLOT_SIZE_BY_DISTRICT.get(district_key, ())
+    if plot_index < 0 or plot_index >= len(sizes):
+        return ""
+    return sizes[plot_index]
 
 def strip_housing_owner_suffix(value):
     return HOUSING_OWNER_SUFFIX_REGEX.sub("", str(value or "").strip()).strip()
@@ -692,11 +764,13 @@ def parse_xa_housing_location(value):
     if not segments:
         return None
     district_name = HOUSING_PAREN_REGEX.sub("", segments[-1]).strip().rstrip(",")
+    plot_number = int(plot_match.group("plot"))
+    district_abbrev = DISTRICT_ABBREV.get(district_name, district_name)
     return {
         "ward": int(ward_value),
-        "plot": int(plot_match.group("plot")),
-        "district": DISTRICT_ABBREV.get(district_name, district_name),
-        "size": extract_housing_plot_size(normalized),
+        "plot": plot_number,
+        "district": district_abbrev,
+        "size": get_housing_plot_size(district_abbrev, plot_number) or extract_housing_plot_size(normalized),
     }
 
 def build_xa_housing_size_lookup(snapshot_map):
@@ -708,24 +782,6 @@ def build_xa_housing_size_lookup(snapshot_map):
                 continue
             size_lookup.setdefault((parsed["district"], parsed["plot"]), parsed["size"])
     return size_lookup
-
-def fallback_housing_plot_size(plot_number):
-    if not plot_number or plot_number <= 0:
-        return ""
-    local_plot = (int(plot_number) - 1) % 30
-    if 0 <= local_plot <= 7:
-        return "Small"
-    if 8 <= local_plot <= 11:
-        return "Medium"
-    if 12 <= local_plot <= 14:
-        return "Large"
-    if 15 <= local_plot <= 22:
-        return "Small"
-    if 23 <= local_plot <= 26:
-        return "Medium"
-    if 27 <= local_plot <= 29:
-        return "Large"
-    return ""
 
 def merge_xa_housing_entry(current_entry, raw_value, size_lookup=None):
     if not current_entry:
@@ -741,6 +797,9 @@ def merge_xa_housing_entry(current_entry, raw_value, size_lookup=None):
         )
         if same_location and parsed.get("size"):
             merged["size"] = parsed["size"]
+    hardcoded_size = get_housing_plot_size(merged.get("district", ""), merged.get("plot"))
+    if hardcoded_size:
+        merged["size"] = hardcoded_size
     if not merged.get("size") and size_lookup:
         fallback_key = (
             DISTRICT_ABBREV.get(merged.get("district", ""), merged.get("district", "")),
@@ -749,8 +808,6 @@ def merge_xa_housing_entry(current_entry, raw_value, size_lookup=None):
         fallback_size = size_lookup.get(fallback_key, "")
         if fallback_size:
             merged["size"] = fallback_size
-    if not merged.get("size"):
-        merged["size"] = fallback_housing_plot_size(merged.get("plot"))
     return merged
 
 def apply_xa_housing_sizes(housing_entry, xa_entry, size_lookup=None):
@@ -798,9 +855,9 @@ def load_lifestream_data(lifestream_path):
                 is_private = entry.get('IsPrivate', False)
                 
                 if is_private:
-                    housing_map[cid]['private'] = {'ward': ward, 'plot': plot, 'district': district_abbrev, 'size': ''}
+                    housing_map[cid]['private'] = {'ward': ward, 'plot': plot, 'district': district_abbrev, 'size': get_housing_plot_size(district_abbrev, plot)}
                 else:
-                    housing_map[cid]['fc'] = {'ward': ward, 'plot': plot, 'district': district_abbrev, 'size': ''}
+                    housing_map[cid]['fc'] = {'ward': ward, 'plot': plot, 'district': district_abbrev, 'size': get_housing_plot_size(district_abbrev, plot)}
         
         return housing_map
     except Exception as e:
