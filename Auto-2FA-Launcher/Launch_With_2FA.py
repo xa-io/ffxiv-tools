@@ -71,7 +71,7 @@ ACCOUNT_NICKNAME = "Main"
 # Launcher path for the account
 # For main account: C:\Users\{user}\AppData\Local\XIVLauncher\XIVLauncher.exe
 # For alt accounts: C:\Users\{user}\AltData\Acc1.bat
-LAUNCHER_PATH = rf"C:\Users\{user}\AppData\Local\XIVLauncher\XIVLauncher.exe"
+LAUNCHER_PATH = rf"C:\Users\{user}\AppData\Local\XIVLauncher\current\XIVLauncher.exe"
 
 # 2FA Configuration
 ENABLE_2FA = True                    # Set to True to send OTP code automatically
