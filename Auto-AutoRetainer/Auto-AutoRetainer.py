@@ -34,22 +34,16 @@
 # and AutoRetainer multi-mode auto-enabled
 # for full automation. 2FA is supported via keyring integration. See README.md for complete setup instructions.
 #
-# Auto-AutoRetainer v1.40
+# Auto-AutoRetainer v1.41
 # Automated FFXIV Submarine Management System
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-05-01 08:00:00
+# Last Updated: 2026-06-04 10:00:00
 #
 # ## Release Notes This Update ##
 #
-# v1.40 - Multi-client stale default-title recovery now force-closes only the stuck FFXIV PID
-#         If a launched client remains "FINAL FANTASY XIV" after title polling, Auto-AutoRetainer kills that PID
-#         and immediately retries the same account instead of opening duplicate clients
-# v1.39 - Added account-specific automation hours using scheduled + automation_hours config (Thanks again, Asuna!)
-#         Scheduled accounts only launch/run during configured local time windows
-#         Terminal output now shows automation-hours state for scheduled accounts
-# v1.38 - Dynamic-grid window movement now ignores accounts disabled in config.json
-#         Stats/runtime account loading already honored enabled=false; window movement now matches that behavior
-#         Disabled account windows can stay open without being rearranged by Auto-AutoRetainer
+# v1.41 - Launch-scoped default-title PID monitoring prevents duplicate same-account clients
+#         Auto-launch snapshots default-title FFXIV PIDs before each launch and only force-closes
+#         the default-title PID observed while waiting for that account's custom title
 #
 ########################################################################################################################
 
@@ -93,7 +87,7 @@ except ImportError:
 # ===============================================
 # Configuration Parameters
 # ===============================================
-VERSION = "v1.40"     # Current script version
+VERSION = "v1.41"     # Current script version
 VERSION_SUFFIX = ""     # Custom text appended to version display (set via config.json, e.g., " - Main")
 
 # Display settings
@@ -123,7 +117,7 @@ OTP_LAUNCH_DELAY = 10           # For 2FA, delay in seconds between launching an
 AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if soonest submarine return time is at or below this many hours (0.15h = 9 minutes)
 OPEN_DELAY_THRESHOLD = 60       # Minimum seconds to wait between launching the same account (rate limiting per account, prevents launch spam)
 WINDOW_TITLE_RESCAN = 5         # Seconds to wait between each window title check after launch (polling interval for plugin to rename window)
-MAX_WINDOW_TITLE_RESCAN = 20    # Maximum title checks before stale default-title PID recovery (20 checks × 5s = 100s timeout)
+MAX_WINDOW_TITLE_RESCAN = 20    # Maximum title checks before launch-scoped stale default-title PID recovery (20 checks × 5s = 100s timeout)
 FORCE_LAUNCHER_RETRY = 3        # Maximum number of launcher retry attempts when XIVLauncher.exe opens instead of game (prevents stuck accounts)
 ENABLE_AUTOLOGIN_UPDATER = True # Enable automatic updating of AutologinEnabled in launcherConfigV3.json when launcher opens instead of game
                                 # When True: After launcher fail 1/3 or 2/3, checks and updates AutologinEnabled to "true" before retry
@@ -2793,14 +2787,25 @@ def get_default_ffxiv_window_pids():
         return []
 
 
-def get_newest_default_ffxiv_window_pid():
-    """Return the newest default-title FFXIV window PID, or None if none are visible."""
-    default_pids = get_default_ffxiv_window_pids()
-    if not default_pids:
+def get_newest_pid_by_start_time(pids):
+    """Return the newest PID from a list, using process start time when psutil is available."""
+    unique_pids = []
+    seen_pids = set()
+    for pid in pids or []:
+        try:
+            pid_int = int(pid)
+        except (TypeError, ValueError):
+            continue
+        if pid_int in seen_pids:
+            continue
+        unique_pids.append(pid_int)
+        seen_pids.add(pid_int)
+
+    if not unique_pids:
         return None
 
     if not PSUTIL_AVAILABLE:
-        return default_pids[-1]
+        return unique_pids[-1]
 
     def process_start_time(pid):
         try:
@@ -2808,7 +2813,57 @@ def get_newest_default_ffxiv_window_pid():
         except Exception:
             return 0
 
-    return max(default_pids, key=process_start_time)
+    return max(unique_pids, key=process_start_time)
+
+
+def get_newest_default_ffxiv_window_pid():
+    """Return the newest default-title FFXIV window PID, or None if none are visible."""
+    return get_newest_pid_by_start_time(get_default_ffxiv_window_pids())
+
+
+def filter_launch_scoped_default_ffxiv_pids(default_pids, pre_launch_default_pids=None, launch_started_at=None):
+    """
+    Keep only default-title FFXIV PIDs that belong to the current launch wait.
+    Pre-existing default-title windows are not killed for a different account retry.
+    """
+    pre_launch_pids = set()
+    for pid in pre_launch_default_pids or []:
+        try:
+            pre_launch_pids.add(int(pid))
+        except (TypeError, ValueError):
+            continue
+
+    launch_scoped_pids = []
+    seen_pids = set()
+    for pid in default_pids or []:
+        try:
+            pid_int = int(pid)
+        except (TypeError, ValueError):
+            continue
+
+        if pid_int in seen_pids or pid_int in pre_launch_pids:
+            continue
+
+        if launch_started_at is not None and PSUTIL_AVAILABLE:
+            process_start = get_process_start_time(pid_int)
+            if process_start is not None and process_start < launch_started_at - 2:
+                if DEBUG:
+                    print(f"[WINDOW-TITLE] Ignoring old default-title FFXIV PID {pid_int}; it started before this launch")
+                continue
+
+        launch_scoped_pids.append(pid_int)
+        seen_pids.add(pid_int)
+
+    return launch_scoped_pids
+
+
+def get_launch_scoped_default_ffxiv_window_pids(pre_launch_default_pids=None, launch_started_at=None):
+    """Return visible default-title FFXIV PIDs that were not present before this launch."""
+    return filter_launch_scoped_default_ffxiv_pids(
+        get_default_ffxiv_window_pids(),
+        pre_launch_default_pids,
+        launch_started_at
+    )
 
 
 def check_for_default_ffxiv_window():
@@ -2820,7 +2875,7 @@ def check_for_default_ffxiv_window():
     """
     return bool(get_default_ffxiv_window_pids())
 
-def wait_for_window_title_update(nickname, launcher_retry_count):
+def wait_for_window_title_update(nickname, launcher_retry_count, pre_launch_default_pids=None, launch_started_at=None):
     """
     Wait for a launched game's window title to update from "FINAL FANTASY XIV" to an account-matched title.
     Accepted multi-client formats:
@@ -2832,11 +2887,13 @@ def wait_for_window_title_update(nickname, launcher_retry_count):
     Args:
         nickname: The account nickname to wait for
         launcher_retry_count: Current launcher retry attempt count
+        pre_launch_default_pids: Default-title FFXIV PIDs visible before this launch attempt
+        launch_started_at: Timestamp captured immediately before this launch attempt
     
     Returns: Tuple (success, needs_launcher_retry, stale_default_pid)
         - success: True when title successfully updates, False if max attempts reached
         - needs_launcher_retry: True if launcher detected and retry is needed
-        - stale_default_pid: FFXIV PID to force-close when the default title stayed active too long
+        - stale_default_pid: Launch-scoped FFXIV PID to force-close when the default title stayed active too long
     """
     if USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
         # Single client mode: still check for launcher even though we use default title
@@ -2873,6 +2930,8 @@ def wait_for_window_title_update(nickname, launcher_retry_count):
         return (False, False, None)
     
     # Multi-client mode
+    pre_launch_default_pids = set(pre_launch_default_pids or [])
+    launch_default_pids_seen = set()
     check_count = 0
     
     while check_count < MAX_WINDOW_TITLE_RESCAN:
@@ -2889,17 +2948,27 @@ def wait_for_window_title_update(nickname, launcher_retry_count):
                 print(f"[WINDOW-TITLE] {nickname} window title updated and matched account title (PID {process_id})")
             return (True, False, None)
 
-        # Check if any default-title FFXIV windows remain.
+        # Check if any default-title FFXIV windows from this launch remain.
         default_title_pids = get_default_ffxiv_window_pids()
+        launch_scoped_default_pids = filter_launch_scoped_default_ffxiv_pids(
+            default_title_pids,
+            pre_launch_default_pids,
+            launch_started_at
+        )
+        launch_default_pids_seen.update(launch_scoped_default_pids)
         has_default_title = bool(default_title_pids)
         
         if not has_default_title:
             if DEBUG:
                 print(f"[WINDOW-TITLE] Check #{check_count + 1}: Default title gone but custom title not found yet for {nickname}")
+        elif launch_scoped_default_pids:
+            if DEBUG:
+                pid_list = ", ".join(str(pid) for pid in launch_scoped_default_pids)
+                print(f"[WINDOW-TITLE] Check #{check_count + 1}: Launch-scoped default 'FINAL FANTASY XIV' title active for {nickname} (PID(s): {pid_list}), waiting for plugin update...")
         else:
             if DEBUG:
                 pid_list = ", ".join(str(pid) for pid in default_title_pids)
-                print(f"[WINDOW-TITLE] Check #{check_count + 1}: Default 'FINAL FANTASY XIV' title still active (PID(s): {pid_list}), waiting for plugin update...")
+                print(f"[WINDOW-TITLE] Check #{check_count + 1}: Only pre-existing default 'FINAL FANTASY XIV' title PID(s) active ({pid_list}); not assigning them to {nickname}")
         
         # Wait before next check
         time.sleep(WINDOW_TITLE_RESCAN)
@@ -2910,11 +2979,24 @@ def wait_for_window_title_update(nickname, launcher_retry_count):
         print(f"[LAUNCHER-CHECK] XIVLauncher.exe detected instead of game for {nickname}")
         return (False, True, None)
     
-    # Max attempts reached without successful title update
-    stale_default_pid = get_newest_default_ffxiv_window_pid()
+    # Max attempts reached without successful title update. Kill only a PID that
+    # appeared during this launch wait, not an unrelated pre-existing default-title window.
+    current_default_pids = get_default_ffxiv_window_pids()
+    launch_scoped_default_pids = filter_launch_scoped_default_ffxiv_pids(
+        current_default_pids,
+        pre_launch_default_pids,
+        launch_started_at
+    )
+    launch_default_pids_seen.update(launch_scoped_default_pids)
+    visible_launch_pids = [pid for pid in launch_scoped_default_pids if pid in launch_default_pids_seen]
+    stale_default_pid = get_newest_pid_by_start_time(visible_launch_pids)
     if stale_default_pid:
-        print(f"[WINDOW-TITLE] Default 'FINAL FANTASY XIV' title still active for {nickname} (PID {stale_default_pid}) after {MAX_WINDOW_TITLE_RESCAN} attempts")
+        print(f"[WINDOW-TITLE] Launch-scoped default 'FINAL FANTASY XIV' title still active for {nickname} (PID {stale_default_pid}) after {MAX_WINDOW_TITLE_RESCAN} attempts")
         return (False, False, stale_default_pid)
+
+    if current_default_pids:
+        pid_list = ", ".join(str(pid) for pid in current_default_pids)
+        print(f"[WINDOW-TITLE] Default 'FINAL FANTASY XIV' title still active after {MAX_WINDOW_TITLE_RESCAN} attempts, but PID(s) {pid_list} were not created by this {nickname} launch")
 
     print(f"[WINDOW-TITLE] Max attempts ({MAX_WINDOW_TITLE_RESCAN}) reached for {nickname}, will restart launch")
     return (False, False, None)
@@ -4072,7 +4154,15 @@ def main():
                             print(f"\n[AUTO-LAUNCH] Launching {nickname} - {reason}")
                             if launcher_retry_count[nickname] > 0:
                                 print(f"[AUTO-LAUNCH] Launcher retry attempt {launcher_retry_count[nickname]}/{FORCE_LAUNCHER_RETRY}")
-                            
+
+                            pre_launch_default_pids = set()
+                            launch_started_at = time.time()
+                            if not USE_SINGLE_CLIENT_FFIXV_NO_NICKNAME:
+                                pre_launch_default_pids = set(get_default_ffxiv_window_pids())
+                                if pre_launch_default_pids and DEBUG:
+                                    pid_list = ", ".join(str(pid) for pid in sorted(pre_launch_default_pids))
+                                    print(f"[AUTO-LAUNCH] Default-title FFXIV PID(s) already visible before launching {nickname}: {pid_list}")
+
                             if launch_game(nickname):
                                 last_launch_time[nickname] = current_time
                                 print(f"[AUTO-LAUNCH] Successfully launched {nickname}, waiting {OPEN_DELAY_THRESHOLD} seconds for game startup...")
@@ -4082,7 +4172,12 @@ def main():
                                 
                                 # Wait for window title to update and check for launcher
                                 print(f"[AUTO-LAUNCH] Checking window/launcher status for {nickname}...")
-                                title_updated, needs_launcher_retry, stale_default_pid = wait_for_window_title_update(nickname, launcher_retry_count[nickname])
+                                title_updated, needs_launcher_retry, stale_default_pid = wait_for_window_title_update(
+                                    nickname,
+                                    launcher_retry_count[nickname],
+                                    pre_launch_default_pids,
+                                    launch_started_at
+                                )
                                 
                                 if title_updated:
                                     print(f"[AUTO-LAUNCH] Game successfully started for {nickname}")
@@ -4150,7 +4245,7 @@ def main():
                                                     f"WINDOW_TITLE_STALE_DEFAULT_MAX: {nickname} - Max stale default-title retries "
                                                     f"({FORCE_LAUNCHER_RETRY}) reached"
                                                 )
-                                                last_launch_time[nickname] = current_time
+                                                last_launch_time[nickname] = time.time()
                                                 break
 
                                             print(f"[AUTO-LAUNCH] Retrying {nickname} after closing stale default-title PID {stale_default_pid}...")
@@ -4158,18 +4253,18 @@ def main():
 
                                         print(f"[AUTO-LAUNCH] Failed to close stale default-title PID {stale_default_pid}; continuing normal rotation")
                                         log_error(f"WINDOW_TITLE_STALE_DEFAULT_KILL_FAILED: {nickname} - PID {stale_default_pid}")
-                                        last_launch_time[nickname] = current_time  # Prevent immediate retry spam
+                                        last_launch_time[nickname] = time.time()  # Prevent immediate retry spam
                                     else:
                                         # Multi-client mode: DO NOT kill all processes!
-                                        # If no default-title PID is available, let normal rotation continue
+                                        # If no launch-scoped default-title PID is available, let normal rotation continue
                                         # The game client checker will retry in WINDOW_REFRESH_INTERVAL seconds
                                         print(f"[AUTO-LAUNCH] Window title check failed for {nickname}, continuing normal rotation...")
                                         print(f"[AUTO-LAUNCH] Game client checker will retry {nickname} in {WINDOW_REFRESH_INTERVAL} seconds")
-                                        last_launch_time[nickname] = current_time  # Prevent immediate retry spam
+                                        last_launch_time[nickname] = time.time()  # Prevent immediate retry spam
                                     break  # Exit retry loop, continue normal operation
                             else:
                                 print(f"[AUTO-LAUNCH] Failed to launch {nickname}")
-                                last_launch_time[nickname] = current_time  # Record failed attempt to enforce rate limit
+                                last_launch_time[nickname] = time.time()  # Record failed attempt to enforce rate limit
                                 break  # Exit retry loop
                         
                         # Only proceed with post-launch actions if successful
