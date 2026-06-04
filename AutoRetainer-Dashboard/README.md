@@ -1,4 +1,4 @@
-# AutoRetainer Dashboard v1.35
+# AutoRetainer Dashboard v1.40
 
 A self-hosted web dashboard that displays FFXIV character data from AutoRetainer, XA Database, and Lifestream configs. Provides a modern, dark-themed UI accessible via browser showing characters, submarines, retainers, housing locations, marketboard items, gil totals, inventory tracking, MSQ progression (disabled), job levels, currencies, income/cost calculations, comprehensive supply tracking, an FC Data page with Plot Map & FC Capacity Planner, and a Data Master List page for managing all submarines across all accounts with Excel export.
 
@@ -50,14 +50,14 @@ A self-hosted web dashboard that displays FFXIV character data from AutoRetainer
 - **FC Capacity Planner**: Account/region selector showing FC membership, character limits (NA/EU/JP=40, OCE=39), per-world breakdowns (8 max), and earning potential calculations
 - **Sub Planners**: Per-account submarine overview with Name@World display, ETA countdown, compact `🚢`/inventory stats, and bidirectional sorting by submarine count, level, tanks, kits, restock days, and inventory
 - **Characters Not in FC Table**: List of all characters without FC membership, with level and housing status (hidden by default, toggle to show)
-- **Data Master List** (`/data/`): Full-viewport sortable table of all submarines across all accounts, including character gil, retainer gil, FC gil, and treasure ahead of the supply columns
+- **Data Master List** (`/data/`): Full-viewport sortable table of all submarines across all accounts, including character gil, retainer gil, FC gil, FC points, treasure, and far-right `Name@World` / SND script export columns
 - **Excel Export**: Export visible/filtered table rows to Excel with headers, auto-filters, frozen header row, and auto-fit column widths
 - **Sticky UI Elements**: Filter bar and table column headers remain visible when scrolling on Data page
 - **Sub Filtering**: "Show only toons with subs" (default on), "Show unused toons" toggle for characters with no FC/subs/tanks/kits
 - **FC Points Summary**: Total FC points across all FCs (deduplicated), convertible tanks count, and total tank gil value
 - **Unique FC Count**: Summary card showing count of distinct Free Companies across all accounts
-- **Financial Charts** (`/charts/`): Historical timeline charts powered by xa.db from XA Database plugin, including FC chest gil from master-owned XA snapshots when available
-- **Charts Include**: Total wealth history with character gil, retainer gil, FC chest gil, and treasure value; daily gil earnings vs supply costs, net profit line/area history, submarine fleet trends, supply inventory, consumption rates, days until restocking, and dual-axis charts that hide unused secondary axes when legend series are toggled off
+- **Financial Charts** (`/charts/`): Historical timeline charts powered by xa.db from XA Database plugin, including startup-written daily snapshots plus FC chest gil and FC points from XA snapshots when available
+- **Charts Include**: Total wealth history with character gil, retainer gil, FC chest gil, treasure value, and FC points on a right-side axis; daily gil earnings vs supply costs, net profit line/area history, submarine fleet trends, supply inventory, consumption rates, days until restocking lowest line with highest restock on a right-side axis, and dual-axis charts that hide unused secondary axes when legend series are toggled off
 - **Cross-Page Navigation**: Dashboard, FC Data, Data, and Charts links accessible from every page
 
 </details>
@@ -502,6 +502,16 @@ Created by: https://github.com/xa-io
 <details>
 
 <summary>Version History</summary>
+
+### v1.40 (2026-06-04) - FC Points and Restock Chart Expansion
+
+- **Charts FC Points**: `/charts/` now stores FC points in `sublord.db` daily history and shows them on the Total Wealth chart with a right-side FC-points axis
+- **Restock Lines**: `Days Until Restocking Required` now charts lowest days on the left axis and highest days on the right axis
+- **Startup Snapshot**: launching the script now writes or updates today's `sublord.db` chart snapshot before any page is opened; loading the main dashboard later still refreshes that same day
+- **Data Page Columns**: `/data/` now shows per-character FC points and adds far-right `Name@World` and `{"Name@World"},` SND script columns
+- **Excel Export**: The new `/data/` columns export with the visible filtered table rows
+
+---
 
 ### v1.35 (2026-05-08) - Hardcoded Housing Sizes
 
