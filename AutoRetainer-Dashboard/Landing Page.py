@@ -31,14 +31,14 @@
 # • Monthly income and daily repair cost calculations
 # • Modern, responsive dark-themed UI with multi-account support
 #
-# Landing Page v1.35
+# Landing Page v1.40
 # AutoRetainer Dashboard
 # Created by: https://github.com/xa-io
-# Last Updated: 2026-05-08 16:00:00
+# Last Updated: 2026-06-04 10:24:07
 #
 # ## Release Notes This Update ##
 #
-# v1.35 - Replaced /fcdata/ housing size fallback with hardcoded verified plot sizes for every residential district plot
+# v1.40 - Added startup chart snapshot logging, FC points history/charts, restock min/max history, highest-restock right axis, and Data page FC/name export columns
 #
 ############################################################################################################################
 
@@ -64,7 +64,7 @@ DEBUG = False           # Flask debug mode (set True for development)
 AUTO_REFRESH = 60       # Auto-refresh interval in seconds (0 to disable)
 
 # Display options
-VERSION = "v1.35"       # Version number shown in footer and startup
+VERSION = "v1.40"       # Version number shown in footer and startup
 SHOW_CLASSES = False     # Show DoW/DoM and DoH/DoL job sections, disable to speed up page load
 SHOW_CURRENCIES = False  # Show currencies section, disable to speed up page load
 SHOW_MSQ_PROGRESSION = True  # Show MSQ progression tracking
@@ -1044,9 +1044,12 @@ def init_sublord_db():
             total_gil_per_day INTEGER DEFAULT 0,
             total_supply_cost_per_day INTEGER DEFAULT 0,
             total_net_per_day INTEGER DEFAULT 0,
+            total_fc_points INTEGER DEFAULT 0,
             ceruleum_tank_inventory INTEGER DEFAULT 0,
             repair_kit_inventory INTEGER DEFAULT 0,
             days_until_restocking REAL,
+            min_days_until_restocking REAL,
+            max_days_until_restocking REAL,
             total_tanks_per_day REAL DEFAULT 0,
             total_kits_per_day REAL DEFAULT 0
         )""")
@@ -1058,6 +1061,14 @@ def init_sublord_db():
         snapshot_columns = {row[1] for row in c.execute("PRAGMA table_info(daily_snapshots)").fetchall()}
         if "total_fc_chest_gil" not in snapshot_columns:
             c.execute("ALTER TABLE daily_snapshots ADD COLUMN total_fc_chest_gil INTEGER DEFAULT 0")
+        if "total_fc_points" not in snapshot_columns:
+            c.execute("ALTER TABLE daily_snapshots ADD COLUMN total_fc_points INTEGER DEFAULT 0")
+        if "min_days_until_restocking" not in snapshot_columns:
+            c.execute("ALTER TABLE daily_snapshots ADD COLUMN min_days_until_restocking REAL")
+            c.execute("UPDATE daily_snapshots SET min_days_until_restocking = days_until_restocking WHERE min_days_until_restocking IS NULL")
+        if "max_days_until_restocking" not in snapshot_columns:
+            c.execute("ALTER TABLE daily_snapshots ADD COLUMN max_days_until_restocking REAL")
+            c.execute("UPDATE daily_snapshots SET max_days_until_restocking = days_until_restocking WHERE max_days_until_restocking IS NULL")
         c.execute("INSERT OR IGNORE INTO cumulative_totals (id, total_gil_overall, total_supply_cost_overall) VALUES (1, 0, 0)")
         conn.commit()
         conn.close()
@@ -1065,7 +1076,7 @@ def init_sublord_db():
         print(f"[SUBLORD-DB] Error initializing database: {e}")
 
 def _get_xa_gil_totals():
-    """Read character, retainer, and FC chest Gil from all xa.db files."""
+    """Read character, retainer, FC chest Gil, and FC points from all xa.db files."""
     def _read_fc_chest_gil(raw_value):
         if not raw_value or raw_value == "null":
             return 0
@@ -1093,6 +1104,7 @@ def _get_xa_gil_totals():
     total_char_gil = 0
     total_ret_gil = 0
     total_fc_chest_gil = 0
+    total_fc_points = 0
     for account in account_locations:
         db_path = Path(account.get("xa_db_path", ""))
         if not db_path or not db_path.exists():
@@ -1101,19 +1113,37 @@ def _get_xa_gil_totals():
             conn = sqlite3.connect(str(db_path))
             c = conn.cursor()
             tables = {row[0] for row in c.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+            fc_points_read = False
+            if "free_companies" in tables:
+                fc_columns = {row[1] for row in c.execute("PRAGMA table_info(free_companies)").fetchall()}
+                if "fc_points" in fc_columns:
+                    if "fc_id" in fc_columns:
+                        fc_rows = c.execute("""
+                            SELECT fc_id, MAX(COALESCE(fc_points, 0)) AS fc_points
+                            FROM free_companies
+                            WHERE fc_id IS NOT NULL AND fc_id != 0
+                            GROUP BY fc_id
+                        """).fetchall()
+                        total_fc_points += sum(row[1] or 0 for row in fc_rows)
+                    else:
+                        total_fc_points += c.execute("SELECT SUM(COALESCE(fc_points, 0)) FROM free_companies").fetchone()[0] or 0
+                    fc_points_read = True
+
             if "xa_characters" in tables:
                 xa_character_columns = {row[1] for row in c.execute("PRAGMA table_info(xa_characters)").fetchall()}
                 select_parts = [
                     "COALESCE(gil, 0)",
                     "COALESCE(retainer_gil, 0)",
                     "free_company_json" if "free_company_json" in xa_character_columns else "NULL AS free_company_json",
+                    "COALESCE(fc_points, 0)" if "fc_points" in xa_character_columns and not fc_points_read else "0 AS fc_points",
                 ]
-                for char_gil, ret_gil, free_company_json in c.execute(
+                for char_gil, ret_gil, free_company_json, fc_points in c.execute(
                     f"SELECT {', '.join(select_parts)} FROM xa_characters"
                 ).fetchall():
                     total_char_gil += char_gil or 0
                     total_ret_gil += ret_gil or 0
                     total_fc_chest_gil += _read_fc_chest_gil(free_company_json)
+                    total_fc_points += fc_points or 0
             else:
                 for row in c.execute("SELECT amount FROM currency_balances WHERE currency_name = 'Gil'").fetchall():
                     total_char_gil += row[0] or 0
@@ -1122,7 +1152,7 @@ def _get_xa_gil_totals():
             conn.close()
         except Exception:
             pass
-    return total_char_gil, total_ret_gil, total_fc_chest_gil
+    return total_char_gil, total_ret_gil, total_fc_chest_gil, total_fc_points
 
 def write_daily_snapshot(summary):
     """
@@ -1137,9 +1167,11 @@ def write_daily_snapshot(summary):
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Get character/retainer/FC chest Gil split from xa.db files
-    char_gil, ret_gil, fc_chest_gil = _get_xa_gil_totals()
+    # Get character/retainer/FC chest Gil split plus FC points from xa.db files
+    char_gil, ret_gil, fc_chest_gil, fc_points = _get_xa_gil_totals()
     treasure = summary.get("total_treasure", 0)
+    min_restock_days = summary.get("min_restock_days")
+    max_restock_days = summary.get("max_restock_days")
     
     # Check if this is a new day (for cumulative tracking)
     is_new_day = False
@@ -1156,9 +1188,11 @@ def write_daily_snapshot(summary):
             total_fc_chest_gil,
             total_treasure_value, total_gil_plus_treasure, total_subs, total_subs_farming, total_subs_leveling,
             total_gil_per_day, total_supply_cost_per_day, total_net_per_day,
+            total_fc_points,
             ceruleum_tank_inventory, repair_kit_inventory, days_until_restocking,
+            min_days_until_restocking, max_days_until_restocking,
             total_tanks_per_day, total_kits_per_day)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(date) DO UPDATE SET
             timestamp=excluded.timestamp,
             total_character_gil=excluded.total_character_gil,
@@ -1172,9 +1206,12 @@ def write_daily_snapshot(summary):
             total_gil_per_day=excluded.total_gil_per_day,
             total_supply_cost_per_day=excluded.total_supply_cost_per_day,
             total_net_per_day=excluded.total_net_per_day,
+            total_fc_points=excluded.total_fc_points,
             ceruleum_tank_inventory=excluded.ceruleum_tank_inventory,
             repair_kit_inventory=excluded.repair_kit_inventory,
             days_until_restocking=excluded.days_until_restocking,
+            min_days_until_restocking=excluded.min_days_until_restocking,
+            max_days_until_restocking=excluded.max_days_until_restocking,
             total_tanks_per_day=excluded.total_tanks_per_day,
             total_kits_per_day=excluded.total_kits_per_day
         """, (
@@ -1186,9 +1223,12 @@ def write_daily_snapshot(summary):
             int(summary.get("daily_income", 0)),
             int(summary.get("daily_cost", 0)),
             int(summary.get("daily_profit", 0)),
+            fc_points,
             summary.get("total_ceruleum", 0),
             summary.get("total_kits", 0),
-            summary.get("min_restock_days"),
+            min_restock_days,
+            min_restock_days,
+            max_restock_days,
             summary.get("total_tanks_per_day", 0),
             summary.get("total_kits_per_day", 0),
         ))
@@ -1207,6 +1247,26 @@ def write_daily_snapshot(summary):
         conn.close()
     except Exception as e:
         print(f"[SUBLORD-DB] Error writing snapshot: {e}")
+
+def write_startup_daily_snapshot():
+    """Record today's chart snapshot at script startup without requiring a browser page load."""
+    if not USE_AAR_DB:
+        return False
+
+    try:
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        print(f"  [SUBLORD-DB] Recording startup chart snapshot for {today}...")
+        data = get_all_data()
+        if not data or "summary" not in data:
+            print("  [SUBLORD-DB] Startup chart snapshot skipped: no dashboard summary data")
+            return False
+
+        write_daily_snapshot(data["summary"])
+        print(f"  [SUBLORD-DB] Startup chart snapshot written for {today}")
+        return True
+    except Exception as e:
+        print(f"  [SUBLORD-DB] Startup chart snapshot failed: {e}")
+        return False
 
 def read_sublord_data():
     """
@@ -1520,7 +1580,7 @@ def scan_xa_db(db_path):
         "treasure_value": int, "coffer_dye_value": int, "coffer_count": int,
         "dye_count": int, "dye_pure_white": int, "dye_jet_black": int,
         "dye_pastel_pink": int, "mb_dye_count": int, "venture_coins": int,
-        "current_job": str, "current_level": int, "fc_gil": int,
+        "current_job": str, "current_level": int, "fc_gil": int, "fc_points": int,
         "highest_job": str, "highest_level": int,
         "lowest_job": str, "lowest_level": int,
         "all_jobs": dict, "all_currencies": dict, "completed_quests": list,
@@ -1625,6 +1685,7 @@ def scan_xa_db(db_path):
                 "personal_estate" if "personal_estate" in xa_character_columns else "'' AS personal_estate",
                 "fc_estate" if "fc_estate" in xa_character_columns else "'' AS fc_estate",
                 "free_company_json" if "free_company_json" in xa_character_columns else "'null' AS free_company_json",
+                "COALESCE(fc_points, 0)" if "fc_points" in xa_character_columns else "0 AS fc_points",
             ]
             rows = c.execute(f"SELECT {', '.join(select_parts)} FROM xa_characters").fetchall()
             for row in rows:
@@ -1633,6 +1694,7 @@ def scan_xa_db(db_path):
                     "treasure_value": 0, "coffer_dye_value": 0, "coffer_count": 0,
                     "dye_count": 0, "dye_pure_white": 0, "dye_jet_black": 0,
                     "dye_pastel_pink": 0, "mb_dye_count": 0, "venture_coins": 0, "fc_gil": 0,
+                    "fc_points": int(row[10] or 0),
                     "current_job": "", "current_level": 0,
                     "highest_job": "", "highest_level": 0,
                     "lowest_job": "", "lowest_level": 0,
@@ -1705,13 +1767,20 @@ def scan_xa_db(db_path):
             result[cid] = {
                 "treasure_value": 0, "coffer_dye_value": 0, "coffer_count": 0,
                 "dye_count": 0, "dye_pure_white": 0, "dye_jet_black": 0,
-                "dye_pastel_pink": 0, "mb_dye_count": 0, "venture_coins": 0, "fc_gil": 0,
+                "dye_pastel_pink": 0, "mb_dye_count": 0, "venture_coins": 0, "fc_gil": 0, "fc_points": 0,
                 "current_job": "", "current_level": 0,
                 "highest_job": "", "highest_level": 0,
                 "lowest_job": "", "lowest_level": 0,
                 "all_jobs": {}, "all_currencies": {}, "completed_quests": [],
                 "personal_estate": "", "fc_estate": "",
             }
+
+        if "free_companies" in tables:
+            fc_columns = {row[1] for row in c.execute("PRAGMA table_info(free_companies)").fetchall()}
+            if {"content_id", "fc_points"}.issubset(fc_columns):
+                for cid, fc_points in c.execute("SELECT content_id, COALESCE(fc_points, 0) FROM free_companies").fetchall():
+                    if cid in result:
+                        result[cid]["fc_points"] = max(result[cid].get("fc_points", 0), fc_points or 0)
         
         # Build retainer_id -> content_id map
         retainer_map = {}
@@ -1963,6 +2032,7 @@ def get_all_data():
     total_enabled_subs = 0  # Enabled subs (not excluded, not sleeping)
     total_all_max_mb = 0  # Characters with ALL retainers maxed
     min_restock_days = None  # Track lowest restock days across all accounts (excluding 0)
+    restock_day_values = []  # Track all non-zero restock values for min/max charting
     total_ceruleum = 0  # Total ceruleum tanks across all accounts
     total_repair_kits = 0  # Total repair kits across all accounts
     total_tanks_per_day_all = 0.0  # Total tank consumption per day
@@ -2371,6 +2441,7 @@ def get_all_data():
             
             # Track minimum restock days (excluding 0 and None)
             if days_until_restock is not None and days_until_restock > 0:
+                restock_day_values.append(days_until_restock)
                 if min_restock_days is None or days_until_restock < min_restock_days:
                     min_restock_days = days_until_restock
             
@@ -2515,6 +2586,7 @@ def get_all_data():
             "monthly_profit": (total_daily_income - total_daily_cost) * 30,
             "annual_profit": (total_daily_income - total_daily_cost) * 365,
             "min_restock_days": min_restock_days,
+            "max_restock_days": max(restock_day_values) if restock_day_values else None,
             # MSQ Progress stats
             "msq_100_count": msq_100_count,
             "msq_90_count": msq_90_count,
@@ -7645,20 +7717,23 @@ def get_subs_data():
             # XA Database data
             treasure_value = 0
             fc_gil = 0
+            xa_fc_points = 0
             highest_level = 0
             highest_job = ""
             if cid in alto_map:
                 treasure_value = alto_map[cid].get("treasure_value", 0)
                 fc_gil = alto_map[cid].get("fc_gil", 0)
+                xa_fc_points = alto_map[cid].get("fc_points", 0)
                 highest_level = alto_map[cid].get("highest_level", 0)
                 highest_job = alto_map[cid].get("highest_job", "")
             
             # FC info
             fc_name = ""
-            fc_points = 0
+            fc_points = xa_fc_points
             if cid in fc_data:
                 fc_name = fc_data[cid].get("Name", "")
-                fc_points = fc_data[cid].get("FCPoints", 0)
+                if fc_points <= 0:
+                    fc_points = fc_data[cid].get("FCPoints", 0)
                 # Only count FC points once per unique FC per account
                 fc_key = (account["nickname"], fc_name)
                 if fc_key not in seen_fcs and fc_name:
@@ -7729,6 +7804,8 @@ def get_subs_data():
                 "account": account["nickname"],
                 "char_name": char_name,
                 "world": world,
+                "name_world": f"{char_name}@{world}",
+                "snd_script_name": f'{{"{char_name}@{world}"}},',
                 "region": region,
                 "fc_name": fc_name,
                 "char_level": highest_level,
@@ -7736,6 +7813,7 @@ def get_subs_data():
                 "gil": char_gil,
                 "retainer_gil": retainer_gil,
                 "fc_gil": fc_gil,
+                "fc_points": fc_points,
                 "ceruleum": ceruleum,
                 "repair_kits": repair_kits,
                 "inventory_space": inventory_space,
@@ -8117,42 +8195,45 @@ SUBS_TEMPLATE = r'''
             <table class="sub-master-table" id="subsTable">
                 <thead>
                     <tr>
-                        <th onclick="sortTable(0, 'str')" data-col="0">Account <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(1, 'str')" data-col="1">Character <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(2, 'str')" data-col="2">World <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(3, 'str')" data-col="3">Region <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(4, 'num')" data-col="4">Lvl <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(5, 'num')" data-col="5">Gil <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(6, 'num')" data-col="6">🛎️ Ret. Gil <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(7, 'num')" data-col="7">🧰 FC Gil <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(8, 'num')" data-col="8">💎 Treasure <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(9, 'num')" data-col="9">⛽ Tanks <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(10, 'num')" data-col="10">🔧 Kits <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(11, 'num')" data-col="11">♻️ Restock <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(12, 'num')" data-col="12">📦 Inv <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(13, 'num')" data-col="13" class="sub-group-1">S1 Lvl <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(14, 'str')" data-col="14" class="sub-group-1">S1 Build <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(15, 'str')" data-col="15" class="sub-group-1">S1 Plan <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(16, 'str')" data-col="16" class="sub-group-1">S1 Return <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(17, 'num')" data-col="17" class="sub-group-2">S2 Lvl <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(18, 'str')" data-col="18" class="sub-group-2">S2 Build <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(19, 'str')" data-col="19" class="sub-group-2">S2 Plan <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(20, 'str')" data-col="20" class="sub-group-2">S2 Return <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(21, 'num')" data-col="21" class="sub-group-3">S3 Lvl <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(22, 'str')" data-col="22" class="sub-group-3">S3 Build <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(23, 'str')" data-col="23" class="sub-group-3">S3 Plan <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(24, 'str')" data-col="24" class="sub-group-3">S3 Return <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(25, 'num')" data-col="25" class="sub-group-4">S4 Lvl <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(26, 'str')" data-col="26" class="sub-group-4">S4 Build <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(27, 'str')" data-col="27" class="sub-group-4">S4 Plan <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(28, 'str')" data-col="28" class="sub-group-4">S4 Return <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(29, 'num')" data-col="29">💰 Daily <span class="sort-arrow">▲▼</span></th>
-                        <th onclick="sortTable(30, 'num')" data-col="30">🔧 Cost <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="0">Account <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="1">Character <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="2">World <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="3">Region <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="4">Lvl <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="5">Gil <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="6">🛎️ Ret. Gil <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="7">🧰 FC Gil <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="8">FC Points <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="9">💎 Treasure <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="10">⛽ Tanks <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="11">🔧 Kits <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="12">♻️ Restock <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="13">📦 Inv <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="14" class="sub-group-1">S1 Lvl <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="15" class="sub-group-1">S1 Build <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="16" class="sub-group-1">S1 Plan <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="17" class="sub-group-1">S1 Return <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="18" class="sub-group-2">S2 Lvl <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="19" class="sub-group-2">S2 Build <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="20" class="sub-group-2">S2 Plan <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="21" class="sub-group-2">S2 Return <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="22" class="sub-group-3">S3 Lvl <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="23" class="sub-group-3">S3 Build <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="24" class="sub-group-3">S3 Plan <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="25" class="sub-group-3">S3 Return <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="26" class="sub-group-4">S4 Lvl <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="27" class="sub-group-4">S4 Build <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="28" class="sub-group-4">S4 Plan <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="29" class="sub-group-4">S4 Return <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="30">💰 Daily <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'num')" data-col="31">🔧 Cost <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="32">Name@World <span class="sort-arrow">▲▼</span></th>
+                        <th onclick="sortTable(this.cellIndex, 'str')" data-col="33">SND Script <span class="sort-arrow">▲▼</span></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in data.rows %}
-                    <tr data-region="{{ row.region }}" data-unused="{{ 'true' if row.is_unused else 'false' }}" data-hassubs="{{ 'true' if row.num_subs > 0 else 'false' }}" data-search="{{ row.account|lower }} {{ row.char_name|lower }} {{ row.world|lower }} {{ row.region|lower }} {{ row.fc_name|lower }}"{% if row.num_subs == 0 %} style="display:none"{% endif %}{% if row.is_unused %} class="row-unused"{% endif %}>
+                    <tr data-region="{{ row.region }}" data-unused="{{ 'true' if row.is_unused else 'false' }}" data-hassubs="{{ 'true' if row.num_subs > 0 else 'false' }}" data-search="{{ row.account|lower }} {{ row.char_name|lower }} {{ row.world|lower }} {{ row.region|lower }} {{ row.fc_name|lower }} {{ row.name_world|lower }}"{% if row.num_subs == 0 %} style="display:none"{% endif %}{% if row.is_unused %} class="row-unused"{% endif %}>
                         <td>{{ row.account }}</td>
                         <td><strong>{{ row.char_name }}</strong>{% if row.subs_sleeping %} <span class="cell-sleeping">💤</span>{% endif %}{% if row.exclude_workshop %} <span class="text-muted">🚫</span>{% endif %}</td>
                         <td>{{ row.world }}</td>
@@ -8161,6 +8242,7 @@ SUBS_TEMPLATE = r'''
                         <td class="text-gold">{{ "{:,}".format(row.gil) }}</td>
                         <td>{{ "{:,}".format(row.retainer_gil) }}</td>
                         <td class="text-cyan">{{ "{:,}".format(row.fc_gil) }}</td>
+                        <td class="text-accent">{{ "{:,}".format(row.fc_points) }}</td>
                         <td class="text-gold">{{ "{:,}".format(row.treasure_value) }}</td>
                         <td>{{ "{:,}".format(row.ceruleum) }}</td>
                         <td>{{ "{:,}".format(row.repair_kits) }}</td>
@@ -8181,6 +8263,8 @@ SUBS_TEMPLATE = r'''
                         {% endfor %}
                         <td class="text-success">{{ "{:,}".format(row.daily_income) }}</td>
                         <td class="text-warning">{{ "{:,}".format(row.daily_cost) }}</td>
+                        <td>{{ row.name_world }}</td>
+                        <td>{{ row.snd_script_name }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -8202,6 +8286,10 @@ SUBS_TEMPLATE = r'''
             const tbody = table.querySelector('tbody');
             const rows = Array.from(tbody.querySelectorAll('tr'));
             const headers = table.querySelectorAll('th');
+            const clickedHeader = (typeof event !== 'undefined' && event.currentTarget && event.currentTarget.tagName === 'TH') ? event.currentTarget : null;
+            if (clickedHeader && clickedHeader.cellIndex >= 0) {
+                colIdx = clickedHeader.cellIndex;
+            }
 
             // Toggle direction
             if (currentSortCol === colIdx) {
@@ -8286,7 +8374,7 @@ SUBS_TEMPLATE = r'''
             const table = document.getElementById('subsTable');
             const headers = [];
             table.querySelectorAll('thead th').forEach(th => {
-                headers.push(th.textContent.replace(/[▲▼]/g, '').trim());
+                headers.push(th.textContent.replace(/[▲▼â–²â–¼]/g, '').trim());
             });
 
             const dataRows = [];
@@ -8411,6 +8499,10 @@ CHARTS_TEMPLATE = '''
             <div class="value">{{ "{:,}".format(data.daily_snapshots[-1].get('total_gil_plus_treasure', 0)) }}</div>
         </div>
         <div class="summary-card">
+            <div class="label">FC Points</div>
+            <div class="value blue">{{ "{:,}".format(data.daily_snapshots[-1].get('total_fc_points', 0)) }}</div>
+        </div>
+        <div class="summary-card">
             <div class="label">Gil Earned (All Time)</div>
             <div class="value green">{{ "{:,}".format(data.cumulative.get('total_gil_overall', 0)) }}</div>
         </div>
@@ -8432,7 +8524,7 @@ CHARTS_TEMPLATE = '''
 
     <div class="charts-area">
         <div class="chart-box full">
-            <h3>Total Wealth Over Time (Character Gil + Retainer Gil + FC Chest Gil + Treasure)</h3>
+            <h3>Total Wealth Over Time (Gil Left Axis + FC Points Right Axis)</h3>
             <div class="chart-wrap"><canvas id="wealthChart"></canvas></div>
         </div>
         <div class="chart-box">
@@ -8558,20 +8650,14 @@ CHARTS_TEMPLATE = '''
             return chart;
         }
 
-        new Chart(document.getElementById('wealthChart'), {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [
-                    { label: 'Character Gil', data: snapshots.map(s => s.total_character_gil || 0), borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
-                    { label: 'Retainer Gil', data: snapshots.map(s => s.total_retainer_gil || 0), borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
-                    { label: 'FC Chest Gil', data: snapshots.map(s => s.total_fc_chest_gil || 0), borderColor: '#39c5cf', backgroundColor: 'rgba(57,197,207,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
-                    { label: 'Treasure Value', data: snapshots.map(s => s.total_treasure_value || 0), borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
-                    { label: 'Combined Total', data: snapshots.map(s => s.total_gil_plus_treasure || 0), borderColor: '#f0f6fc', backgroundColor: 'rgba(240,246,252,0)', fill: false, tension: 0.3, pointRadius: 2, borderWidth: 2, borderDash: [5, 3] }
-                ]
-            },
-            options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, stacked: false } } }
-        });
+        createDualAxisLineChart('wealthChart', [
+            { label: 'Character Gil', data: snapshots.map(s => s.total_character_gil || 0), yAxisID: 'y', borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
+            { label: 'Retainer Gil', data: snapshots.map(s => s.total_retainer_gil || 0), yAxisID: 'y', borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
+            { label: 'FC Chest Gil', data: snapshots.map(s => s.total_fc_chest_gil || 0), yAxisID: 'y', borderColor: '#39c5cf', backgroundColor: 'rgba(57,197,207,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
+            { label: 'Treasure Value', data: snapshots.map(s => s.total_treasure_value || 0), yAxisID: 'y', borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
+            { label: 'Combined Total', data: snapshots.map(s => s.total_gil_plus_treasure || 0), yAxisID: 'y', borderColor: '#f0f6fc', backgroundColor: 'rgba(240,246,252,0)', fill: false, tension: 0.3, pointRadius: 2, borderWidth: 2, borderDash: [5, 3] },
+            { label: 'FC Points', data: snapshots.map(s => s.total_fc_points || 0), yAxisID: 'y1', borderColor: '#a371f7', backgroundColor: 'rgba(163,113,247,0.08)', fill: false, tension: 0.3, pointRadius: 2, borderWidth: 1.8 }
+        ], compactMoneyTick, compactMoneyTick);
 
         createDualAxisLineChart('earningsChart', [
             { label: 'Gil Per Day', data: snapshots.map(s => s.total_gil_per_day || 0), yAxisID: 'y', borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 },
@@ -8622,24 +8708,34 @@ CHARTS_TEMPLATE = '''
             { label: 'Kits/Day', data: snapshots.map(s => s.total_kits_per_day || 0), yAxisID: 'y1', borderColor: '#8b949e', backgroundColor: 'rgba(139,148,158,0.1)', fill: true, tension: 0.3, pointRadius: 1, borderWidth: 1.5 }
         ], decimalTick, decimalTick);
 
-        new Chart(document.getElementById('restockChart'), {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [{
-                    label: 'Days Until Restock',
-                    data: snapshots.map(s => s.days_until_restocking),
-                    borderColor: '#f85149',
-                    backgroundColor: 'rgba(248,81,73,0.1)',
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 1,
-                    borderWidth: 1.5,
-                    pointBackgroundColor: snapshots.map(s => s.days_until_restocking !== null && s.days_until_restocking < 7 ? '#f85149' : '#3fb950')
-                }]
+        createDualAxisLineChart('restockChart', [
+            {
+                label: 'Days Until Restock',
+                data: snapshots.map(s => s.min_days_until_restocking ?? s.days_until_restocking),
+                yAxisID: 'y',
+                borderColor: '#f85149',
+                backgroundColor: 'rgba(248,81,73,0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 1,
+                borderWidth: 1.5,
+                pointBackgroundColor: snapshots.map(s => {
+                    const value = s.min_days_until_restocking ?? s.days_until_restocking;
+                    return value !== null && value < 7 ? '#f85149' : '#3fb950';
+                })
             },
-            options: chartDefaults
-        });
+            {
+                label: 'Highest Days Until Restock',
+                data: snapshots.map(s => s.max_days_until_restocking ?? s.days_until_restocking),
+                yAxisID: 'y1',
+                borderColor: '#58a6ff',
+                backgroundColor: 'rgba(88,166,255,0)',
+                fill: false,
+                tension: 0.3,
+                pointRadius: 1,
+                borderWidth: 1.5
+            }
+        ], decimalTick, decimalTick);
     </script>
     {% else %}
     <div class="no-data">
@@ -8930,6 +9026,7 @@ def main():
         if missing_dbs:
             for acc_name in missing_dbs:
                 print(f"  [XA-DB] {acc_name} doesn't have a XA Database file to parse")
+        write_startup_daily_snapshot()
     print(f"  Accounts: {len(account_locations)}")
     print(f"  Auto-refresh: {AUTO_REFRESH}s" if AUTO_REFRESH > 0 else "  Auto-refresh: Disabled")
     print("=" * 60)
