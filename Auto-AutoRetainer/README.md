@@ -1,4 +1,4 @@
-# Auto-AutoRetainer v1.40 - FFXIV Submarine Automation System
+# Auto-AutoRetainer v1.41 - FFXIV Submarine Automation System
 
 **Automated FFXIV Submarine Management System**
 
@@ -31,7 +31,7 @@ This readme is extensive, but don't be intimidated. Getting this up and running 
 - **Automation hours**: Optional per-account schedules restrict when automation may launch or keep a client running
 - **Forces client restart** after 71 hours of uptime (`MAX_RUNTIME`) to avoid FFXIV 72-hour stability issues
 - **Crash recovery**: If game crashes when subs are ready or 24/7 uptime is enabled, game automatically relaunches
-- **Startup title recovery**: In multi-client mode, if a newly launched game stays titled `FINAL FANTASY XIV` after the title-renamer wait, the script force-closes that specific PID and retries the same account
+- **Startup title recovery**: In multi-client mode, each launch snapshots existing default-title windows; if the new client stays titled `FINAL FANTASY XIV`, the script force-closes that launch-scoped PID and retries the same account
 - **Timers refresh** every 30 seconds
 - **Client checkers refresh** every 60 seconds
 
@@ -72,7 +72,7 @@ This readme is extensive, but don't be intimidated. Getting this up and running 
 - **Automatic 2FA Login**: Generates and submits one-time passwords automatically when launching accounts with 2FA enabled
 - **Smart Idle Management**: Closes games when submarines won't be ready for an extended period (30 minutes by default, configurable)
 - **Automation Hours**: Restricts launch/run behavior to configured local time windows per account
-- **Crash Recovery**: Automatically detects and relaunches crashed game instances, including stale default-title startup clients in multi-client mode
+- **Crash Recovery**: Automatically detects and relaunches crashed game instances, including launch-scoped stale default-title startup clients in multi-client mode
 - **Frozen Client Detection**: Monitors submarine processing activity and force-crashes stuck clients after configurable inactivity period
 - **Per-Character Farmer Tracking**: `sublord.db` now maintains `farmer_snapshots` rows with account nickname, character, CID, submarine ETA state, and last sent/returned timestamps
 - **XA Snapshot Financial Reads**: Daily wealth snapshots now read XA Database's `xa_characters` layout for character gil, retainer gil, and treasure values with legacy fallback
@@ -924,7 +924,7 @@ ENABLE_AUTO_LAUNCH = True       # Enable automatic game launching
 AUTO_LAUNCH_THRESHOLD = 0.15    # Launch game if next sub <= 0.15 hours (9 minutes)
 OPEN_DELAY_THRESHOLD = 60       # Minimum 60 seconds between game launches
 WINDOW_TITLE_RESCAN = 5         # Seconds between window title update checks (waits for plugin to load)
-MAX_WINDOW_TITLE_RESCAN = 20    # Maximum title checks before stale default-title PID recovery (20 × 5s = 100s timeout)
+MAX_WINDOW_TITLE_RESCAN = 20    # Maximum title checks before launch-scoped stale default-title PID recovery (20 × 5s = 100s timeout)
 FORCE_LAUNCHER_RETRY = 3        # Maximum launcher retry attempts when XIVLauncher opens as active app instead of game
 MAX_CLIENTS = 0                 # Maximum concurrent running clients (0 = unlimited, N = limit to N clients)
 SYSTEM_BOOTUP_DELAY = 0         # Seconds to delay before starting monitoring (0 = no delay, useful for auto-start on boot)
@@ -942,9 +942,9 @@ SYSTEM_BOOTUP_DELAY = 0         # Seconds to delay before starting monitoring (0
 **MAX_WINDOW_TITLE_RESCAN Behavior:**
 - **Purpose**: Prevents infinite loops when game crashes during startup
 - **How it works**: Limits window title checks to MAX_WINDOW_TITLE_RESCAN attempts (default: 20 checks × 5s = 100s timeout)
-- **Timeout Action**: If max attempts are reached while a default `FINAL FANTASY XIV` window is still visible in multi-client mode, force-closes only that window's FFXIV PID and retries the same account
-- **Recovery**: Resets launch time to 0 to allow immediate retry after killing the stale default-title client
-- **Multi-Client Safety**: Does not mass-kill all game clients; if no stale default-title PID is available, normal rotation continues and the account is retried by the client checker
+- **Timeout Action**: If max attempts are reached while a launch-scoped default `FINAL FANTASY XIV` window is still visible in multi-client mode, force-closes only that FFXIV PID and retries the same account
+- **Recovery**: Resets launch time to 0 to allow immediate retry after killing the stale default-title client from the current launch
+- **Multi-Client Safety**: Does not mass-kill all game clients or kill pre-existing default-title windows from another launch; if no launch-scoped default-title PID is available, normal rotation continues
 - **Benefit**: Prevents "[WINDOW-TITLE] Check #X" message spam and ensures script recovers from startup failures
 
 **FORCE_LAUNCHER_RETRY Behavior:**
@@ -969,7 +969,7 @@ SYSTEM_BOOTUP_DELAY = 0         # Seconds to delay before starting monitoring (0
 - **How it works**: After OPEN_DELAY_THRESHOLD, checks if window title is still "FINAL FANTASY XIV" (default)
 - **Multi-Client Mode Only**: Skipped in single client mode since it always uses default title
 - **Polling**: Rechecks every WINDOW_TITLE_RESCAN seconds until title updates to an account-matched renamed title such as `ProcessID - nickname` or `ProcessID - nickname - character`
-- **Timeout Protection**: MAX_WINDOW_TITLE_RESCAN prevents infinite waiting; stale default-title clients are closed by exact PID and relaunched so duplicate clients do not accumulate
+- **Timeout Protection**: MAX_WINDOW_TITLE_RESCAN prevents infinite waiting; launch-scoped stale default-title clients are closed by exact PID and relaunched so duplicate clients do not accumulate
 - **Benefit**: Ensures plugins have fully loaded and window can be properly identified before proceeding
 
 ### Logging & Autologin Settings
@@ -1067,10 +1067,10 @@ python Auto-AutoRetainer.py
 
 ```
 =====================================================================================
-Auto-Autoretainer v1.40
+Auto-Autoretainer v1.41
 FFXIV Game Instance Manager
 =====================================================================================
-Updated: 2026-05-01 07:56:15
+Updated: 2026-06-04 09:46:00
 =====================================================================================
 
 Main  (16 subs)  : +12.3 hours              [Closed]  (Hours Active)
@@ -1406,6 +1406,15 @@ Created by: https://github.com/xa-io
 <details>
 
 <summary>Version History</summary>
+
+### v1.41 (2026-06-04) - Launch-Scoped Default-Title PID Monitor
+
+- **Pre-Launch Snapshot**: Auto-launch records visible default-title `FINAL FANTASY XIV` PIDs before each account launch attempt
+- **Launch-Scoped Detection**: Title polling tracks only default-title PIDs that appear while waiting for the current account's renamed title
+- **Targeted Retry**: On timeout, Auto-AutoRetainer force-closes only the launch-scoped stale PID and retries the same account
+- **Duplicate Prevention**: Pre-existing default-title windows are not assigned to the current account launch, preventing unrelated clients from being closed
+
+---
 
 ### v1.40 (2026-05-01) - Stale Default-Title Recovery
 
