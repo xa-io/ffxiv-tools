@@ -30,7 +30,7 @@
         }
     ],
     "game_launchers": {
-        "Main": "C:\\Users\\{user}\\AppData\\Local\\XIVLauncher\\XIVLauncher.exe",
+        "Main": "C:\\Users\\{user}\\AppData\\Local\\XIVLauncher\\current\\XIVLauncher.exe",
         "Acc1": "C:\\Users\\{user}\\AltData\\Acc1.bat",
         "Acc2": "C:\\Users\\{user}\\AltData\\Acc2.bat"
     }
